@@ -105,9 +105,16 @@
                    (concat (when name-ir2 [name-ir2]) param-ir2s body-ir2s))))
 
       :def
-      (let [name-ir (lower (second ir1-vec))
-            val-ir (when (>= (count ir1-vec) 3) (lower (nth ir1-vec 2)))]
-        (vec (cons (make-node :def) (filter some? [name-ir val-ir]))))
+      (let [name-sym (:name node)                       ;; def 的名字符号
+            name-ir (lower (second ir1-vec))            ;; 符号的 IR2
+            raw-val (when (>= (count ir1-vec) 3)        ;; 值可能不存在
+                      (lower (nth ir1-vec 2)))]
+        ;; 如果值是一个 :fn 节点，就把 def 的名字附加上去
+        (let [val-ir (if (and raw-val (= (::kind (first raw-val)) :fn))
+                       (let [new-node (assoc (first raw-val) ::fn-name name-sym)]
+                         (vec (cons new-node (rest raw-val))))
+                       raw-val)]
+          (vec (cons (make-node :def) (filter some? [name-ir val-ir])))))
 
       :loop
       (let [bindings (:bindings node)

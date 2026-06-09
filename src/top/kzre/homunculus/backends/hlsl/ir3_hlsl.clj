@@ -171,24 +171,30 @@
     (case kind
       :def
       (let [name-expr (ir2->ir3-hlsl-expr (second ir2-vec) env)
-            val-ir (when (>= (count ir2-vec) 3) (nth ir2-vec 2))
-            val-expr (when val-ir (ir2->ir3-hlsl-expr val-ir env))
-            t (if val-expr (infer-type val-expr) :float)]
-        [(->HlslVarDecl (:name name-expr) t val-expr)])
+            val-ir (when (>= (count ir2-vec) 3) (nth ir2-vec 2))]
+        (if (and val-ir (= (::ir2/kind (first val-ir)) :fn))
+          ;; 值是函数 → 直接作为函数语句处理
+          (ir2->ir3-hlsl-stmt val-ir env)
+          ;; 普通值 → 变量声明
+          (let [val-expr (when val-ir (ir2->ir3-hlsl-expr val-ir env))
+                t (if val-expr (infer-type val-expr) :float)]
+            [(->HlslVarDecl (:name name-expr) t val-expr)])))
 
       :fn
       (let [params (::ir2/params node)
-            fn-name (::ir2/fn-name node)
-            body-irs (rest ir2-vec)
-            param-types (repeat (count params) :float)
+            fn-name (or (::ir2/fn-name node) 'anonymous)
+            all-children (rest ir2-vec)
+            param-count (count params)
+            body-irs (drop param-count all-children)   ;; 参数之后全部作为 body
+            param-types (repeat param-count :float)
             env' (reduce (fn [e [sym t]]
                            (assoc-in e [:vars (name sym)] t))
                          env
                          (map vector params param-types))
-            body-stmts (mapcat #(ir2->ir3-hlsl-stmt % env') body-irs)
-            return-type (if (seq body-stmts)
-                          (infer-type (last body-stmts))
-                          :float)]
+            return-type (if (seq body-irs)
+                          (:type (ir2->ir3-hlsl-expr (last body-irs) env'))
+                          :float)
+            body-stmts (mapcat #(ir2->ir3-hlsl-stmt % env') body-irs)]
         [(->HlslFunction (name fn-name)
                          (map name params)
                          return-type
@@ -226,10 +232,9 @@
         []))))
 
 ;; ── 程序级转换 ─────────────────────────────────
-(defn ir2->ir3-hlsl
-  [ir2-vecs]
+(defn ir2->ir3-hlsl [ir2-vecs]
   (let [initial-env {:vars {}}
-        stmts (mapcat #(ir2->ir3-hlsl-stmt % initial-env) ir2-vecs)
-        uniforms (vec (filter #(instance? HlslVarDecl %) stmts))
-        functions (vec (filter #(instance? HlslFunction %) stmts))]
+        all-stmts (mapcat #(ir2->ir3-hlsl-stmt % initial-env) ir2-vecs)
+        uniforms (vec (filter #(instance? HlslVarDecl %) all-stmts))
+        functions (vec (filter #(instance? HlslFunction %) all-stmts))]
     (->HlslProgram uniforms functions)))

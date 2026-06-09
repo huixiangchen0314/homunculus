@@ -129,7 +129,10 @@
            return-type (type-names (:return-type stmt) "void")
            body (:body stmt)
            param-str (->> params
-                          (map (fn [p] (str "float " (name p))))
+                          (map (fn [p]
+                                 (if (string? p)
+                                   p   ;; 已经是 "float3 normal" 形式
+                                   (str "float " (name p)))))
                           (str/join ", "))
            body-stmts (map #(emit-stmt % (inc level)) body)]
        (str return-type " " name "(" param-str ")\n"
