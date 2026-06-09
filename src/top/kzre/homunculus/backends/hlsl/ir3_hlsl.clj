@@ -56,6 +56,7 @@
     :else :float))
 
 ;; ── IR2 → HLSL 表达式 ──────────────────────────
+(declare ir2->ir3-hlsl-stmt)
 (defn ir2->ir3-hlsl-expr
   [ir2-vec env]
   (let [node (first ir2-vec)
@@ -137,7 +138,24 @@
             body-expr (ir2->ir3-hlsl-expr (first body-irs) new-env)]
         (->HlslLetExpr (map vector sym-names vals) body-expr (infer-type body-expr)))
 
-      :fn nil
+      :fn
+      (let [params (::ir2/params node)
+            fn-name (::ir2/fn-name node)
+            body-irs (rest ir2-vec)
+            param-types (repeat (count params) :float)
+            env' (reduce (fn [e [sym t]]
+                           (assoc-in e [:vars (name sym)] t))
+                         env
+                         (map vector params param-types))
+            ;; 从最后一个 body 表达式推导返回类型
+            return-type (if (seq body-irs)
+                          (:type (ir2->ir3-hlsl-expr (last body-irs) env'))
+                          :float)
+            body-stmts (mapcat #(ir2->ir3-hlsl-stmt % env') body-irs)]
+        [(->HlslFunction (name fn-name)
+                         (map name params)
+                         return-type
+                         body-stmts)])
 
       :vector
       (let [elems (map #(ir2->ir3-hlsl-expr % env) (rest ir2-vec))]
