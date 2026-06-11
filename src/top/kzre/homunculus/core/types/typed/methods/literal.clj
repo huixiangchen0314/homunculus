@@ -5,11 +5,11 @@
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
 (defmethod infer/infer :literal [node context]
-  (let [frontend (:frontend context)
-        ty (or (when frontend (tp/meta->type frontend node))
-               (when frontend (tp/literal->type frontend (:val node)))
-               (t/->TVar (gensym "lit")))
-        ;; 更新 attrs
-        new-attrs (assoc (ir2p/attrs node) :type ty)
-        new-node (clojure.core/assoc node :attrs new-attrs)]
-    [ty new-node]))
+  (if-let [existing (get-in node [:attrs :type])]
+    [existing node]
+    (let [frontend (:frontend context)
+          ty (or (when frontend (tp/meta->type frontend node))
+                 (when frontend (tp/literal->type frontend (:val node)))
+                 (t/->TVar (gensym "lit")))
+          new-attrs (assoc (ir2p/attrs node) :type ty)]
+      [ty (assoc node :attrs new-attrs)])))

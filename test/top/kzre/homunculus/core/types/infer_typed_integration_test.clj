@@ -4,6 +4,7 @@
             [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.infer.core :as infer]
+            [top.kzre.homunculus.core.types.test-utils :refer :all]
             [top.kzre.homunculus.core.types.infer.methods]   ;; 注册 infer 多方法
             [top.kzre.homunculus.core.types.typed.core :as typed]
             [top.kzre.homunculus.core.types.typed.methods]   ;; 注册 typed 多方法
@@ -11,29 +12,6 @@
             [top.kzre.homunculus.core.ir2.protocol :as ir2p])
   (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
 
-;; ── 模拟前端 ──────────────────────────────
-(defrecord MockFrontend []
-  tp/IFrontendInfo
-  (frontend-types [_] [:int64 :float64 :bool :string :keyword :nil])
-  (literal->type [_ val]
-    (cond
-      (instance? java.lang.Long val)    (t/->TCon :int64)
-      (instance? java.lang.Double val)  (t/->TCon :float64)
-      (instance? java.lang.Boolean val) (t/->TCon :bool)
-      (instance? java.lang.String val)  (t/->TCon :string)
-      (keyword? val)                    (t/->TCon :keyword)
-      (nil? val)                        (t/->TCon :nil)
-      :else (throw (ex-info "Unknown literal" {:val val}))))
-  (meta->type [_ node]
-    (when-let [tag (or (get-in node [:meta :tag])
-                       (get-in node [:attrs :tag]))]
-      (if (keyword? tag)
-        (t/->TCon tag)
-        (t/->TCon (keyword (name tag))))))
-  (infer-collection-type [_ form] nil)
-  (collection-type-ctor [_ kind element-type shape] nil))
-
-(defn- tcon? [ty name] (and (instance? TCon ty) (= name (:name ty))))
 
 (deftest let-binding-infer-typed-chain
   (let [frontend (->MockFrontend)

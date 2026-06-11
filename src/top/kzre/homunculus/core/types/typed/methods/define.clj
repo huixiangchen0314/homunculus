@@ -3,7 +3,9 @@
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
 (defmethod infer/infer :define [node context]
-  (let [[val-ty val-node] (infer/infer (:val node) context)
-        new-attrs (assoc (ir2p/attrs node) :type val-ty)
-        new-node (assoc node :val val-node :attrs new-attrs)]
-    [val-ty new-node]))
+  (if-let [existing (get-in node [:attrs :type])]
+    [existing node]
+    (let [[val-ty val-node] (infer/infer (:val node) context)
+          new-attrs (assoc (ir2p/attrs node) :type val-ty)
+          new-node (assoc node :val val-node :attrs new-attrs)]
+      [val-ty new-node])))

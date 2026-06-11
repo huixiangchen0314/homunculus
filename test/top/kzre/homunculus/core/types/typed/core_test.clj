@@ -4,37 +4,12 @@
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.typed.core :as infer]
             [top.kzre.homunculus.core.types.typed.methods]
+            [top.kzre.homunculus.core.types.test-utils :refer :all]  ;; 使用公共工具
             [top.kzre.homunculus.core.types.typed.unify :as u]
             [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p])
   (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
 
-;; 修正后的 MockFrontend，meta->type 可读取 :attrs 中的标签
-(defrecord MockFrontend []
-  tp/IFrontendInfo
-  (frontend-types [_] [:int64 :float64 :bool :string :keyword :nil])
-  (literal->type [_ val]
-    (cond
-      (instance? java.lang.Long val)    (t/->TCon :int64)
-      (instance? java.lang.Double val)  (t/->TCon :float64)
-      (instance? java.lang.Boolean val) (t/->TCon :bool)
-      (instance? java.lang.String val)  (t/->TCon :string)
-      (keyword? val)                    (t/->TCon :keyword)
-      (nil? val)                        (t/->TCon :nil)
-      :else (throw (ex-info "Unknown literal" {:val val}))))
-  (meta->type [_ node]
-    (when-let [tag (or (get-in node [:meta :tag])
-                       (get-in node [:attrs :tag]))]  ;; 同时检查 attrs
-      (if (keyword? tag)
-        (t/->TCon tag)
-        (t/->TCon (keyword (name tag))))))
-  (infer-collection-type [_ form] nil)
-  (collection-type-ctor [_ kind element-type shape] nil))
-
-(defn- get-type [node] (-> node ir2p/attrs :type))
-(defn- tcon? [ty name] (and (instance? TCon ty) (= name (:name ty))))
-(defn- tfun? [ty] (instance? TFun ty))
-(defn- tvar? [ty] (instance? TVar ty))
 
 (deftest infer-literal-test
   (let [frontend (->MockFrontend)]
