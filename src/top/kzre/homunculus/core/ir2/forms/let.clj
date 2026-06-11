@@ -1,19 +1,24 @@
+;; ═══════════════════════════════════════════════════════
+;; ir2/forms/let.clj
+;; ═══════════════════════════════════════════════════════
 (ns top.kzre.homunculus.core.ir2.forms.let
-  (:require [top.kzre.homunculus.core.ir2.core :as ir2]))
+  (:require [top.kzre.homunculus.core.ir1.protocol :as ir1p]
+            [top.kzre.homunculus.core.ir2.core :as ir2]
+            [top.kzre.homunculus.core.ir2.model :as m]))
 
-(defmethod ir2/lower-ast :let* [ir1-vec env]
-  ;; IR1 :let* 向量: [node sym1 val1 sym2 val2 ... body...]
-  (let [node       (first ir1-vec)
+(defmethod ir2/lower-ast :let* [node env]
+  (let [node-meta (ir2/ir1-meta node)
         bind-count (:bindings-count node)
-        body-start (inc (* 2 bind-count))            ; 跳过节点和绑定对
-        bind-irs   (take (* 2 bind-count) (rest ir1-vec))
-        body-irs   (drop body-start ir1-vec)
-        bindings   (mapv (fn [[sym-ir val-ir]]
-                           [(first (ir2/lower-ast sym-ir env))
-                            (first (ir2/lower-ast val-ir env))])
-                         (partition 2 bind-irs))
-        body       (if (= (count body-irs) 1)
-                     (first (ir2/lower-ast (first body-irs) env))
-                     (ir2/block-expr (mapv #(first (ir2/lower-ast % env)) body-irs) nil))
-        meta       (ir2/ir1-meta ir1-vec)]
-    [(ir2/let-expr bindings body meta)]))
+        kids (ir1p/children node)
+        bind-kids (take (* 2 bind-count) kids)
+        body-kids (drop (* 2 bind-count) kids)
+        bind-pairs (mapv (fn [[s v]]
+                           [(first (ir2/lower-ast s env))
+                            (first (ir2/lower-ast v env))])
+                         (partition 2 bind-kids))
+        body (if (= 1 (count body-kids))
+               (first (ir2/lower-ast (first body-kids) env))
+               (let [body-nodes (mapv #(first (ir2/lower-ast % env)) body-kids)]
+                 (m/->BlockNode body-nodes nil nil body-nodes nil)))
+        children (vec (concat (apply concat bind-pairs) [body]))]
+    [(m/->LetNode bind-pairs body nil node-meta children nil)]))

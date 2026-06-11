@@ -1,10 +1,12 @@
+;; ir1/forms/quote.clj
 (ns top.kzre.homunculus.core.ir1.forms.quote
-  (:require [top.kzre.homunculus.core.ir1.core :as ir1]))
+  (:require [top.kzre.homunculus.core.ir1.core :as ir1]
+            [top.kzre.homunculus.core.ir1.model :as m]))
 
 (defmethod ir1/form->node 'quote [form]
   (let [[_ expr] form]
-    (ir1/make-node :quote :expr expr)))
+    (m/->QuoteNode expr nil [] nil)))
 
-(defmethod ir1/parse-form :quote [node]
-  (let [expr-ir (ir1/->ir1 (:expr node))]
-    [node expr-ir]))
+(defmethod ir1/build-tree :quote [node]
+  (let [expr-node (ir1/->ir1 (:expr node))]
+    (assoc node :children [expr-node])))

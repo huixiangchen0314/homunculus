@@ -1,11 +1,13 @@
+;; ═══════════════════════════════════════════════════════
+;; ir2/forms/assign.clj
+;; ═══════════════════════════════════════════════════════
 (ns top.kzre.homunculus.core.ir2.forms.assign
-  (:require [top.kzre.homunculus.core.ir2.core :as ir2]))
+  (:require [top.kzre.homunculus.core.ir1.protocol :as ir1p]
+            [top.kzre.homunculus.core.ir2.core :as ir2]
+            [top.kzre.homunculus.core.ir2.model :as m]))
 
-(defmethod ir2/lower-ast :set! [ir1-vec env]
-  ;; IR1 :set! 向量: [node var val]
-  (let [var-ir (second ir1-vec)
-        val-ir (nth ir1-vec 2)
-        var    (first (ir2/lower-ast var-ir env))
-        val    (first (ir2/lower-ast val-ir env))
-        meta   (ir2/ir1-meta ir1-vec)]
-    [(ir2/assign-expr var val meta)]))
+(defmethod ir2/lower-ast :set! [node env]
+  (let [kids (ir1p/children node)
+        var-node (first (ir2/lower-ast (first kids) env))
+        val-node (first (ir2/lower-ast (second kids) env))]
+    [(m/->AssignNode var-node val-node nil (ir2/ir1-meta node) [var-node val-node] nil)]))
