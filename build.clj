@@ -17,13 +17,11 @@
                 :basis basis
                 :javac-opts ["-source" "8" "-target" "8"]}))
 
-;; 新增：编译 HLSL IR3 命名空间，生成 .class 文件
-(defn compile-hlsl [_]
+;; 编译 src 下所有 Clojure 源文件（确保 defrecord 等生成类）
+(defn compile [_]
       (b/compile-clj {:basis basis
                       :src-dirs ["src"]
-                      :class-dir class-dir
-                      :ns-compile '[top.kzre.homunculus.backends.hlsl.ir3-hlsl]}))
-
+                      :class-dir class-dir}))
 
 (defn jar [_]
       (clean nil)
@@ -42,11 +40,7 @@
 
 (defn uberjar [_]
       (clean nil)
-      (b/compile-clj {:basis basis
-                      :src-dirs ["src"]
-                      :class-dir class-dir
-                      :ns-compile '[top.kzre.homunculus.core.ir2
-                                    top.kzre.homunculus.backends.hlsl.ir3-hlsl]})
+      (compile nil)   ;; 先编译全部
       (b/uber {:class-dir class-dir
                :uber-file uber-file
                :basis basis

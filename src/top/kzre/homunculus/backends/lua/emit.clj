@@ -1,4 +1,5 @@
 (ns top.kzre.homunculus.backends.lua.emit
+  "解析IR2生成 Lua 代码"
   (:require [top.kzre.homunculus.core.ir2 :as ir2]
             [clojure.string :as str]))
 

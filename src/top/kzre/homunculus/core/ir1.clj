@@ -1,19 +1,17 @@
 (ns top.kzre.homunculus.core.ir1
-  (:require
-    [clojure.spec.alpha :as s]))
+  "IR1 的目标是结构化的表达 Clojure 原语, 所有的IR1 节点均与
+  Clojure 的形式对应."
+  (:require [clojure.spec.alpha :as s]))
 
 (s/def ::kind keyword?)
 
-;; ── 多方法 ─────────────────────────────────────
 (defmulti parse-form
           "将 IR 节点 map 展开为 IR1 向量：[node child1 child2 ...]"
           (fn [ir1] (::kind ir1)))
 
-;; ── 节点构造器 ─────────────────────────────────
 (defn- make-node [kind & kvs]
   (apply assoc {::kind kind} kvs))
 
-;; ── 递归入口 ─────────────────────────────────
 (declare parse-form)
 
 (defn ->ir1
@@ -27,8 +25,9 @@
               (keyword? form) (char? form))
           (make-node :literal :val form)
 
+          ;; 符号（保留元数据）
           (symbol? form)
-          (make-node :symbol :name form)
+          (make-node :symbol :name form :meta (meta form))
 
           ;; 列表 → 检查操作符
           (seq? form)
@@ -41,14 +40,13 @@
               let*    (let [[bindings & body] args]
                         (make-node :let* :bindings bindings :body body))
               fn*     (let [[maybe-name params & body] args
-                            ;; 若 maybe-name 是符号则为函数名，否则为参数
-                            [name params body]
-                            (if (symbol? maybe-name)
-                              [maybe-name params body]
-                              [nil maybe-name (cons params body)])]
-                        (make-node :fn* :name name :params params :body body))
+                            [name params body] (if (symbol? maybe-name)
+                                                 [maybe-name params body]
+                                                 [nil maybe-name (cons params body)])]
+                        (make-node :fn* :name name
+                                   :params (mapv (fn [p] {:sym p :meta (meta p)}) params)
+                                   :body body))
               def     (let [[sym & more] args
-                            ;; 跳过可选的 docstring 和 meta map
                             docstring? (when (string? (first more)) (first more))
                             rest-after-doc (if docstring? (rest more) more)
                             attr-map? (when (map? (first rest-after-doc)) (first rest-after-doc))
@@ -57,7 +55,7 @@
                                    :doc docstring?
                                    :attr attr-map?
                                    :val val-expr))
-              loop*    (let [[bindings & body] args]
+              loop*   (let [[bindings & body] args]
                         (make-node :loop :bindings bindings :body body))
               recur   (make-node :recur :exprs args)
               var     (make-node :var :var-sym (first args))
@@ -86,25 +84,28 @@
           (throw (ex-info (str "Unsupported form: " form) {:form form})))]
     (parse-form node)))
 
-;; ── 原有节点方法 ──────────────────────────────
+;; ── 各节点解析方法 ──────────────────────────────
 (defmethod parse-form :literal [node] [node])
 (defmethod parse-form :symbol  [node] [node])
-(defmethod parse-form :call    [node]
+
+(defmethod parse-form :call [node]
   (let [op-ir   (->ir1 (:op node))
         arg-irs (mapv ->ir1 (:args node))]
     (vec (cons node (cons op-ir arg-irs)))))
-(defmethod parse-form :vector  [node]
+
+(defmethod parse-form :vector [node]
   (let [item-irs (mapv ->ir1 (:items node))]
     (vec (cons node item-irs))))
-(defmethod parse-form :map     [node]
+
+(defmethod parse-form :map [node]
   (let [pairs (:pairs node)
         pair-irs (mapv ->ir1 (apply concat pairs))]
     (vec (cons node pair-irs))))
-(defmethod parse-form :quote   [node]
+
+(defmethod parse-form :quote [node]
   (let [expr-ir (->ir1 (:expr node))]
     [node expr-ir]))
 
-;; ── 新增特殊形式方法 ─────────────────────────
 (defmethod parse-form :if [node]
   (let [test-ir (->ir1 (:test node))
         then-ir (->ir1 (:then node))
@@ -117,7 +118,6 @@
 
 (defmethod parse-form :let* [node]
   (let [bindings (:bindings node)
-        ;; bindings 是偶数个元素的向量 [sym val sym val ...]
         pair-count (/ (count bindings) 2)
         binding-irs (mapv (fn [i]
                             (let [sym (nth bindings (* 2 i))
@@ -125,18 +125,18 @@
                               [(->ir1 sym) (->ir1 val)]))
                           (range pair-count))
         body-irs (mapv ->ir1 (:body node))]
-    ;; 平坦化为 [node sym-ir1 val-ir1 sym-ir2 val-ir2 ... body-ir1 body-ir2 ...]
     (vec (cons node (concat (apply concat binding-irs) body-irs)))))
 
 (defmethod parse-form :fn* [node]
-  (let [name-ir (when-let [n (:name node)] (->ir1 n))
-        params-vec (:params node)
-        ;; 参数可能是单一符号或向量，统一转为向量处理
-        params (if (symbol? params-vec) [params-vec] params-vec)
-        params-irs (mapv ->ir1 params)
-        body-irs (mapv ->ir1 (:body node))]
+  (let [params-vec (:params node)   ;; [{:sym s :meta m} ...]
+        body (:body node)
+        name (:name node)
+        name-ir (when name (->ir1 name))
+        ;; 解析参数符号（符号节点会携带元数据）
+        param-irs (mapv #(->ir1 (:sym %)) params-vec)
+        body-irs (mapv ->ir1 body)]
     (vec (cons node (remove nil? (concat (when name-ir [name-ir])
-                                         params-irs
+                                         param-irs
                                          body-irs))))))
 
 (defmethod parse-form :def [node]
@@ -147,7 +147,6 @@
     (vec (remove nil? (list* node name-ir doc-ir attr-ir (when val-ir [val-ir]))))))
 
 (defmethod parse-form :loop [node]
-  ;; 结构与 let* 完全一致
   (let [bindings (:bindings node)
         pair-count (/ (count bindings) 2)
         binding-irs (mapv (fn [i]
@@ -178,7 +177,6 @@
 (defmethod parse-form :try [node]
   (let [body-irs   (mapv ->ir1 (:body node))
         catch-irs  (mapv (fn [catch-clause]
-                           ;; catch-clause: [class sym & body]
                            (let [class-ir (->ir1 (first catch-clause))
                                  sym-ir   (->ir1 (second catch-clause))
                                  body-exprs (nthrest catch-clause 2)
@@ -188,10 +186,7 @@
                          (:catches node))
         finally-irs (when-let [fexpr (:finally node)]
                       (mapv ->ir1 fexpr))]
-    ;; 结构：[node body-ir ... catch-vector1 catch-vector2 ... finally-ir ...]
     (vec (cons node (concat body-irs catch-irs finally-irs)))))
 
-;; catch 子节点本身也要能被 parse-form 处理（虽然它不被单独解析）
 (defmethod parse-form :catch [node]
-  ;; 实际不会通过 ->ir1 创建，只为了结构统一，可按需保留
   [node])

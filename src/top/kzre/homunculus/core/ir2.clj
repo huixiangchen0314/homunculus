@@ -1,140 +1,142 @@
 (ns top.kzre.homunculus.core.ir2
-  (:require
-    [clojure.spec.alpha :as s]
-    [top.kzre.homunculus.core.ir1 :as ir1]))
+  "将IR1 转换为语言无关的ir2 AST.这是AST还保留高级的语法结构, 如闭包等."
+  (:require [clojure.walk :as walk]))
 
-(s/def ::kind keyword?)
+;; ── IR2 节点构造器 ──
+(defn- mk-node [kind & kvs]
+  (apply assoc {:kind kind} kvs))
 
-(defn- make-node
-  "创建 IR2 节点 map，至少包含 ::kind。"
-  [kind & kvs]
-  (if (seq kvs)
-    (apply assoc {::kind kind} kvs)
-    {::kind kind}))
+(defn literal   [val type]   (mk-node :literal :val val :type type))
+(defn var-ref   [sym type]   (mk-node :var :name (name sym) :type type))
+(defn prim-call [op args type] (mk-node :prim :op op :type type :args (vec args)))
+(defn call      [fn-expr args type] (mk-node :call :fn fn-expr :args (vec args) :type type))
+(defn if-expr   [test then else type] (mk-node :if :test test :then then :else else :type type))
+(defn do-expr   [exprs type]   (mk-node :do :exprs (vec exprs) :type type))
+(defn let-expr  [bindings body type bindings-count] (mk-node :let :bindings bindings :body body :type type :bindings-count bindings-count))
+(defn fn-expr   [params body type fn-name] (mk-node :fn :params params :body body :type type :fn-name fn-name))
+(defn vector-expr [items type] (mk-node :vector :items (vec items) :type type))
+(defn map-expr  [kvs type]    (mk-node :map :kvs (vec kvs) :type type))
 
-(def ^:private prim-ops
-  {'+        :add
-   '-        :sub
-   '*        :mul
-   '/        :div
-   'inc      :inc
-   'dec      :dec
-   'mod      :mod
-   'rem      :rem
-   '=        :eq
-   '==       :eq
-   'not=     :neq
-   '<        :lt
-   '<=       :lte
-   '>        :gt
-   '>=       :gte
-   'and      :and
-   'or       :or
-   'not      :not
-   'first    :first
-   'second   :second
-   'rest     :rest
-   'nth      :nth
-   'count    :count
-   'conj     :conj
-   'assoc    :assoc
-   'dissoc   :dissoc
-   'get      :get
-   'str      :str
-   'println  :print
-   'prn      :print})
+;; ── 辅助：类型推断占位（实际应由类型检查 pass 填充）──
+(defn- infer-type [form] {:kind :any})
 
-(defn lower
-  "将 IR1 向量降级为 IR2 向量。"
-  [ir1-vec]
-  (let [node (first ir1-vec)
-        kind (::ir1/kind node)]
-    (case kind
-      :literal
-      [(make-node :literal :val (:val node) :type (type (:val node)))]
+;; ── Multimethod 分发：根据节点类型 ──
+(defmulti lower-ast
+          "将 Clojure AST 节点降低为 IR2 节点向量。返回 IR2 向量。"
+          (fn [form env]
+            (cond
+              (and (seq? form) (symbol? (first form))) (first form)  ;; 符号分发
+              (vector? form) :vector
+              (map? form)    :map
+              (symbol? form) :symbol
+              (keyword? form) :keyword
+              (number? form) :number
+              (string? form) :string
+              (nil? form)    :nil
+              :else          :unknown)))
 
-      :symbol
-      [(make-node :var :name (:name node))]
+;; ══════════════════════════════════════════════
+;; 各方法的实现
+;; ══════════════════════════════════════════════
 
-      :call
-      (let [op-sym (:op node)
-            prim-key (get prim-ops op-sym)]
-        (if prim-key
-          ;; 原语操作，子节点仅为参数（跳过操作符 ir1）
-          (let [arg-irs (map lower (nthrest ir1-vec 2))]
-            (vec (cons (make-node :prim :op prim-key) arg-irs)))
-          ;; 普通调用
-          (let [op-ir (lower (second ir1-vec))
-                arg-irs (map lower (nthrest ir1-vec 2))]
-            (vec (cons (make-node :call) (cons op-ir arg-irs))))))
+(defmethod lower-ast 'def [form env]
+  ;; (def name value) 或 (def name (fn ...))
+  (let [sym (second form)
+        val (nth form 2 nil)
+        lowered-val (when val (lower-ast val env))
+        kind (if (and lowered-val (= (::kind (first lowered-val)) :fn))
+               :def-fn
+               :def-var)
+        type (infer-type form)]
+    [(mk-node kind :name sym :value lowered-val :type type)]))
 
-      :if
-      (let [test-ir (lower (second ir1-vec))
-            then-ir (lower (nth ir1-vec 2))
-            else-ir (when (>= (count ir1-vec) 4) (lower (nth ir1-vec 3)))]
-        (vec (cons (make-node :if) (filter some? [test-ir then-ir else-ir]))))
+(defmethod lower-ast 'fn [form env]
+  (let [params (second form)
+        body (drop 2 form)
+        lowered-body (doall (map #(lower-ast % env) body))
+        type (infer-type form)
+        fn-name (gensym "fn")]   ;; 匿名函数用临时名
+    [(fn-expr params lowered-body type fn-name)]))
 
-      :do
-      (let [expr-irs (map lower (rest ir1-vec))]
-        (vec (cons (make-node :do) expr-irs)))
+(defmethod lower-ast 'if [form env]
+  (let [test (lower-ast (second form) env)
+        then (lower-ast (nth form 2) env)
+        else (when (> (count form) 3) (lower-ast (nth form 3) env))
+        type (infer-type form)]
+    [(if-expr test then else type)]))
 
-      :let*
-      (let [bindings (:bindings node)
-            bindings-count (count bindings)          ;; 元素总数
-            all-children (rest ir1-vec)
-            bind-irs (take bindings-count all-children)
-            body-irs (drop bindings-count all-children)
-            sym-ir2s (map #(lower %) (take-nth 2 bind-irs))
-            val-ir2s (map #(lower %) (take-nth 2 (rest bind-irs)))
-            body-ir2s (map lower body-irs)]
-        (vec (cons (make-node :let :bindings-count bindings-count)
-                   (concat (interleave sym-ir2s val-ir2s) body-ir2s))))
+(defmethod lower-ast 'do [form env]
+  (let [exprs (map #(lower-ast % env) (rest form))
+        type (infer-type form)]
+    [(do-expr exprs type)]))
 
-      :fn*
-      (let [params-vec (:params node)
-            fn-name (:name node)
-            has-name (boolean fn-name)
-            children (rest ir1-vec)
-            name-ir2 (when has-name (lower (first children)))
-            param-start (if has-name 1 0)
-            param-ir1s (take (count params-vec) (drop param-start children))
-            body-ir1s (drop (+ param-start (count params-vec)) children)
-            param-ir2s (map lower param-ir1s)
-            body-ir2s (map lower body-ir1s)]
-        (vec (cons (make-node :fn ::params params-vec ::fn-name fn-name)
-                   (concat (when name-ir2 [name-ir2]) param-ir2s body-ir2s))))
+(defmethod lower-ast 'let [form env]
+  (let [bindings (second form)
+        pairs (partition 2 bindings)
+        body (drop 2 form)
+        lowered-body (doall (map #(lower-ast % env) body))
+        bindings-count (count pairs)
+        type (infer-type form)]
+    [(let-expr bindings lowered-body type bindings-count)]))
 
-      :def
-      (let [name-sym (:name node)                       ;; def 的名字符号
-            name-ir (lower (second ir1-vec))            ;; 符号的 IR2
-            raw-val (when (>= (count ir1-vec) 3)        ;; 值可能不存在
-                      (lower (nth ir1-vec 2)))]
-        ;; 如果值是一个 :fn 节点，就把 def 的名字附加上去
-        (let [val-ir (if (and raw-val (= (::kind (first raw-val)) :fn))
-                       (let [new-node (assoc (first raw-val) ::fn-name name-sym)]
-                         (vec (cons new-node (rest raw-val))))
-                       raw-val)]
-          (vec (cons (make-node :def) (filter some? [name-ir val-ir])))))
+(defmethod lower-ast 'loop [form env]
+  ;; loop 类似 let，额外标记为循环
+  (let [bindings (second form)
+        pairs (partition 2 bindings)
+        body (drop 2 form)
+        lowered-body (doall (map #(lower-ast % env) body))
+        bindings-count (count pairs)
+        type (infer-type form)]
+    [(mk-node :loop :bindings bindings :body lowered-body :type type :bindings-count bindings-count)]))
 
-      :loop
-      (let [bindings (:bindings node)
-            bindings-count (count bindings)
-            all-children (rest ir1-vec)
-            bind-irs (take bindings-count all-children)
-            body-irs (drop bindings-count all-children)
-            sym-ir2s (map #(lower %) (take-nth 2 bind-irs))
-            val-ir2s (map #(lower %) (take-nth 2 (rest bind-irs)))
-            body-ir2s (map lower body-irs)]
-        (vec (cons (make-node :loop :bindings-count bindings-count)
-                   (concat (interleave sym-ir2s val-ir2s) body-ir2s))))
+(defmethod lower-ast 'recur [form env]
+  (let [args (map #(lower-ast % env) (rest form))
+        type (infer-type form)]
+    [(mk-node :recur :args (vec args) :type type)]))
 
-      :recur
-      (let [expr-irs (map lower (rest ir1-vec))]
-        (vec (cons (make-node :recur) expr-irs)))
+(defmethod lower-ast 'quote [form env]
+  [(literal (second form) {:kind :any})])
 
-      :quote
-      [(make-node :quote) (lower (second ir1-vec))]
+;; ── 原始字面量 ──
+(defmethod lower-ast :number [form env]
+  [(literal form {:kind :prim, :name (type form)})])
 
-      ;; 其他未专门 lowered 的节点
-      (let [child-ir2s (map lower (rest ir1-vec))]
-        (vec (cons (assoc node ::kind kind) child-ir2s))))))
+(defmethod lower-ast :string [form env]
+  [(literal form {:kind :prim, :name :string})])
+
+(defmethod lower-ast :keyword [form env]
+  [(literal form {:kind :prim, :name :keyword})])
+
+(defmethod lower-ast :nil [form env]
+  [(literal nil {:kind :void})])
+
+(defmethod lower-ast :symbol [form env]
+  (let [sym form
+        type (infer-type form)]
+    [(var-ref sym type)]))
+
+;; ── 集合字面量 ──
+(defmethod lower-ast :vector [form env]
+  (let [items (map #(lower-ast % env) form)
+        type (infer-type form)]
+    [(vector-expr items type)]))
+
+(defmethod lower-ast :map [form env]
+  (let [kvs (mapcat (fn [[k v]] [(lower-ast k env) (lower-ast v env)]) form)
+        type (infer-type form)]
+    [(map-expr (vec kvs) type)]))
+
+;; ── 函数调用（任何其他列表）──
+(defmethod lower-ast :default [form env]
+  (if (seq? form)
+    (let [f (lower-ast (first form) env)
+          args (map #(lower-ast % env) (rest form))
+          type (infer-type form)]
+      [(call f args type)])
+    (throw (ex-info (str "Unknown form in IR2 lowering: " form) {}))))
+
+;; ── 顶层入口：处理多个顶层表单 ──
+(defn lower-top [forms]
+  (let [env {} ;; 环境可以存放类型上下文等
+        lowered (mapcat #(lower-ast % env) forms)]
+    lowered))

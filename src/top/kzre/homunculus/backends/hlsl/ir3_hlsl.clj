@@ -83,11 +83,14 @@
                         "eq" "==" "neq" "!=" "lt" "<" "lte" "<="
                         "gt" ">" "gte" ">="
                         "and" "&&" "or" "||"}
-                hlsl-op (op-map op-name)]
-            (->HlslBinaryOp (keyword hlsl-op) (first args) (second args)
-                            (if (contains? #{"==" "!=" "<" "<=" ">" ">="} hlsl-op)
-                              :bool
-                              (infer-type (first args)))))
+                hlsl-op (keyword (op-map op-name))]
+            (reduce (fn [left right]
+                      (->HlslBinaryOp hlsl-op left right
+                                      (if (contains? #{"==" "!=" "<" "<=" ">" ">="} hlsl-op)
+                                        :bool
+                                        (infer-type left))))
+                    (first args)
+                    (rest args)))
 
           :not (->HlslBinaryOp :! (first args) nil :bool)
           :print nil
@@ -140,22 +143,30 @@
 
       :fn
       (let [params (::ir2/params node)
-            fn-name (::ir2/fn-name node)
-            body-irs (rest ir2-vec)
-            param-types (repeat (count params) :float)
+            fn-name (or (::ir2/fn-name node) 'anonymous)
+            all-children (rest ir2-vec)
+            param-count (count params)
+            body-irs (drop param-count all-children)
+            param-types (repeat param-count :float)
             env' (reduce (fn [e [sym t]]
                            (assoc-in e [:vars (name sym)] t))
                          env
                          (map vector params param-types))
-            ;; 从最后一个 body 表达式推导返回类型
             return-type (if (seq body-irs)
                           (:type (ir2->ir3-hlsl-expr (last body-irs) env'))
                           :float)
-            body-stmts (mapcat #(ir2->ir3-hlsl-stmt % env') body-irs)]
-        [(->HlslFunction (name fn-name)
-                         (map name params)
-                         return-type
-                         body-stmts)])
+            raw-body (mapcat #(ir2->ir3-hlsl-stmt % env') body-irs)]
+        ;; 确保最后一个语句是 return
+        (let [final-body (if (seq raw-body)
+                           (let [lst (last raw-body)]
+                             (if (instance? HlslReturnStmt lst)
+                               raw-body
+                               (conj (vec (drop-last raw-body)) (HlslReturnStmt. (:expr lst)))))
+                           raw-body)]
+          [(HlslFunction. (name fn-name)
+                          (map name params)
+                          return-type
+                          final-body)]))
 
       :vector
       (let [elems (map #(ir2->ir3-hlsl-expr % env) (rest ir2-vec))]
@@ -180,12 +191,32 @@
                 t (if val-expr (infer-type val-expr) :float)]
             [(->HlslVarDecl (:name name-expr) t val-expr)])))
 
+      :let
+      (let [bindings-count (:bindings-count node)
+            all-children (rest ir2-vec)
+            bind-irs (take bindings-count all-children)
+            body-irs (drop bindings-count all-children)
+            syms (map #(ir2->ir3-hlsl-expr % env) (take-nth 2 bind-irs))
+            vals (map #(ir2->ir3-hlsl-expr % env) (take-nth 2 (rest bind-irs)))
+            sym-names (map :name syms)
+            ;; 生成变量声明
+            decls (map (fn [n v] (HlslVarDecl. n (infer-type v) v)) sym-names vals)
+            ;; 更新环境
+            env' (reduce (fn [e [n v]]
+                           (assoc-in e [:vars n] (infer-type v)))
+                         env
+                         (map vector sym-names vals))
+            ;; 递归处理 body（body 可能包含多个表达式）
+            body-stmts (mapcat #(ir2->ir3-hlsl-stmt % env') body-irs)]
+        (concat decls body-stmts))
+
+
       :fn
       (let [params (::ir2/params node)
             fn-name (or (::ir2/fn-name node) 'anonymous)
             all-children (rest ir2-vec)
             param-count (count params)
-            body-irs (drop param-count all-children)   ;; 参数之后全部作为 body
+            body-irs (drop param-count all-children)
             param-types (repeat param-count :float)
             env' (reduce (fn [e [sym t]]
                            (assoc-in e [:vars (name sym)] t))
@@ -195,10 +226,10 @@
                           (:type (ir2->ir3-hlsl-expr (last body-irs) env'))
                           :float)
             body-stmts (mapcat #(ir2->ir3-hlsl-stmt % env') body-irs)]
-        [(->HlslFunction (name fn-name)
-                         (map name params)
-                         return-type
-                         body-stmts)])
+        [(HlslFunction. (name fn-name)
+                        (map name params)
+                        return-type
+                        body-stmts)])
 
       :do
       (mapcat #(ir2->ir3-hlsl-stmt % env) (rest ir2-vec))
