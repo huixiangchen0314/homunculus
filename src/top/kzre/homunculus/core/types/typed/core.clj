@@ -3,7 +3,7 @@
   (:require [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.typed.unify :as u]
-            [top.kzre.homunculus.core.types.typed.env :as e]
+            [top.kzre.homunculus.core.types.env :as e]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
 (def ^:dynamic *tv-id (atom 0))

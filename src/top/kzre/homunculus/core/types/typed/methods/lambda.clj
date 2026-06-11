@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.typed.methods.lambda
   (:require [top.kzre.homunculus.core.types.typed.core :as infer]
             [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.core.types.typed.env :as e]
+            [top.kzre.homunculus.core.types.env :as e]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
 (defmethod infer/infer :lambda [node context]
