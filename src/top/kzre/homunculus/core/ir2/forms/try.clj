@@ -19,16 +19,15 @@
                                   class-node (first (ir2/lower-ast class-ir env))
                                   sym-node (first (ir2/lower-ast sym-ir env))
                                   c-body-nodes (mapv #(first (ir2/lower-ast % env)) body-exprs)]
-                              (m/->CatchNode class-node sym-node c-body-nodes nil nil
-                                             (vec (cons class-node (cons sym-node c-body-nodes))) nil)))
+                              (m/->CatchNode class-node sym-node c-body-nodes nil nil nil)))
                           catch-irs)
         finally-nodes (when (seq finally-irs)
                         (mapv #(first (ir2/lower-ast % env)) finally-irs))
-        children (vec (concat body-nodes catch-nodes (or finally-nodes [])))]
-    [(m/->TryNode body-nodes catch-nodes finally-nodes nil meta children nil)]))
+        ]
+    [(m/->TryNode body-nodes catch-nodes finally-nodes nil meta  nil)]))
 
 (defmethod ir2/lower-ast :throw [node env]
   (let [kid (first (ir1p/children node))
         expr (first (ir2/lower-ast kid env))
         meta (ir2/ir1-meta node)]
-    [(m/->ThrowNode expr nil meta [expr] nil)]))
+    [(m/->ThrowNode expr nil meta nil)]))

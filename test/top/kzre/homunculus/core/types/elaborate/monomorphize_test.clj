@@ -2,22 +2,24 @@
   "单态化引擎的单元测试。"
   (:require [clojure.test :refer :all]
             [top.kzre.homunculus.core.types.elaborate.core :as elaborate]
+            [top.kzre.homunculus.core.types.elaborate.methods]
             [top.kzre.homunculus.core.types.elaborate.protocol :as cfg]
             [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
-(defn- vref [name] (m/->VariableNode name nil nil [] nil))
-(defn- lit [val] (m/->LiteralNode val nil nil [] nil))
-(defn- lam [params body] (m/->LambdaNode params body [] nil nil nil (vec (concat params [body])) nil))
-(defn- call [fn-node & args] (m/->CallNode fn-node (vec args) nil nil (vec (cons fn-node args)) nil))
-(defn- define [name val] (m/->DefineNode name val nil nil nil (if val [name val] [name]) nil))
+(defn- vref [name] (m/->VariableNode name nil nil nil))
+(defn- lit [val] (m/->LiteralNode val nil nil nil))
+(defn- lam [params body] (m/->LambdaNode params body [] nil nil nil nil))
+(defn- call [fn-node & args] (m/->CallNode fn-node (vec args) nil nil nil))
+(defn- define [name val] (m/->DefineNode name val nil nil nil nil))
 
 (defrecord TestConfig []
   cfg/IElaborateConfig
   (max-iterations [_] 5)
   (strict-mode? [_] true)
   (allow-return-closure? [_] false)
-  (on-unresolved [_ lambda] (throw (ex-info "Unresolved closure" {:lambda lambda}))))
+  (on-unresolved [_ lambda] (throw (ex-info "Unresolved closure" {:lambda lambda})))
+  (should-inline? [_ _ _] false))   ;; 单态化测试中不希望内联，而是触发单态化
 
 (deftest monomorphize-id-function-test
   (testing "单态化：恒等函数传递"
@@ -29,7 +31,7 @@
           call-node (call (vref "g") closure (lit 42))
           roots [def-g call-node]
           result (elaborate/elaborate roots config)]
-      ;; 闭包已消除：根列表中不应包含 :lambda（除了 define 内部的函数体）
+      ;; 闭包已消除
       (is (empty? (filter #(and (satisfies? ir2p/INode %) (= (ir2p/kind %) :lambda)) result))
           "闭包应被消除")
       ;; 应有特化函数和提升闭包定义

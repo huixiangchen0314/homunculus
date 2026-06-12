@@ -11,14 +11,14 @@
 
 ;; 基础节点 lowering
 (defmethod lower-ast :literal [node env]
-  [(m/->LiteralNode (:val node) nil (ir1-meta node) [] nil)])
+  [(m/->LiteralNode (:val node) nil (ir1-meta node) nil)])
 
 (defmethod lower-ast :symbol [node env]
-  [(m/->VariableNode (name (:name node)) nil (ir1-meta node) [] nil)])
+  [(m/->VariableNode (name (:name node)) nil (ir1-meta node) nil)])
 
 (defmethod lower-ast :vector [node env]
   (let [items (mapv #(first (lower-ast % env)) (ir1p/children node))]
-    [(m/->VectorNode items nil (ir1-meta node) items nil)]))
+    [(m/->VectorNode items nil (ir1-meta node) nil)]))
 
 (defmethod lower-ast :map [node env]
   (let [pairs (:pairs node)
@@ -26,16 +26,15 @@
                       [(first (lower-ast k env))
                        (first (lower-ast v env))])
                     (partition 2 pairs))]
-    [(m/->MapNode kvs nil (ir1-meta node) kvs nil)]))
+    [(m/->MapNode kvs nil (ir1-meta node) nil)]))
 
 (defmethod lower-ast :call [node env]
   (let [kids (ir1p/children node)
         op-node (first kids)
         arg-nodes (rest kids)
         fn-node (first (lower-ast op-node env))
-        args (mapv #(first (lower-ast % env)) arg-nodes)
-        children (vec (cons fn-node args))]
-    [(m/->CallNode fn-node args nil (ir1-meta node) children nil)]))
+        args (mapv #(first (lower-ast % env)) arg-nodes)]
+    [(m/->CallNode fn-node args nil (ir1-meta node) nil)]))
 
 ;; 特殊形式占位
 (defmethod lower-ast :if    [node env] nil)

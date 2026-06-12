@@ -10,15 +10,15 @@
   (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]
            [top.kzre.homunculus.core.types.typed.scheme TScheme]))
 
-(defn- vref [name] (m/->VariableNode name nil nil [] nil))
+(defn- vref [name] (m/->VariableNode name nil nil nil))
 
 ;; 1. 已知单参函数 (int -> int)
 (deftest call-known-tfun-one-arg-test
   (let [frontend (->MockFrontend)
         fn-ty (t/->TFun (t/->TCon :int64) (t/->TCon :int64))
         fn-var (vref "f")
-        arg-node (m/->LiteralNode 42 nil nil [] nil)
-        call-node (m/->CallNode fn-var [arg-node] nil nil [] nil)
+        arg-node (m/->LiteralNode 42 nil nil nil)
+        call-node (m/->CallNode fn-var [arg-node] nil nil nil)
         env {"f" fn-ty}
         [ret-ty result _] (typed/infer call-node {:frontend frontend :env env})]
     (is (tcon? ret-ty :int64) (str "Got: " ret-ty))
@@ -30,9 +30,9 @@
         fn-ty (t/->TFun (t/->TCon :int64)
                         (t/->TFun (t/->TCon :int64) (t/->TCon :int64)))
         fn-var (vref "add")
-        arg1 (m/->LiteralNode 1 nil nil [] nil)
-        arg2 (m/->LiteralNode 2 nil nil [] nil)
-        call-node (m/->CallNode fn-var [arg1 arg2] nil nil [] nil)
+        arg1 (m/->LiteralNode 1 nil nil nil)
+        arg2 (m/->LiteralNode 2 nil nil nil)
+        call-node (m/->CallNode fn-var [arg1 arg2] nil nil nil)
         env {"add" fn-ty}
         [ret-ty _ _] (typed/infer call-node {:frontend frontend :env env})]
     (is (tcon? ret-ty :int64) (str "Got: " ret-ty))))
@@ -41,8 +41,8 @@
 (deftest call-unknown-tvar-test
   (let [frontend (->MockFrontend)
         fn-var (vref "g")
-        arg-node (m/->LiteralNode 42 nil nil [] nil)
-        call-node (m/->CallNode fn-var [arg-node] nil nil [] nil)
+        arg-node (m/->LiteralNode 42 nil nil nil)
+        call-node (m/->CallNode fn-var [arg-node] nil nil nil)
         env {"g" (t/->TVar (gensym "g"))}
         [ret-ty _ s] (typed/infer call-node {:frontend frontend :env env})]
     (is (tvar? ret-ty) "返回类型应为类型变量（尚未确定）")
@@ -57,8 +57,8 @@
         apply-var (vref "apply")
         id-ty (t/->TFun (t/->TCon :int64) (t/->TCon :int64))
         id-var (vref "id")
-        arg-val (m/->LiteralNode 42 nil nil [] nil)
-        call-node (m/->CallNode apply-var [id-var arg-val] nil nil [] nil)
+        arg-val (m/->LiteralNode 42 nil nil nil)
+        call-node (m/->CallNode apply-var [id-var arg-val] nil nil nil)
         env {"apply" apply-ty "id" id-ty}
         [ret-ty _ _] (typed/infer call-node {:frontend frontend :env env})]
     (is (tcon? ret-ty :int64) (str "Got: " ret-ty))))
@@ -69,9 +69,9 @@
         a (t/->TVar (gensym "a"))
         id-scheme (s/->TScheme [a] (t/->TFun a a))   ;; ← 使用 s/->TScheme
         env {"id" id-scheme}
-        call1 (m/->CallNode (vref "id") [(m/->LiteralNode 42 nil nil [] nil)] nil nil [] nil)
+        call1 (m/->CallNode (vref "id") [(m/->LiteralNode 42 nil nil nil)] nil nil nil)
         [ty1 _ _] (typed/infer call1 {:frontend frontend :env env})
-        call2 (m/->CallNode (vref "id") [(m/->LiteralNode "hello" nil nil [] nil)] nil nil [] nil)
+        call2 (m/->CallNode (vref "id") [(m/->LiteralNode "hello" nil nil nil)] nil nil nil)
         [ty2 _ _] (typed/infer call2 {:frontend frontend :env env})]
     (is (tcon? ty1 :int64) "id 42 应为 int64")
     (is (tcon? ty2 :string) "id hello 应为 string")))
@@ -82,10 +82,10 @@
         a (t/->TVar (gensym "a"))
         f-scheme (s/->TScheme [a] (t/->TFun a a))   ;; ← s/
         env {"f" f-scheme}
-        call-inner (m/->CallNode (vref "f") [(m/->LiteralNode 42 nil nil [] nil)] nil nil [] nil)
+        call-inner (m/->CallNode (vref "f") [(m/->LiteralNode 42 nil nil nil)] nil nil nil)
         [inner-ty _ _] (typed/infer call-inner {:frontend frontend :env env})]
     (is (tcon? inner-ty :int64) "f 42 应为 int64")
     (let [env2 (assoc env "inner" inner-ty)
-          call-outer (m/->CallNode (vref "f") [(vref "inner")] nil nil [] nil)
+          call-outer (m/->CallNode (vref "f") [(vref "inner")] nil nil nil)
           [outer-ty _ _] (typed/infer call-outer {:frontend frontend :env env2})]
       (is (tcon? outer-ty :int64) "f (f 42) 应为 int64"))))

@@ -12,7 +12,7 @@
 (deftest literal-no-expected-test
   (let [backend (->MockBackend)
         context {:backend backend}
-        lit (m/->LiteralNode 42 nil nil [] nil)
+        lit (m/->LiteralNode 42 nil nil  nil)
         lit-typed (assoc-in lit [:attrs :type] (t/->TCon :int64))
         result (check/check lit-typed nil context)]
     (is (not (convert? result)))
@@ -21,7 +21,7 @@
 (deftest literal-same-type-test
   (let [backend (->MockBackend)
         context {:backend backend}
-        lit (m/->LiteralNode 42 nil nil [] nil)
+        lit (m/->LiteralNode 42 nil nil  nil)
         lit-typed (assoc-in lit [:attrs :type] (t/->TCon :int64))
         result (check/check lit-typed (t/->TCon :int64) context)]
     (is (not (convert? result)))
@@ -30,7 +30,7 @@
 (deftest literal-convert-test
   (let [backend (->MockBackend)
         context {:backend backend}
-        lit (m/->LiteralNode 42 nil nil [] nil)
+        lit (m/->LiteralNode 42 nil nil  nil)
         lit-typed (assoc-in lit [:attrs :type] (t/->TCon :int64))
         result (check/check lit-typed (t/->TCon :float32) context)]
     (is (convert? result))
@@ -41,7 +41,7 @@
 (deftest literal-no-convert-test
   (let [backend (->MockBackend)
         context {:backend backend}
-        lit (m/->LiteralNode "hello" nil nil [] nil)
+        lit (m/->LiteralNode "hello" nil nil  nil)
         lit-typed (assoc-in lit [:attrs :type] (t/->TCon :string))]
     (is (thrown? clojure.lang.ExceptionInfo
                  (check/check lit-typed (t/->TCon :float32) context)))))
@@ -50,13 +50,13 @@
 (deftest if-check-test
   (let [backend (->MockBackend)
         context {:backend backend}
-        test-node (m/->LiteralNode true nil nil [] nil)
+        test-node (m/->LiteralNode true nil nil  nil)
         test-typed (assoc-in test-node [:attrs :type] (t/->TCon :bool))
-        then-node (m/->LiteralNode 42 nil nil [] nil)
+        then-node (m/->LiteralNode 42 nil nil  nil)
         then-typed (assoc-in then-node [:attrs :type] (t/->TCon :int64))
-        else-node (m/->LiteralNode 0 nil nil [] nil)
+        else-node (m/->LiteralNode 0 nil nil  nil)
         else-typed (assoc-in else-node [:attrs :type] (t/->TCon :int64))
-        if-node (m/->IfNode test-typed then-typed else-typed nil nil [] nil)
+        if-node (m/->IfNode test-typed then-typed else-typed nil nil  nil)
         result (check/check if-node (t/->TCon :float32) context)]
     (is (not (convert? result)))
     (is (convert? (:then result)))
@@ -66,12 +66,43 @@
 (deftest check-program-test
   (let [backend (->MockBackend)
         context {:backend backend}
-        lit1 (m/->LiteralNode 1 nil nil [] nil)
+        lit1 (m/->LiteralNode 1 nil nil  nil)
         lit1-typed (assoc-in lit1 [:attrs :type] (t/->TCon :int64))
-        lit2 (m/->LiteralNode 2 nil nil [] nil)
+        lit2 (m/->LiteralNode 2 nil nil  nil)
         lit2-typed (assoc-in lit2 [:attrs :type] (t/->TCon :int64))
         roots [lit1-typed lit2-typed]
         checked (check/check-program roots context)]
     (is (= 2 (count checked)))
     (is (not (convert? (first checked))))
     (is (not (convert? (second checked))))))
+
+
+(deftest while-check-test
+  (let [backend (->MockBackend)
+        context {:backend backend}
+        test-node (m/->LiteralNode true nil nil nil)
+        test-typed (assoc-in test-node [:attrs :type] (t/->TCon :bool))
+        body-node (m/->LiteralNode 42 nil nil nil)
+        body-typed (assoc-in body-node [:attrs :type] (t/->TCon :int64))
+        while-node (m/->WhileNode test-typed body-typed nil nil nil)
+        result (check/check while-node nil context)]
+    ;; 检查后 test 和 body 应保持原样，无转换（因为类型匹配）
+    (is (not (convert? result)))
+    (is (= (:test result) test-typed))
+    (is (= (:body result) body-typed))))
+
+(deftest while-check-convert-test
+  (let [backend (->MockBackend)
+        context {:backend backend}
+        test-node (m/->LiteralNode true nil nil nil)
+        test-typed (assoc-in test-node [:attrs :type] (t/->TCon :bool))
+        ;; body 期望是 float，但实际是 int
+        body-node (m/->LiteralNode 42 nil nil nil)
+        body-typed (assoc-in body-node [:attrs :type] (t/->TCon :int64))
+        while-node (m/->WhileNode test-typed body-typed nil nil nil)
+        ;; 检查时没有期望类型，但 test 会检查为 bool
+        result (check/check while-node nil context)]
+    (is (not (convert? result)))
+    ;; test 没有被转换，body 也没有被转换（因为无期望）
+    (is (= (get-in result [:test :attrs :type]) (t/->TCon :bool)))
+    (is (= (get-in result [:body :attrs :type]) (t/->TCon :int64)))))

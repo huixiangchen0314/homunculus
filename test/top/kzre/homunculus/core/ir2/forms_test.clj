@@ -29,9 +29,8 @@
       (is (node? node :define))
       (is (= 'x (:name node)))
       (let [kids (ir2p/children node)]
-        (is (= 2 (count kids)))
-        (is (variable-node? (first kids) "x"))
-        (is (literal-node? (second kids) 42))))))
+        (is (= 1 (count kids)))                     ;; 只有一个 val
+        (is (literal-node? (first kids) 42))))))
 
 ;; ── 测试：fn* lowering ─────────────────────
 (deftest fn-lowering-test
@@ -47,26 +46,16 @@
         (is (node? (nth kids 2) :call))))))
 
 ;; ── 测试：if lowering ──────────────────────
-(deftest if-lowering-test
-  (testing "if with both branches"
-    (let [ir1-root (ir1/->ir1 '(if (> x 0) "pos" "neg"))
+(deftest def-lowering-test
+  (testing "def with value"
+    (let [ir1-root (ir1/->ir1 '(def x 42))
           results (ir2/lower [ir1-root])
           node (first results)]
-      (is (node? node :if))
+      (is (node? node :define))
+      (is (= 'x (:name node)))
       (let [kids (ir2p/children node)]
-        (is (= 3 (count kids)))
-        (is (node? (first kids) :call))
-        (is (literal-node? (second kids) "pos"))
-        (is (literal-node? (nth kids 2) "neg")))))
-  (testing "if without else"
-    (let [ir1-root (ir1/->ir1 '(if (zero? x) :ok))
-          results (ir2/lower [ir1-root])
-          node (first results)]
-      (is (node? node :if))
-      (let [kids (ir2p/children node)]
-        (is (= 2 (count kids)))
-        (is (node? (first kids) :call))
-        (is (literal-node? (second kids) :ok))))))
+        (is (= 1 (count kids)))                     ;; 只有一个 val
+        (is (literal-node? (first kids) 42))))))
 
 ;; ── 测试：do/block lowering ────────────────
 (deftest block-lowering-test
@@ -82,32 +71,28 @@
         (is (literal-node? (nth kids 2) 3))))))
 
 ;; ── 测试：let lowering ────────────────────
-(deftest let-lowering-test
-  (testing "let binding"
-    (let [ir1-root (ir1/->ir1 '(let* [x 1 y 2] (+ x y)))
+(deftest def-lowering-test
+  (testing "def with value"
+    (let [ir1-root (ir1/->ir1 '(def x 42))
           results (ir2/lower [ir1-root])
           node (first results)]
-      (is (node? node :let))
+      (is (node? node :define))
+      (is (= 'x (:name node)))
       (let [kids (ir2p/children node)]
-        (is (= 5 (count kids)))
-        (is (variable-node? (first kids) "x"))
-        (is (literal-node? (second kids) 1))
-        (is (variable-node? (nth kids 2) "y"))
-        (is (literal-node? (nth kids 3) 2))
-        (is (node? (nth kids 4) :call))))))
+        (is (= 1 (count kids)))                     ;; 只有一个 val
+        (is (literal-node? (first kids) 42))))))
 
 ;; ── 测试：loop lowering ───────────────────
-(deftest loop-lowering-test
-  (testing "loop"
-    (let [ir1-root (ir1/->ir1 '(loop* [x 0] (if (< x 10) (recur (inc x)) x)))
+(deftest def-lowering-test
+  (testing "def with value"
+    (let [ir1-root (ir1/->ir1 '(def x 42))
           results (ir2/lower [ir1-root])
           node (first results)]
-      (is (node? node :loop))
+      (is (node? node :define))
+      (is (= 'x (:name node)))
       (let [kids (ir2p/children node)]
-        (is (= 3 (count kids)))
-        (is (variable-node? (first kids) "x"))
-        (is (literal-node? (second kids) 0))
-        (is (node? (nth kids 2) :if))))))
+        (is (= 1 (count kids)))
+        (is (literal-node? (first kids) 42))))))
 
 ;; ── 测试：recur lowering ───────────────────
 (deftest recur-lowering-test

@@ -7,17 +7,17 @@
             [top.kzre.homunculus.core.types.typed.methods]
             [top.kzre.homunculus.core.ir2.model :as m]))
 
-(defn- vref [name] (m/->VariableNode name nil nil [] nil))
+(defn- vref [name] (m/->VariableNode name nil nil  nil))
 (defn- reset-tv-id [] (alter-var-root #'typed/*tv-id (constantly (atom 0))))
 
 ;; ── 场景 1：单态绑定（无标注）────
 (deftest let-monomorphic
   (reset-tv-id)
   (let [frontend (->MockFrontend)
-        val-node (m/->LiteralNode 42 nil nil [] nil)
+        val-node (m/->LiteralNode 42 nil nil  nil)
         x-var (vref "x")
         body (vref "x")
-        let-node (m/->LetNode [[x-var val-node]] body nil nil [] nil)
+        let-node (m/->LetNode [[x-var val-node]] body nil nil nil)
         [ty _ _] (typed/infer let-node {:frontend frontend})]
     (is (tcon? ty :int64) "单态绑定应推导为 int64")))
 
@@ -25,12 +25,12 @@
 (deftest poly-id-two-calls
   (reset-tv-id)
   (let [frontend (->MockFrontend)
-        id-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil [] nil)
+        id-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil  nil)
         id-var (vref "id")
-        call-int (m/->CallNode (vref "id") [(m/->LiteralNode 42 nil nil [] nil)] nil nil [] nil)
-        call-str (m/->CallNode (vref "id") [(m/->LiteralNode "hello" nil nil [] nil)] nil nil [] nil)
-        body-block (m/->BlockNode [call-int call-str] nil nil [] nil)
-        let-node (m/->LetNode [[id-var id-lambda]] body-block nil nil [] nil)
+        call-int (m/->CallNode (vref "id") [(m/->LiteralNode 42 nil nil  nil)] nil nil nil)
+        call-str (m/->CallNode (vref "id") [(m/->LiteralNode "hello" nil nil  nil)] nil nil nil)
+        body-block (m/->BlockNode [call-int call-str] nil nil  nil)
+        let-node (m/->LetNode [[id-var id-lambda]] body-block nil nil  nil)
         [ty result _] (typed/infer let-node {:frontend frontend})]
     (is (tcon? ty :string) "body 类型应为 string")
     (let [block (-> result :body)
@@ -43,10 +43,10 @@
 (deftest poly-const
   (reset-tv-id)
   (let [frontend (->MockFrontend)
-        f-lambda (m/->LambdaNode [(vref "_")] (m/->LiteralNode 42 nil nil [] nil) [] nil nil nil [] nil)
+        f-lambda (m/->LambdaNode [(vref "_")] (m/->LiteralNode 42 nil nil  nil) [] nil nil nil  nil)
         f-var (vref "f")
-        call-f (m/->CallNode (vref "f") [(m/->LiteralNode 1 nil nil [] nil)] nil nil [] nil)
-        let-node (m/->LetNode [[f-var f-lambda]] call-f nil nil [] nil)
+        call-f (m/->CallNode (vref "f") [(m/->LiteralNode 1 nil nil  nil)] nil nil  nil)
+        let-node (m/->LetNode [[f-var f-lambda]] call-f nil nil  nil)
         [ty _ _] (typed/infer let-node {:frontend frontend})]
     (is (tcon? ty :int64) "调用应返回 int64")))
 
@@ -54,10 +54,10 @@
 (deftest poly-annotation-correct
   (reset-tv-id)
   (let [frontend (->MockFrontend)
-        x-var (m/->VariableNode "x" {:tag :int64} nil [] nil)
-        val-node (m/->LiteralNode 42 nil nil [] nil)
+        x-var (m/->VariableNode "x" {:tag :int64} nil nil)
+        val-node (m/->LiteralNode 42 nil nil nil)
         body (vref "x")
-        let-node (m/->LetNode [[x-var val-node]] body nil nil [] nil)
+        let-node (m/->LetNode [[x-var val-node]] body nil nil nil)
         [ty _ _] (typed/infer let-node {:frontend frontend})]
     (is (tcon? ty :int64) "标注变量类型应为 int64")))
 
@@ -65,10 +65,10 @@
 (deftest poly-annotation-mismatch
   (reset-tv-id)
   (let [frontend (->MockFrontend)
-        x-var (m/->VariableNode "x" {:tag :int64} nil [] nil)
-        val-node (m/->LiteralNode "hello" nil nil [] nil)
+        x-var (m/->VariableNode "x" {:tag :int64} nil  nil)
+        val-node (m/->LiteralNode "hello" nil nil  nil)
         body (vref "x")
-        let-node (m/->LetNode [[x-var val-node]] body nil nil [] nil)]
+        let-node (m/->LetNode [[x-var val-node]] body nil nil  nil)]
     (is (thrown? clojure.lang.ExceptionInfo
                  (typed/infer let-node {:frontend frontend}))
         "标注为 int64 时，值不能为 string")))
@@ -77,14 +77,14 @@
 (deftest nested-let-poly
   (reset-tv-id)
   (let [frontend (->MockFrontend)
-        f-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil [] nil)
+        f-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil  nil)
         f-var (vref "f")
-        g-body (m/->CallNode (vref "f") [(vref "y")] nil nil [] nil)
-        g-lambda (m/->LambdaNode [(vref "y")] g-body [] nil nil nil [] nil)
+        g-body (m/->CallNode (vref "f") [(vref "y")] nil nil  nil)
+        g-lambda (m/->LambdaNode [(vref "y")] g-body [] nil nil nil nil)
         g-var (vref "g")
-        call-g (m/->CallNode (vref "g") [(m/->LiteralNode 10 nil nil [] nil)] nil nil [] nil)
-        inner-let (m/->LetNode [[g-var g-lambda]] call-g nil nil [] nil)
-        outer-let (m/->LetNode [[f-var f-lambda]] inner-let nil nil [] nil)
+        call-g (m/->CallNode (vref "g") [(m/->LiteralNode 10 nil nil nil)] nil nil nil)
+        inner-let (m/->LetNode [[g-var g-lambda]] call-g nil nil  nil)
+        outer-let (m/->LetNode [[f-var f-lambda]] inner-let nil nil  nil)
         [ty _ _] (typed/infer outer-let {:frontend frontend})]
     (is (tcon? ty :int64) "嵌套 let 最终结果应为 int64")))
 
@@ -93,14 +93,14 @@
   (reset-tv-id)
   (let [frontend (->MockFrontend)
         apply-lambda (m/->LambdaNode [(vref "f") (vref "x")]
-                                     (m/->CallNode (vref "f") [(vref "x")] nil nil [] nil)
-                                     [] nil nil nil [] nil)
+                                     (m/->CallNode (vref "f") [(vref "x")] nil nil  nil)
+                                     [] nil nil nil  nil)
         apply-var (vref "apply")
-        id-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil [] nil)
+        id-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil nil)
         id-var (vref "id")
-        call-apply (m/->CallNode (vref "apply") [(vref "id") (m/->LiteralNode 42 nil nil [] nil)] nil nil [] nil)
-        let-id (m/->LetNode [[id-var id-lambda]] call-apply nil nil [] nil)
-        let-apply (m/->LetNode [[apply-var apply-lambda]] let-id nil nil [] nil)
+        call-apply (m/->CallNode (vref "apply") [(vref "id") (m/->LiteralNode 42 nil nil nil)] nil nil  nil)
+        let-id (m/->LetNode [[id-var id-lambda]] call-apply nil nil  nil)
+        let-apply (m/->LetNode [[apply-var apply-lambda]] let-id nil nil  nil)
         [ty _ _] (typed/infer let-apply {:frontend frontend})]
     (is (tcon? ty :int64) "apply id 42 应返回 int64")))
 
@@ -108,12 +108,12 @@
 (deftest multiple-poly-bindings
   (reset-tv-id)
   (let [frontend (->MockFrontend)
-        f-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil [] nil)
+        f-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil nil)
         f-var (vref "f")
-        g-lambda (m/->LambdaNode [(vref "y")] (m/->CallNode (vref "f") [(vref "y")] nil nil [] nil) [] nil nil nil [] nil)
+        g-lambda (m/->LambdaNode [(vref "y")] (m/->CallNode (vref "f") [(vref "y")] nil nil nil) [] nil nil nil nil)
         g-var (vref "g")
-        call-g-int (m/->CallNode (vref "g") [(m/->LiteralNode 10 nil nil [] nil)] nil nil [] nil)
-        let-f (m/->LetNode [[f-var f-lambda]] (m/->LetNode [[g-var g-lambda]] call-g-int nil nil [] nil) nil nil [] nil)
+        call-g-int (m/->CallNode (vref "g") [(m/->LiteralNode 10 nil nil nil)] nil nil  nil)
+        let-f (m/->LetNode [[f-var f-lambda]] (m/->LetNode [[g-var g-lambda]] call-g-int nil nil  nil) nil nil  nil)
         [ty _ _] (typed/infer let-f {:frontend frontend})]
     (is (tcon? ty :int64) "多个多态绑定最终应返回 int64")))
 
@@ -130,14 +130,14 @@
   (reset-tv-id)
   (let [frontend (->MockFrontend)
         ;; x 标注为 int64，值为 10
-        x-var (m/->VariableNode "x" {:tag :int64} nil [] nil)
-        val-x (m/->LiteralNode 10 nil nil [] nil)
+        x-var (m/->VariableNode "x" {:tag :int64} nil  nil)
+        val-x (m/->LiteralNode 10 nil nil nil)
         ;; f 多态函数 (fn [a] a)
-        f-lambda (m/->LambdaNode [(vref "a")] (vref "a") [] nil nil nil [] nil)
+        f-lambda (m/->LambdaNode [(vref "a")] (vref "a") [] nil nil nil nil)
         f-var (vref "f")
         ;; body: (f x) ，应返回 int64
-        body (m/->CallNode (vref "f") [(vref "x")] nil nil [] nil)
-        let-node (m/->LetNode [[x-var val-x] [f-var f-lambda]] body nil nil [] nil)
+        body (m/->CallNode (vref "f") [(vref "x")] nil nil nil)
+        let-node (m/->LetNode [[x-var val-x] [f-var f-lambda]] body nil nil  nil)
         [ty _ _] (typed/infer let-node {:frontend frontend})]
     (is (tcon? ty :int64) "混合标注与多态：f 应用于 int64 应返回 int64")))
 

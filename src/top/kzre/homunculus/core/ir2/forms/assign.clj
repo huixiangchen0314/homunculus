@@ -8,4 +8,4 @@
         var-node (first (ir2/lower-ast (first kids) env))
         val-node (first (ir2/lower-ast (second kids) env))
         meta (ir2/ir1-meta node)]
-    [(m/->AssignNode var-node val-node nil meta [var-node val-node] nil)]))
+    [(m/->AssignNode var-node val-node nil meta nil)]))

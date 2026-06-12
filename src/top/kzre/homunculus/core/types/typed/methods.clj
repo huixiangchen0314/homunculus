@@ -10,6 +10,7 @@
             [top.kzre.homunculus.core.types.typed.methods.define]
             [top.kzre.homunculus.core.types.typed.methods.vector]
             [top.kzre.homunculus.core.types.typed.methods.map]
+            [top.kzre.homunculus.core.types.typed.methods.while]
             [top.kzre.homunculus.core.types.typed.methods.try]           ;; 包含 :try, :catch, :throw
             [top.kzre.homunculus.core.types.typed.methods.assign]
             [top.kzre.homunculus.core.types.typed.methods.default]))

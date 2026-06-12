@@ -2,21 +2,22 @@
   "内联与提升闭包消除 pass 的单元测试（最终修正版）。"
   (:require [clojure.test :refer :all]
             [top.kzre.homunculus.core.types.inline-lift.core :as lift]
-            [top.kzre.homunculus.core.types.inline-lift.protocol :as cfg]
+            [top.kzre.homunculus.core.types.inline-lift.methods]
+            [top.kzre.homunculus.core.types.protocol :as p]
+            [top.kzre.homunculus.core.types.free-vars :as free-vars]
             [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
+            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+            [top.kzre.homunculus.core.types.subst :as subst]))
 
 ;; ── 辅助构造函数 ──────────────────────────
-(defn- vref [name] (m/->VariableNode name nil nil [] nil))
-(defn- lit [val] (m/->LiteralNode val nil nil [] nil))
+(defn- vref [name] (m/->VariableNode name nil nil nil))
+(defn- lit [val] (m/->LiteralNode val nil nil nil))
 
 (defn- call [fn-node & args]
-  (m/->CallNode fn-node (vec args) nil nil
-                (vec (cons fn-node args)) nil))
+  (m/->CallNode fn-node (vec args) nil nil nil))
 
 (defn- lam [params body]
-  (m/->LambdaNode params body [] nil nil nil
-                  (vec (concat params [body])) nil))
+  (m/->LambdaNode params body [] nil nil nil nil))
 
 (defn- block
   "构造 BlockNode。接受多个子节点，或一个集合。"
@@ -25,12 +26,10 @@
                (first exprs)
                exprs)
         exprs-vec (vec flat)]
-    (m/->BlockNode exprs-vec nil nil exprs-vec nil)))
+    (m/->BlockNode exprs-vec nil nil nil)))
 
 (defn- let-node [bindings body]
-  (m/->LetNode (vec bindings) body nil nil
-               (vec (concat (mapcat (fn [[v val]] [v val]) bindings) [body]))
-               nil))
+  (m/->LetNode (vec bindings) body nil nil nil))
 
 ;; ── 节点大小计算 ──────────────────────────
 (defn- node-size [node]
@@ -40,7 +39,7 @@
 
 ;; ── 配置 ──────────────────────────────────
 (defrecord TestConfig []
-  cfg/IInlineLiftConfig
+  p/IInlineLiftConfig
   (should-inline? [this lambda call-site]
     (< (node-size (:body lambda)) 10))
   (should-lift? [this lambda] true)
@@ -48,7 +47,7 @@
   (lift-name-gen [this lambda] (gensym "lifted")))
 
 (defrecord LiftOnlyConfig []
-  cfg/IInlineLiftConfig
+  p/IInlineLiftConfig
   (should-inline? [_ _ _] false)
   (should-lift? [_ _] true)
   (max-inline-size [_] 0)
@@ -58,17 +57,17 @@
 (deftest free-vars-test
   (testing "无自由变量的 lambda"
     (let [lam (lam [(vref "x")] (vref "x"))]
-      (is (empty? (lift/free-vars lam)))))
+      (is (empty? (free-vars/analyze lam)))))
   (testing "捕获自由变量的 lambda"
     (let [body (call (vref "f") (vref "y"))
           lam (lam [(vref "x")] body)]
-      (is (= #{"f" "y"} (lift/free-vars lam))))))
+      (is (= #{"f" "y"} (free-vars/analyze lam))))))
 
 (deftest inline-call-test
   (let [config (->TestConfig)
         id-lambda (lam [(vref "x")] (vref "x"))
         call-node (call id-lambda (lit 42))
-        result (lift/inline-call call-node id-lambda config)]
+        result (subst/inline-call call-node id-lambda config)]
     (is (and (satisfies? ir2p/INode result)
              (= (ir2p/kind result) :literal)
              (= (:val result) 42)))))
@@ -76,7 +75,7 @@
 (deftest lift-lambda-test
   (let [config (->TestConfig)
         lam (lam [(vref "x")] (vref "x"))
-        {:keys [define ref]} (lift/lift-lambda lam #{} config)]
+        {:keys [define ref]} (subst/lift-lambda lam #{} config)]
     (is (= (ir2p/kind define) :define))
     (is (= (ir2p/kind ref) :variable))
     (is (symbol? (:name define)))))

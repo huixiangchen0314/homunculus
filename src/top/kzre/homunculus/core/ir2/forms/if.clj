@@ -11,6 +11,5 @@
         test-node (first (ir2/lower-ast test env))
         then-node (first (ir2/lower-ast then env))
         else-node (when else (first (ir2/lower-ast else env)))
-        children (vec (if else-node [test-node then-node else-node] [test-node then-node]))
         meta (ir2/ir1-meta node)]
-    [(m/->IfNode test-node then-node else-node nil meta children nil)]))
+    [(m/->IfNode test-node then-node else-node nil meta  nil)]))

@@ -10,13 +10,14 @@
   (frontend-types [_] [:int64 :float64 :bool :string :keyword :nil])
   (literal->type [_ val]
     (cond
-      (instance? java.lang.Long val)    (t/->TCon :int64)
-      (instance? java.lang.Double val)  (t/->TCon :float64)
-      (instance? java.lang.Boolean val) (t/->TCon :bool)
-      (instance? java.lang.String val)  (t/->TCon :string)
-      (keyword? val)                    (t/->TCon :keyword)
-      (nil? val)                        (t/->TCon :nil)
-      :else (throw (ex-info "Unknown literal" {:val val}))))
+      (integer? val) (t/->TCon :int64)   ;; 所有整数均视为 int64
+      (float? val)   (t/->TCon :float64)
+      (string? val)  (t/->TCon :string)
+      (true? val)    (t/->TCon :bool)
+      (false? val)   (t/->TCon :bool)
+      (keyword? val) (t/->TCon :keyword)
+      (nil? val)     (t/->TCon :nil)
+      :else          (throw (ex-info "Unsupported literal" {:val val}))))
   (meta->type [_ node]
     (when-let [tag (or (get-in node [:meta :tag])
                        (get-in node [:attrs :tag]))]

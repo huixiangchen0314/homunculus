@@ -10,7 +10,7 @@
   (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]
            [top.kzre.homunculus.core.types.typed.scheme TScheme]))
 
-(defn- vref [name] (m/->VariableNode name nil nil [] nil))
+(defn- vref [name] (m/->VariableNode name nil nil  nil))
 
 ;; 测试 1：变量从环境获取单态类型
 (deftest variable-monomorphic-test
@@ -35,10 +35,10 @@
 ;; 测试 3：let 绑定单态值，body 使用该变量
 (deftest let-monomorphic-body-test
   (let [frontend (->MockFrontend)
-        val-node (m/->LiteralNode 42 nil nil [] nil)
+        val-node (m/->LiteralNode 42 nil nil  nil)
         var-node (vref "x")
         body-node (vref "x")
-        let-node (m/->LetNode [[var-node val-node]] body-node nil nil [] nil)
+        let-node (m/->LetNode [[var-node val-node]] body-node nil nil nil)
         [ty result _] (typed/infer let-node {:frontend frontend})]
     (is (tcon? ty :int64) (str "Got: " ty))
     (is (tcon? (get-type result) :int64))))
@@ -46,12 +46,12 @@
 ;; 测试 4：let 绑定多态值（lambda），body 中两次不同类型调用
 (deftest let-polymorphic-id-two-calls-test
   (let [frontend (->MockFrontend)
-        id-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil [] nil)
+        id-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil  nil)
         id-var (vref "id")
-        call-int (m/->CallNode (vref "id") [(m/->LiteralNode 42 nil nil [] nil)] nil nil [] nil)
-        call-str (m/->CallNode (vref "id") [(m/->LiteralNode "hello" nil nil [] nil)] nil nil [] nil)
-        body-block (m/->BlockNode [call-int call-str] nil nil [] nil)
-        let-node (m/->LetNode [[id-var id-lambda]] body-block nil nil [] nil)
+        call-int (m/->CallNode (vref "id") [(m/->LiteralNode 42 nil nil nil)] nil nil nil)
+        call-str (m/->CallNode (vref "id") [(m/->LiteralNode "hello" nil nil nil)] nil nil nil)
+        body-block (m/->BlockNode [call-int call-str] nil nil nil)
+        let-node (m/->LetNode [[id-var id-lambda]] body-block nil nil  nil)
         [ty result _] (typed/infer let-node {:frontend frontend})]
     (is (tcon? ty :string) "body 整体类型应为 string")
     (let [block (-> result :body)
@@ -63,14 +63,14 @@
 ;; 测试 5：嵌套 let 多态（f 作为多态函数，g 内部调用 f）
 (deftest nested-let-polymorphic-test
   (let [frontend (->MockFrontend)
-        f-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil [] nil)
+        f-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil nil)
         f-var (vref "f")
-        g-body (m/->CallNode (vref "f") [(vref "y")] nil nil [] nil)
-        g-lambda (m/->LambdaNode [(vref "y")] g-body [] nil nil nil [] nil)
+        g-body (m/->CallNode (vref "f") [(vref "y")] nil nil  nil)
+        g-lambda (m/->LambdaNode [(vref "y")] g-body [] nil nil nil  nil)
         g-var (vref "g")
-        call-g (m/->CallNode (vref "g") [(m/->LiteralNode 10 nil nil [] nil)] nil nil [] nil)
-        inner-let (m/->LetNode [[g-var g-lambda]] call-g nil nil [] nil)
-        outer-let (m/->LetNode [[f-var f-lambda]] inner-let nil nil [] nil)
+        call-g (m/->CallNode (vref "g") [(m/->LiteralNode 10 nil nil  nil)] nil nil nil)
+        inner-let (m/->LetNode [[g-var g-lambda]] call-g nil nil  nil)
+        outer-let (m/->LetNode [[f-var f-lambda]] inner-let nil nil nil)
         [ty _ _] (typed/infer outer-let {:frontend frontend})]
     (is (tcon? ty :int64) (str "Got: " ty))))
 
@@ -78,13 +78,13 @@
 (deftest high-order-let-test
   (let [frontend (->MockFrontend)
         apply-lambda (m/->LambdaNode [(vref "f") (vref "x")]
-                                     (m/->CallNode (vref "f") [(vref "x")] nil nil [] nil)
-                                     [] nil nil nil [] nil)
+                                     (m/->CallNode (vref "f") [(vref "x")] nil nil nil)
+                                     [] nil nil nil nil)
         apply-var (vref "apply")
-        id-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil [] nil)
+        id-lambda (m/->LambdaNode [(vref "x")] (vref "x") [] nil nil nil nil)
         id-var (vref "id")
-        call-apply (m/->CallNode (vref "apply") [(vref "id") (m/->LiteralNode 42 nil nil [] nil)] nil nil [] nil)
-        let-id (m/->LetNode [[id-var id-lambda]] call-apply nil nil [] nil)
-        let-apply (m/->LetNode [[apply-var apply-lambda]] let-id nil nil [] nil)
+        call-apply (m/->CallNode (vref "apply") [(vref "id") (m/->LiteralNode 42 nil nil nil)] nil nil nil)
+        let-id (m/->LetNode [[id-var id-lambda]] call-apply nil nil  nil)
+        let-apply (m/->LetNode [[apply-var apply-lambda]] let-id nil nil  nil)
         [ty _ _] (typed/infer let-apply {:frontend frontend})]
     (is (tcon? ty :int64) (str "Got: " ty))))

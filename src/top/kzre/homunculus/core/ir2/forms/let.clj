@@ -14,6 +14,5 @@
         body (if (= 1 (count body-kids))
                (first (ir2/lower-ast (first body-kids) env))
                (let [body-nodes (mapv #(first (ir2/lower-ast % env)) body-kids)]
-                 (m/->BlockNode body-nodes nil nil body-nodes nil)))
-        children (vec (concat (apply concat bind-pairs) [body]))]
-    [(m/->LetNode bind-pairs body nil meta children nil)]))
+                 (m/->BlockNode body-nodes nil nil  nil)))]
+    [(m/->LetNode bind-pairs body nil meta  nil)]))

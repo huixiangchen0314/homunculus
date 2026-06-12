@@ -5,11 +5,12 @@
 
 (defmethod ir2/lower-ast :def [node env]
   (let [meta     (ir2/ir1-meta node)
-        kids     (ir1p/children node)   ;; [name-ir, doc-ir?, attr-ir?, val-ir?]
-        name-ir  (first kids)
-        has-val  (> (count kids) 1)     ;; 除了 name-ir 还有其他子节点，则存在 val
-        val-ir   (when has-val (last kids))
-        name-node (first (ir2/lower-ast name-ir env))
-        val-node  (when val-ir (first (ir2/lower-ast val-ir env)))
-        children  (vec (if val-node [name-node val-node] [name-node]))]
-    [(m/->DefineNode (:name node) val-node (:doc node) (:attr node) meta children nil)]))
+        ;; 注意：build-tree 已把 :name 转成了 IR1 SymbolNode
+        sym-node (:name node)            ; ← SymbolNode
+        name-sym (:name sym-node)        ; ← 真正的符号，如 'x
+        val      (:val node)             ; IR1 节点或 nil
+        val-node (when val (first (ir2/lower-ast val env)))
+        ;; 文档字符串和属性映射也已转为 IR1 节点（可忽略或保留原值）
+        ;; 我们只需要将名称符号转为 IR2 VariableNode（但不用放入 children）
+        ]
+    [(m/->DefineNode name-sym val-node (:doc node) (:attr node) meta nil)]))

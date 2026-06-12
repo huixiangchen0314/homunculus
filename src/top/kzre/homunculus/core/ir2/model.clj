@@ -2,145 +2,170 @@
   "IR2 语言无关 AST 的节点记录定义。所有节点实现 INode 协议。"
   (:require [top.kzre.homunculus.core.ir2.protocol :as p]))
 
-(defrecord LiteralNode [val attrs meta children parent]
+(defrecord LiteralNode [val attrs meta parent]
   p/INode
   (kind [_] :literal)
-  (children [_] children)
+  ;; 字面量没有子节点
+  (children [_] [])
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord VariableNode [name attrs meta children parent]
+(defrecord VariableNode [name attrs meta  parent]
   p/INode
   (kind [_] :variable)
-  (children [_] children)
+  (children [_] [])   ; 明确返回空，忽略构造时传入的 children 字段
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord CallNode [fn args attrs meta children parent]
+(defrecord CallNode [fn args attrs meta  parent]
   p/INode
   (kind [_] :call)
-  (children [_] children)
+  ;; children = [fn] + args（过滤 nil）
+  (children [_] (into (if fn [fn] []) (remove nil? args)))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord IfNode [test then else attrs meta children parent]
+(defrecord IfNode [test then else attrs meta  parent]
   p/INode
   (kind [_] :if)
-  (children [_] children)
+  (children [_] (into [test then]
+                      (if else [else] [])))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord BlockNode [exprs attrs meta children parent]
+(defrecord BlockNode [exprs attrs meta  parent]
   p/INode
   (kind [_] :block)
-  (children [_] children)
+  (children [_] (vec exprs))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord LetNode [bindings body attrs meta children parent]
+(defrecord LetNode [bindings body attrs meta  parent]
   p/INode
   (kind [_] :let)
-  (children [_] children)
+  ;; children = 每个绑定的 var 和 val（都是 INode） + body
+  (children [_] (into (mapcat (fn [[v e]] [v e]) bindings)
+                      [body]))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord LoopNode [bindings body attrs meta children parent]
+(defrecord LoopNode [bindings body attrs meta  parent]
   p/INode
   (kind [_] :loop)
-  (children [_] children)
+  (children [_] (into (mapcat (fn [[v e]] [v e]) bindings)
+                      [body]))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord RecurNode [args attrs meta children parent]
+(defrecord RecurNode [args attrs meta parent]
   p/INode
   (kind [_] :recur)
-  (children [_] children)
+  (children [_] (vec args))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord LambdaNode [params body captures fn-name attrs meta children parent]
+(defrecord LambdaNode [params body captures fn-name attrs meta  parent]
   p/INode
   (kind [_] :lambda)
-  (children [_] children)
+  ;; params 是 VariableNode 列表，body 是子节点
+  (children [_] (into (vec params) [body]))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord DefineNode [name val doc attrs meta children parent]
+
+
+
+
+(defrecord DefineNode [name val doc attrs meta  parent]
   p/INode
   (kind [_] :define)
-  (children [_] children)          ;; children 仅包含 val（如果有）
+  ;; val 通常是一个 LambdaNode，加入 children
+  (children [_] (if val [val] []))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord VectorNode [items attrs meta children parent]
+(defrecord VectorNode [items attrs meta  parent]
   p/INode
   (kind [_] :vector)
-  (children [_] children)
+  (children [_] (vec items))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord MapNode [kvs attrs meta children parent]
+(defrecord MapNode [kvs attrs meta  parent]
   p/INode
   (kind [_] :map)
-  (children [_] children)
+  ;; kvs 是交替的键值对，全都是 INode
+  (children [_] (vec kvs))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord TryNode [body catches finally attrs meta children parent]
+(defrecord TryNode [body catches finally attrs meta  parent]
   p/INode
   (kind [_] :try)
-  (children [_] children)
+  (children [_] (into (vec body)
+                      (concat catches
+                              (if finally [finally] []))))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord CatchNode [class sym body attrs meta children parent]
+(defrecord CatchNode [class sym body attrs meta  parent]
   p/INode
   (kind [_] :catch)
-  (children [_] children)
+  ;; sym 是 VariableNode，body 是表达式
+  (children [_] [sym body])
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord ThrowNode [expr attrs meta children parent]
+(defrecord ThrowNode [expr attrs meta  parent]
   p/INode
   (kind [_] :throw)
-  (children [_] children)
+  (children [_] [expr])
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord AssignNode [var val attrs meta children parent]
+(defrecord AssignNode [var val attrs meta  parent]
   p/INode
   (kind [_] :assign)
-  (children [_] children)
+  (children [_] [var val])
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+(defrecord WhileNode [test body attrs meta  parent]
+  p/INode
+  (kind [_] :while)
+  (children [_] [test body])
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)

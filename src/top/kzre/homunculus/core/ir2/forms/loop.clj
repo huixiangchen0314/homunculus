@@ -14,11 +14,10 @@
         body (if (= 1 (count body-kids))
                (first (ir2/lower-ast (first body-kids) env))
                (let [body-nodes (mapv #(first (ir2/lower-ast % env)) body-kids)]
-                 (m/->BlockNode body-nodes nil nil body-nodes nil)))
-        children (vec (concat (apply concat bind-pairs) [body]))]
-    [(m/->LoopNode bind-pairs body nil meta children nil)]))
+                 (m/->BlockNode body-nodes nil nil  nil)))]
+    [(m/->LoopNode bind-pairs body nil meta  nil)]))
 
 (defmethod ir2/lower-ast :recur [node env]
   (let [args (mapv #(first (ir2/lower-ast % env)) (ir1p/children node))
         meta (ir2/ir1-meta node)]
-    [(m/->RecurNode args nil meta args nil)]))
+    [(m/->RecurNode args nil meta nil)]))

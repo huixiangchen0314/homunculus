@@ -16,17 +16,14 @@
           [bind-nodes env-ext s-bindings]
           (reduce (fn [[bnds env subst] [var-node val-node]]
                     (let [[val-ty val-node' s-val] (infer/infer val-node (assoc context :env env))
-                          ;; 合并当前替换和该绑定的替换
                           subst' (merge subst s-val)
-                          ;; 应用合并后的替换到值类型和标注类型
                           val-ty' (u/substitute val-ty subst')
                           annot-ty (when-let [f (:frontend context)] (tp/meta->type f var-node))
                           env-subst (infer/apply-subst-to-env env subst')
-                          ;; 决定绑定类型：有标注时，统一标注与值类型，使用标注类型（单态）
                           binding (if annot-ty
                                     (let [annot-ty' (u/substitute annot-ty subst')]
-                                      (u/unify val-ty' annot-ty')   ;; 确保值类型与标注兼容
-                                      annot-ty')                     ;; 存储标注类型（单态）
+                                      (u/unify val-ty' annot-ty')
+                                      annot-ty')
                                     (s/generalize val-ty' env-subst))
                           var-name (:name var-node)
                           env2 (e/extend-env env var-name binding)

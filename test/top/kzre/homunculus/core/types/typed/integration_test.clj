@@ -17,10 +17,10 @@
   (let [frontend (->MockFrontend)
         backend  (->MockBackend)
 
-        val-node (m/->LiteralNode 42 nil nil [] nil)
-        var-node (m/->VariableNode "x" nil nil [] nil)
-        body-node (m/->VariableNode "x" nil nil [] nil)
-        let-node (m/->LetNode [[var-node val-node]] body-node nil nil [] nil)
+        val-node (m/->LiteralNode 42 nil nil nil)
+        var-node (m/->VariableNode "x" nil nil nil)
+        body-node (m/->VariableNode "x" nil nil nil)
+        let-node (m/->LetNode [[var-node val-node]] body-node nil nil nil)
 
         ;; infer
         infer-result (first (infer/run [let-node] :frontend frontend))
@@ -40,7 +40,7 @@
   (let [frontend (->MockFrontend)
         backend  (->MockBackend)
 
-        lit-node (m/->LiteralNode 42 nil nil [] nil)
+        lit-node (m/->LiteralNode 42 nil nil nil)
 
         ;; infer
         infer-result (first (infer/run [lit-node] :frontend frontend))
