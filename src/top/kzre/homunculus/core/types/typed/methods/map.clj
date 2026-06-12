@@ -5,7 +5,7 @@
 
 (defmethod infer/infer :map [node context]
   (if-let [existing (get-in node [:attrs :type])]
-    [existing node]
+    [existing node {}]
     (let [kvs (:kvs node)
           pairs (partition 2 kvs)
           inferred (mapcat (fn [[k v]]

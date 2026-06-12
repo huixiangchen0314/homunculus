@@ -4,6 +4,6 @@
 
 (defmethod infer/infer :default [node context]
   (if-let [existing (get-in node [:attrs :type])]
-    [existing node]
+    [existing node {}]
     (throw (ex-info (str "Type inference not implemented for " (ir2p/kind node))
                     {:node node}))))

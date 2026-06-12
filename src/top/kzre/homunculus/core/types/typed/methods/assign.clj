@@ -6,7 +6,7 @@
 
 (defmethod infer/infer :assign [node context]
   (if-let [existing (get-in node [:attrs :type])]
-    [existing node]
+    [existing node {}]
     (let [[var-ty var-node] (infer/infer (:var node) context)
           [val-ty val-node] (infer/infer (:val node) context)]
       (u/unify var-ty val-ty)

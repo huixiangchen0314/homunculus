@@ -7,22 +7,20 @@
 
 (defn- infer-branch [branch context]
   (if branch
-    (let [[ty node] (infer/infer branch context)]
-      [ty node])
-    [nil nil]))
+    (let [[ty node s] (infer/infer branch context)]
+      [ty node s])
+    [nil nil {}]))
 
 (defmethod infer/infer :if [node context]
   (if-let [existing (get-in node [:attrs :type])]
-    [existing node]
-    (let [[test-ty test-node] (infer/infer (:test node) context)
+    [existing node {}]
+    (let [[test-ty test-node s-test] (infer/infer (:test node) context)
           _ (u/unify test-ty (t/->TCon :bool))
-          [then-ty then-node] (infer/infer (:then node) context)
-          [else-ty else-node] (infer-branch (:else node) context)]
+          [then-ty then-node s-then] (infer/infer (:then node) context)
+          [else-ty else-node s-else] (infer-branch (:else node) context)]
       (when (and else-ty (not= (ir2p/kind (:then node)) :recur))
         (u/unify then-ty else-ty))
       (let [overall-ty (if (= (ir2p/kind (:then node)) :recur) else-ty then-ty)
-            new-attrs (assoc (ir2p/attrs node) :type overall-ty)
-            new-node (-> node
-                         (assoc :test test-node :then then-node :else else-node)
-                         (assoc :attrs new-attrs))]
-        [overall-ty new-node]))))
+            s (merge s-test s-then s-else)
+            new-attrs (assoc (ir2p/attrs node) :type overall-ty)]
+        [overall-ty (assoc node :test test-node :then then-node :else else-node :attrs new-attrs) s]))))

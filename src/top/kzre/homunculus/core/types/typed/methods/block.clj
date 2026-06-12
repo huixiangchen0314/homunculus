@@ -5,12 +5,14 @@
 
 (defmethod infer/infer :block [node context]
   (if-let [existing (get-in node [:attrs :type])]
-    [existing node]
+    [existing node {}]
     (let [exprs (:exprs node)
-          inferred (map #(infer/infer % context) exprs)
-          types (map first inferred)
-          nodes (map second inferred)
+          ;; 推导每个表达式并收集替换
+          results (map #(infer/infer % context) exprs)
+          types (map first results)
+          nodes (map second results)
+          substs (map #(nth % 2) results)
           last-ty (if (seq types) (last types) (t/->TCon :nil))
-          new-attrs (assoc (ir2p/attrs node) :type last-ty)
-          new-node (assoc node :exprs (vec nodes) :attrs new-attrs)]
-      [last-ty new-node])))
+          s (reduce merge {} substs)
+          new-attrs (assoc (ir2p/attrs node) :type last-ty)]
+      [last-ty (assoc node :exprs (vec nodes) :attrs new-attrs) s])))

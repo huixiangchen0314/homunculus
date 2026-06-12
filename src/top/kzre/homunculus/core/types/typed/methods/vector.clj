@@ -5,7 +5,7 @@
 
 (defmethod infer/infer :vector [node context]
   (if-let [existing (get-in node [:attrs :type])]
-    [existing node]
+    [existing node {}]
     (let [items (:items node)
           inferred (map #(infer/infer % context) items)
           item-nodes (mapv second inferred)

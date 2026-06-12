@@ -6,10 +6,10 @@
 
 (defmethod infer/infer :literal [node context]
   (if-let [existing (get-in node [:attrs :type])]
-    [existing node]
+    [existing node {}]
     (let [frontend (:frontend context)
           ty (or (when frontend (tp/meta->type frontend node))
                  (when frontend (tp/literal->type frontend (:val node)))
                  (t/->TVar (gensym "lit")))
           new-attrs (assoc (ir2p/attrs node) :type ty)]
-      [ty (assoc node :attrs new-attrs)])))
+      [ty (assoc node :attrs new-attrs) {}])))

@@ -6,7 +6,7 @@
 
 (defmethod infer/infer :try [node context]
   (if-let [existing (get-in node [:attrs :type])]
-    [existing node]
+    [existing node {}]
     (let [body-irs (:body node)
           catch-irs (:catches node)
           finally-irs (:finally node)
@@ -37,7 +37,7 @@
 
 (defmethod infer/infer :catch [node context]
   (if-let [existing (get-in node [:attrs :type])]
-    [existing node]
+    [existing node {}]
     (let [body-irs (:body node)
           [body-ty body-nodes] (reduce (fn [[tys nodes] ir]
                                          (let [[ty nd] (infer/infer ir context)]

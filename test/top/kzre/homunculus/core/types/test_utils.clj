@@ -26,7 +26,12 @@
   (infer-collection-type [_ form] nil)
   (collection-type-ctor [_ kind element-type shape] nil))
 
-(defn get-type [node] (-> node ir2p/attrs :type))
+(defn get-type [node]
+  (cond
+    (satisfies? ir2p/INode node) (let [a (ir2p/attrs node)]
+                                   (when a (:type a)))
+    (map? node) (-> node :attrs :type)
+    :else nil))
 
 (defn tcon? [ty name]
   (and (instance? TCon ty) (= name (:name ty))))
