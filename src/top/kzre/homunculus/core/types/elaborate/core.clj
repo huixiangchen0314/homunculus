@@ -6,12 +6,12 @@
             [top.kzre.homunculus.core.types.inline-lift.core :as lift]
             [clojure.set :as set]))
 
-;; ── 辅助：自由变量分析 ──────────────────────────
+;; ── 自由变量分析 ──
 (defn free-vars [lambda-node]
   (let [bound (set (map :name (:params lambda-node)))]
     (set/difference (lift/free-vars (:body lambda-node)) bound)))
 
-;; ── 查找顶层函数定义 ──────────────────────────
+;; ── 查找顶层函数定义 ──
 (defn find-toplevel-define [ir2-roots name]
   (some (fn [root]
           (when (and (satisfies? ir2p/INode root)
@@ -23,7 +23,7 @@
 (defn fresh-name [base]
   (symbol (str (name base) "_" (gensym ""))))
 
-;; ── 树替换（仅针对根列表中指针相等的节点） ──
+;; ── 树替换 ──
 (defn replace-node [tree old new]
   (if (identical? tree old)
     new
@@ -32,12 +32,8 @@
         (clojure.core/assoc tree :children new-children))
       tree)))
 
-;; ── 内联 let 绑定中的闭包 ─────────────────────
-;; 注意：这里仅处理闭包作为绑定值、且变量在 body 中被调用的简单情况。
-;; 更复杂的情况（如变量被传递）需由单态化处理。
-(defn- subst-var
-  "在 node 树中，将所有对变量 var-name 的引用替换为 replacement。"
-  [node var-name replacement]
+;; ── 变量替换（用于内联）──
+(defn subst-var [node var-name replacement]
   (if (and (satisfies? ir2p/INode node)
            (= (ir2p/kind node) :variable)
            (= (:name node) var-name))
@@ -80,7 +76,6 @@
       (if-let [[var val] (first remaining)]
         (if (and (satisfies? ir2p/INode val)
                  (= (ir2p/kind val) :lambda))
-          ;; 内联：将 body 中对 var 的引用直接替换为闭包体
           (let [new-body' (subst-var new-body (:name var) val)]
             (recur (rest remaining) new-bindings new-body'))
           (recur (rest remaining) (conj new-bindings [var val]) new-body))
@@ -88,69 +83,94 @@
           (assoc let-node :bindings (vec new-bindings) :body new-body)
           new-body)))))
 
-;; ── 上下文收集 ──────────────────────────────
-(defn- lambda-contexts [ir2-roots]
+;; ── 判断是否为已知顶层函数 ──
+(defn- known-fn-name? [ir2-roots node]
+  (and (satisfies? ir2p/INode node)
+       (= (ir2p/kind node) :variable)
+       (find-toplevel-define ir2-roots (symbol (:name node)))))
+
+;; ── 上下文收集 ──
+(defn lambda-contexts [ir2-roots]
   (let [ctxs (atom [])]
-    (letfn [(walk [node parent role index]
+    (letfn [(walk [node parent role index extra]
               (when (satisfies? ir2p/INode node)
                 (when (and (= (ir2p/kind node) :lambda)
-                           ;; 跳过顶层 define 内部的 lambda
                            (not (and parent (= (ir2p/kind parent) :define))))
-                  (swap! ctxs conj {:lambda node :parent parent :role role :index index}))
+                  (swap! ctxs conj (merge {:lambda node :parent parent :role role :index index} extra)))
                 (case (ir2p/kind node)
                   :call
-                  (do (walk (:fn node) node :fn nil)
-                      (doseq [[i arg] (map-indexed vector (:args node))]
-                        (walk arg node :args i)))
+                  (let [fn-node (:fn node)]
+                    (walk fn-node node :fn nil nil)
+                    (doseq [[i arg] (map-indexed vector (:args node))]
+                      (if (known-fn-name? ir2-roots fn-node)
+                        (walk arg node :args-to-known-fn i {:target-fn-name (symbol (:name fn-node))})
+                        (walk arg node :args i nil))))
                   :let
-                  (do (doseq [[i [var val]] (map-indexed vector (:bindings node))]
-                        (walk var node :let-var i)
-                        (walk val node :let-val i))
-                      (walk (:body node) node :body nil))
+                  (do
+                    (doseq [[i [var val]] (map-indexed vector (:bindings node))]
+                      (walk var node :let-var i nil)
+                      (walk val node :let-val i nil))
+                    (walk (:body node) node :body nil nil))
                   :block
                   (doseq [[i expr] (map-indexed vector (:exprs node))]
-                    (walk expr node :block-expr i))
+                    (walk expr node :block-expr i nil))
                   :if
-                  (do (walk (:test node) node :test nil)
-                      (walk (:then node) node :then nil)
-                      (when (:else node) (walk (:else node) node :else nil)))
+                  (do
+                    (walk (:test node) node :test nil nil)
+                    (walk (:then node) node :then nil nil)
+                    (when (:else node) (walk (:else node) node :else nil nil)))
                   :lambda
-                  (walk (:body node) node :lambda-body nil)
+                  (walk (:body node) node :lambda-body nil nil)
+                  :assign
+                  (do
+                    (walk (:var node) node :assign-var nil nil)
+                    (walk (:val node) node :assign-val nil nil))
                   ;; 其他节点通过 children 遍历
                   (doseq [c (ir2p/children node)]
-                    (walk c node :child nil)))))]
+                    (walk c node :child nil nil)))))]
       (doseq [root ir2-roots]
-        (walk root nil :root nil)))
+        (walk root nil :root nil nil)))
     @ctxs))
 
-;; ── 处理单个 lambda ────────────────────────
+;; ── 处理单个 lambda ──
 (defn- process-lambda [ctx ir2-roots config]
   (let [lam (:lambda ctx)
         parent (:parent ctx)
         role (:role ctx)]
     (case role
-      :fn   ;; 直接调用点，内联
+      :fn
       (let [call-node parent
             inlined (lift/inline-call call-node lam config)]
         (mapv #(replace-node % call-node inlined) ir2-roots))
-      :let-val   ;; let 绑定值，内联该绑定
+      :let-val
       (let [let-node parent
             new-let (inline-let-binding let-node)]
         (mapv #(replace-node % let-node new-let) ir2-roots))
-      :args   ;; 作为参数传递（需单态化，暂不处理）
+      :args-to-known-fn   ;; 单态化（暂未实现）
       ir2-roots
-      ;; 其他角色（如 :child, :lambda-body 等）忽略
+      :return   ;; 返回闭包（暂不处理，严格模式下报错）
+      (do
+        (when (cfg/strict-mode? config)
+          (cfg/on-unresolved config lam))
+        ir2-roots)
+      :assign   ;; 存储闭包（暂不处理）
+      (do
+        (when (cfg/strict-mode? config)
+          (cfg/on-unresolved config lam))
+        ir2-roots)
+      ;; 其他角色忽略
       ir2-roots)))
 
-;; ── 主迭代 ────────────────────────────────
+;; ── 主迭代 ──
 (defn elaborate [ir2-roots config]
-  (let [max-iter (cfg/max-iterations config)]
+  (let [max-iter (cfg/max-iterations config)
+        strict?  (cfg/strict-mode? config)]
     (loop [roots ir2-roots iter 0]
       (let [ctxs (lambda-contexts roots)]
         (if (empty? ctxs)
           roots
           (if (>= iter max-iter)
-            (if (cfg/strict-mode? config)
+            (if strict?
               (throw (ex-info "Unable to eliminate all closures" {:contexts ctxs}))
               roots)
             (let [new-roots (reduce (fn [acc ctx] (process-lambda ctx acc config)) roots ctxs)]
