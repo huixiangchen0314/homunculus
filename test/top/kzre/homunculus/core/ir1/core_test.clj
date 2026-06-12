@@ -191,7 +191,7 @@
   (testing "let 绑定"
     (let [node (ir1/->ir1 '(let* [x 1 y 2] (+ x y)))
           kids (p/children node)]
-      (is (node? node :let*))
+      (is (node? node :let))          ;; 原 :let* 改为 :let
       ;; bindings: sym1, val1, sym2, val2, body
       (is (= 5 (count kids)))
       (is (symbol-node? (first kids) 'x))
@@ -204,7 +204,7 @@
   (testing "匿名函数"
     (let [node (ir1/->ir1 '(fn* [a b] (+ a b)))
           kids (p/children node)]
-      (is (node? node :fn*))
+      (is (node? node :fn))           ;; 原 :fn* 改为 :fn
       ;; params: a, b, body
       (is (= 3 (count kids)))
       (is (symbol-node? (first kids) 'a))
@@ -213,7 +213,7 @@
   (testing "具名函数"
     (let [node (ir1/->ir1 '(fn* my-add [a b] (+ a b)))
           kids (p/children node)]
-      (is (node? node :fn*))
+      (is (node? node :fn))           ;; 原 :fn* 改为 :fn
       ;; name, a, b, body
       (is (= 4 (count kids)))
       (is (symbol-node? (first kids) 'my-add))

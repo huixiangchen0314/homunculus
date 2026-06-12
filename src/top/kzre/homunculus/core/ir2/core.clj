@@ -40,10 +40,10 @@
 ;; 特殊形式占位
 (defmethod lower-ast :if    [node env] nil)
 (defmethod lower-ast :do    [node env] nil)
-(defmethod lower-ast :let*  [node env] nil)
-(defmethod lower-ast :fn*   [node env] nil)
+(defmethod lower-ast :let  [node env] nil)
+(defmethod lower-ast :fn   [node env] nil)
 (defmethod lower-ast :def   [node env] nil)
-(defmethod lower-ast :loop* [node env] nil)
+(defmethod lower-ast :loop  [node env] nil)      ;; 原为 :loop*
 (defmethod lower-ast :recur [node env] nil)
 (defmethod lower-ast :quote [node env] nil)
 (defmethod lower-ast :try   [node env] nil)

@@ -8,7 +8,7 @@
         bind-count (/ (count bindings) 2)]
     (m/->LetNode bindings body bind-count nil [] nil)))
 
-(defmethod ir1/build-tree :let* [node]
+(defmethod ir1/build-tree :let [node]
   (let [bindings (:bindings node)
         body     (:body node)
         bind-pairs (partition 2 bindings)

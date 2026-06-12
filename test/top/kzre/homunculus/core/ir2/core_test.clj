@@ -1,6 +1,4 @@
-;; ═══════════════════════════════════════════════════════
-;; ir2/core_test.clj（修正后）
-;; ═══════════════════════════════════════════════════════
+
 (ns top.kzre.homunculus.core.ir2.core-test
   (:require [clojure.test :refer :all]
             [top.kzre.homunculus.core.ir1.core :as ir1]
@@ -28,6 +26,3 @@
     (is (literal-node? node 42))
     (is (nil? (p/attrs node)))
     (is (empty? (p/children node)))))
-
-;; 其他测试用例均采用 (ir2/lower [(ir1/->ir1 ...)]) 模式，使用 p/children 访问子节点，
-;; 此处只给出一个示例，其余可按同样方式修正。

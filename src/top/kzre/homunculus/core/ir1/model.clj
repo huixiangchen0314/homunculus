@@ -62,7 +62,7 @@
 
 (defrecord LetNode [bindings body bindings-count meta children parent]
   p/INode
-  (kind [_] :let*)
+  (kind [_] :let)
   (children [_] children)
   (node-meta [_] meta)
   (parent [_] parent)
@@ -70,7 +70,7 @@
 
 (defrecord FnNode [name params body meta children parent]
   p/INode
-  (kind [_] :fn*)
+  (kind [_] :fn)
   (children [_] children)
   (node-meta [_] meta)
   (parent [_] parent)

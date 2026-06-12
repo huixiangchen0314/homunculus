@@ -10,7 +10,7 @@
                              [nil maybe-name (cons params body)])]
     (m/->FnNode name (mapv (fn [p] {:sym p :meta (meta p)}) params) body nil [] nil)))
 
-(defmethod ir1/build-tree :fn* [node]
+(defmethod ir1/build-tree :fn [node]
   (let [name (:name node)
         params (:params node)
         body   (:body node)
