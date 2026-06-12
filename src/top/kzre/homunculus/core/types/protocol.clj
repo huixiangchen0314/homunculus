@@ -18,7 +18,10 @@
   (literal->type       [this value] "根据 Clojure 字面量推断前端类型（IType）")
   (meta->type          [this meta-node] "从元数据提取类型标注")
   (infer-collection-type [this form] "根据 Clojure 集合字面量推断 TContainer")
-  (collection-type-ctor [this kind element-type shape] "构造一个 TContainer"))
+  (collection-type-ctor [this kind element-type shape] "构造一个 TContainer")
+  (builtin-functions [this]
+    "返回该语言的内置函数类型环境，键为符号，值为 IType（通常为 TFun 或多态类型）。HM 推断以此为基础。")
+  )
 
 ;; ── 后端信息 ──────────────────────────────
 (defprotocol IBackendInfo
