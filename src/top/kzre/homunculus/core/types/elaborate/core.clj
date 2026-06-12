@@ -132,6 +132,60 @@
         (walk root nil :root nil nil)))
     @ctxs))
 
+(defn- monomorphize [ctx ir2-roots config]
+  (let [lam (:lambda ctx)
+        call-node (:parent ctx)
+        target-fn-name (:target-fn-name ctx)
+        idx (:index ctx)
+        target-define (find-toplevel-define ir2-roots target-fn-name)
+        _ (when-not target-define
+            (throw (ex-info "Target function not found" {:name target-fn-name})))
+        ;; 自由变量，只保留在 ir2-roots 中有顶层 define 的变量（排除全局函数引用）
+        fv (set (filter #(find-toplevel-define ir2-roots %) (free-vars lam)))
+        ;; 1. 提升闭包为顶层函数
+        lifted-name (fresh-name (or (:fn-name lam) 'closure))
+        new-params (into (:params lam) (mapv #(m/->VariableNode % nil nil [] nil) fv))
+        lifted-define (m/->DefineNode lifted-name
+                                      (assoc lam :params new-params)
+                                      nil nil nil [] nil)
+        ;; 2. 克隆目标函数体，替换形参引用
+        target-val (:val target-define)
+        target-params (:params target-val)
+        formal-param (nth target-params idx)
+        replace-fn (fn replace-fn [node]
+                     (if (and (satisfies? ir2p/INode node)
+                              (= (ir2p/kind node) :variable)
+                              (= (:name node) (:name formal-param)))
+                       (m/->VariableNode (name lifted-name) nil nil [] nil)
+                       (if (satisfies? ir2p/INode node)
+                         (let [new-children (mapv replace-fn (ir2p/children node))]
+                           (clojure.core/assoc node :children new-children))
+                         node)))
+        cloned-body (replace-fn (:body target-val))
+        ;; 3. 创建特化函数定义
+        specialized-name (fresh-name target-fn-name)
+        specialized-lambda (assoc target-val :body cloned-body :params target-params)
+        specialized-define (m/->DefineNode specialized-name
+                                           specialized-lambda
+                                           nil nil nil [] nil)
+        ;; 4. 更新调用点
+        old-args (:args call-node)
+        ;; 替换闭包实参为提升后的引用
+        new-args (assoc old-args idx (m/->VariableNode (name lifted-name) nil nil [] nil))
+        ;; 插入自由变量值（假设在调用环境中存在同名变量）
+        new-args (vec (concat (subvec new-args 0 (inc idx))
+                              (mapv #(m/->VariableNode % nil nil [] nil) fv)
+                              (subvec new-args (inc idx))))
+        new-call (assoc call-node
+                   :fn (m/->VariableNode (name specialized-name) nil nil [] nil)
+                   :args new-args)
+        ;; 5. 组装新的根列表
+        new-roots (-> (remove #(identical? % call-node) ir2-roots)
+                      (conj lifted-define)
+                      (conj specialized-define)
+                      (conj new-call))]
+    new-roots))
+
 ;; ── 处理单个 lambda ──
 (defn- process-lambda [ctx ir2-roots config]
   (let [lam (:lambda ctx)
@@ -146,19 +200,18 @@
       (let [let-node parent
             new-let (inline-let-binding let-node)]
         (mapv #(replace-node % let-node new-let) ir2-roots))
-      :args-to-known-fn   ;; 单态化（暂未实现）
-      ir2-roots
-      :return   ;; 返回闭包（暂不处理，严格模式下报错）
+      :args-to-known-fn
+      (monomorphize ctx ir2-roots config)   ;; 调用单态化
+      :return
       (do
         (when (cfg/strict-mode? config)
           (cfg/on-unresolved config lam))
         ir2-roots)
-      :assign   ;; 存储闭包（暂不处理）
+      :assign
       (do
         (when (cfg/strict-mode? config)
           (cfg/on-unresolved config lam))
         ir2-roots)
-      ;; 其他角色忽略
       ir2-roots)))
 
 ;; ── 主迭代 ──
@@ -166,12 +219,16 @@
   (let [max-iter (cfg/max-iterations config)
         strict?  (cfg/strict-mode? config)]
     (loop [roots ir2-roots iter 0]
+      (println "elaborate iteration" iter)
       (let [ctxs (lambda-contexts roots)]
+        (println "contexts:" ctxs)
         (if (empty? ctxs)
           roots
           (if (>= iter max-iter)
             (if strict?
               (throw (ex-info "Unable to eliminate all closures" {:contexts ctxs}))
               roots)
-            (let [new-roots (reduce (fn [acc ctx] (process-lambda ctx acc config)) roots ctxs)]
+            (let [new-roots (reduce (fn [acc ctx]
+                                      (process-lambda ctx acc config))
+                                    roots ctxs)]
               (recur new-roots (inc iter)))))))))
