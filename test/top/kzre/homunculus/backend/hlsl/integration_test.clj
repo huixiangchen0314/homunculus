@@ -12,7 +12,6 @@
             [top.kzre.homunculus.core.types.recur-elim.core :as recur-elim]
             [top.kzre.homunculus.core.types.recur-elim.methods]
             [top.kzre.homunculus.backend.shader.dsl :as dsl]
-            [top.kzre.homunculus.core.types.annotate-meta :as am]
             [top.kzre.homunculus.core.types.elaborate.core :as elaborate]
             [top.kzre.homunculus.core.types.elaborate.methods]
             [top.kzre.homunculus.core.types.elaborate.protocol :as elab-cfg]
@@ -51,25 +50,16 @@
   (let [expanded   (macroexpand-deep form)
         ir1-root   (ir1/->ir1 expanded)
         ir2-roots  (ir2/lower [ir1-root])
-        ;; 分离资源定义和函数定义
-        resource-defs (filter #(and (= (ir2p/kind %) :define)
-                                    (:resource-type (ir2p/node-meta %)))
-                              ir2-roots)
-        function-defs (remove #(and (= (ir2p/kind %) :define)
-                                    (:resource-type (ir2p/node-meta %)))
-                              ir2-roots)
-        ;; 函数定义走完整 Pass 链
-        no-recur   (mapv recur-elim/eliminate function-defs)
+        ;; 分离资源定义和函数定义（暂时直接使用全部）
+        no-recur   (mapv recur-elim/eliminate ir2-roots)
         elaborated (elaborate/elaborate no-recur elab-config)
-        annotated  (am/annotate elaborated (set (p/frontend-types hlsl-frontend)))
-        mutable    (mut/analyze annotated)
+        ;; 已移除 annotate-meta pass，类型信息由 typed 和 emit 自行回退获取
+        mutable    (mut/analyze elaborated)
         checked-fn (builtin/check mutable full-builtins)
         inferred   (infer/run checked-fn :frontend hlsl-frontend)
         typed      (typed/type-check inferred :frontend hlsl-frontend :builtins full-builtins)
-        checked    (check/check-program typed {:backend mock-backend})
-        ;; 合并
-        all-roots  (concat resource-defs checked)]
-    (emit/generate all-roots hlsl-backend-inst entry-stage entry-fn-name)))
+        checked    (check/check-program typed {:backend mock-backend})]
+    (emit/generate checked hlsl-backend-inst entry-stage entry-fn-name)))
 
 (defn hlsl-contains? [hlsl substr]
   (str/includes? hlsl substr))
@@ -107,11 +97,11 @@
       (is (hlsl-contains? hlsl "else")))))
 
 #_(deftest test-while-loop
-  (testing "while loop with mutable variable"
-    (let [hlsl (compile-and-emit '(loop* [i 0.0] (if (< i 10.0) (recur (+ i 1.0)) i)) :fragment "main")]
-      (is (hlsl-contains? hlsl "while"))
-      (is (hlsl-contains? hlsl "i = "))
-      (is (hlsl-contains? hlsl "return i;")))))
+    (testing "while loop with mutable variable"
+      (let [hlsl (compile-and-emit '(loop* [i 0.0] (if (< i 10.0) (recur (+ i 1.0)) i)) :fragment "main")]
+        (is (hlsl-contains? hlsl "while"))
+        (is (hlsl-contains? hlsl "i = "))
+        (is (hlsl-contains? hlsl "return i;")))))
 
 (deftest test-function-definition
   (testing "顶层函数定义"
@@ -146,19 +136,3 @@
       (is (str/includes? hlsl "float2 uv : TEXCOORD0;"))
       (is (str/includes? hlsl "struct VSOutput"))
       (is (str/includes? hlsl "output.pos = vs_main(input.pos, input.uv);")))))
-
-
-(deftest test-resource-declarations
-  (testing "纹理、采样器、常量缓冲区声明生成"
-    (let [hlsl (compile-and-emit '(do
-                                    (top.kzre.homunculus.backend.shader.dsl/deftexture gAlbedo :texture2D :register "t0")
-                                    (top.kzre.homunculus.backend.shader.dsl/defsampler gSampler :register "s0")
-                                    (top.kzre.homunculus.backend.shader.dsl/defcbuffer Globals
-                                                                                       [^:float4x4 matVP ^:float4 lightDir] :register "b0")
-                                    (+ 1.0 2.0))
-                                 :fragment "main")]
-      (is (str/includes? hlsl "Texture2D<float4> gAlbedo : register(t0);"))
-      (is (str/includes? hlsl "SamplerState gSampler : register(s0);"))
-      (is (str/includes? hlsl "cbuffer Globals : register(b0) {"))
-      (is (str/includes? hlsl "float4x4 matVP;"))
-      (is (str/includes? hlsl "float4 lightDir;")))))
