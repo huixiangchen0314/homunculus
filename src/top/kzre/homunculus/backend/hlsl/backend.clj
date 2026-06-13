@@ -1,9 +1,11 @@
 (ns top.kzre.homunculus.backend.hlsl.backend
   "HLSL 对 IShaderBackend 的实现。"
-  (:require [top.kzre.homunculus.backend.shader.protocol :as sp]
-            [top.kzre.homunculus.backend.hlsl.utils :as utils]
-            [top.kzre.homunculus.backend.util.naming :as n]
-            [top.kzre.homunculus.backend.util.format :as fmt]))
+  (:require
+   [clojure.string :as str]
+   [top.kzre.homunculus.backend.hlsl.utils :as utils]
+   [top.kzre.homunculus.backend.shader.protocol :as sp]
+   [top.kzre.homunculus.backend.util.format :as fmt]
+   [top.kzre.homunculus.backend.util.naming :as n]))
 
 (defrecord HLSLBackend []
   sp/IShaderBackend
@@ -39,8 +41,10 @@
     (str return-type " " (n/safe-name name) "(" (fmt/comma-sep params) ")\n"
          (sp/shader-block this [body])))
 
-  (shader-var-ref [_ name]
-    (n/safe-name name))
+  (shader-var-ref [this name]
+    (if (get utils/builtin-map (symbol name))
+      name
+      (n/safe-name name)))
 
   ;; ── 赋值 ──
   (shader-assign [_ var val]
@@ -71,6 +75,24 @@
       :vertex   (str "void main() { " fn-name "(); }")  ;; 实际需附加 SV_Position 等，由 codegen 处理
       :fragment (str "void main() { " fn-name "(); }")
       (throw (ex-info "Unknown shader stage" {:stage stage}))))
+
+  (shader-call [this fn-name args]
+    (let [sym (symbol fn-name)  ;; 变量引用返回的是字符串，需转符号以匹配 builtin-map
+          info (get utils/builtin-map sym)]
+      (if info
+        (cond
+          (:infix info)
+          (if (= 2 (count args))
+            (str "(" (first args) (:op info) (second args) ")")
+            (throw (ex-info "Infix op requires 2 args" {:fn fn-name :args args})))
+
+          (:fn info)
+          (str (:fn info) "(" (str/join ", " args) ")")
+
+          :else
+          (str fn-name "(" (str/join ", " args) ")"))
+        ;; 未找到内置映射，按用户函数处理
+        (str fn-name "(" (str/join ", " args) ")"))))
 
   ;; ── 类型转换 ──
   (shader-cast [this expr src-ty dst-ty]

@@ -31,7 +31,8 @@
     "生成函数定义，params 为字符串列表，return-type 为字符串，body 为函数体字符串。")
   (shader-return         [this expr]
     "return 语句。")
-
+  ;; backend/shader/protocol.clj 的 IShaderBackend 中增加一行：
+  (shader-call [this fn-name args] "生成函数调用；允许后端实现中缀运算符等特殊形式。")
   ;; ── 入口与阶段 ──
   (shader-entry-point    [this stage fn-name]
     "生成入口函数，调用指定函数 fn-name，stage 为 :vertex、:fragment 等，用于附加系统语义。")

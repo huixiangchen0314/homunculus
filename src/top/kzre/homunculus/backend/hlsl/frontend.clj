@@ -29,6 +29,12 @@
    (t/->TFun (t/->TCon :texture2D) (t/->TFun (t/->TCon :sampler) (t/->TCon :float4)))
    'saturate
    (t/->TFun (t/->TCon :float) (t/->TCon :float))
+   '<   (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
+   '>   (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
+   '<=  (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
+   '>=  (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
+   '=   (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
+   'not (t/->TFun (t/->TCon :bool) (t/->TCon :bool))
    ;; … 更多内置函数可陆续添加
    })
 

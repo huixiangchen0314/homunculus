@@ -32,15 +32,24 @@
         args    (:args node)
         fn-name (emit fn-node backend)
         arg-strs (map #(emit % backend) args)]
-    (str fn-name "(" (str/join ", " arg-strs) ")")))
+    (sp/shader-call backend fn-name arg-strs)))
 
 ;; ── if 语句 ──
 (defmethod emit :if [node backend]
-  (sp/shader-if backend
-                (emit (:test node) backend)
-                (emit (:then node) backend)
-                (when (:else node)
-                  (emit (:else node) backend))))
+  (let [test-code (emit (:test node) backend)
+        then-code (emit (:then node) backend)
+        else-code (when (:else node) (emit (:else node) backend))
+        ;; 为简单表达式分支自动加 return
+        wrap-return (fn [code sub-node]
+                      (if (or (not (satisfies? ir2p/INode sub-node))
+                              (#{:literal :call :variable :vector :block} (ir2p/kind sub-node)))
+                        (sp/shader-return backend code)
+                        code))]
+    (sp/shader-if backend
+                  test-code
+                  (wrap-return then-code (:then node))
+                  (when else-code
+                    (wrap-return else-code (:else node))))))
 
 ;; ── while 循环 ──
 (defmethod emit :while [node backend]
@@ -57,15 +66,19 @@
 (defmethod emit :let [node backend]
   (let [bindings (:bindings node)
         body     (:body node)
-        ;; 为每个绑定生成声明和初始化
         var-decls (map (fn [[var val]]
                          (let [var-name (:name var)
                                var-type (get-in var [:attrs :type])
                                val-code (emit val backend)]
                            (sp/shader-var-decl backend var-name var-type false val-code)))
                        bindings)
-        body-code (emit body backend)]
-    (str (str/join "\n" var-decls) "\n" body-code)))
+        body-code (emit body backend)
+        ;; body 若是简单表达式，自动包裹 return
+        body-final (if (or (not (satisfies? ir2p/INode body))
+                           (#{:literal :call :variable :vector} (ir2p/kind body)))
+                     (sp/shader-return backend body-code)
+                     body-code)]
+    (str (str/join "\n" var-decls) "\n" body-final)))
 
 ;; ── 赋值 ──
 (defmethod emit :assign [node backend]
@@ -78,7 +91,6 @@
   (let [val (:val node)
         params (:params val)
         body   (:body val)
-        ;; 参数声明：类型 + 名字，不带分号
         param-strs (map (fn [p]
                           (let [ty (get-in p [:attrs :type])
                                 type-str (if ty (sp/shader-type backend ty) "float")
@@ -86,9 +98,9 @@
                             (str type-str " " name)))
                         params)
         body-code (emit body backend)
-        ;; 若函数体不是 block，自动包裹 return
-        return-body (if (and (satisfies? ir2p/INode body)
-                             (= (ir2p/kind body) :block))
+        ;; 若体是 block 或控制流，不加 return；否则自动包裹 return
+        return-body (if (or (= (ir2p/kind body) :block)
+                            (#{:if :while :let :loop :assign :throw} (ir2p/kind body)))
                       body-code
                       (sp/shader-return backend body-code))
         return-type (if-let [rt (get-in body [:attrs :type])]
@@ -147,14 +159,15 @@
 ;; 顶层生成入口
 ;; ══════════════════════════════════════════
 (defn generate
-  "对 IR2 根节点列表生成完整的着色器代码。
-   backend 为 IShaderBackend 实例，entry-stage 如 :vertex，entry-fn-name 为入口调用的函数名。"
   [ir2-roots backend entry-stage entry-fn-name]
   (let [defines (filter #(= (ir2p/kind %) :define) ir2-roots)
-        globals (remove #(= (ir2p/kind %) :define) ir2-roots)
+        others  (remove #(= (ir2p/kind %) :define) ir2-roots)
         fn-defs (map #(emit % backend) defines)
-        global-code (when (seq globals)
-                      (str/join "\n" (map #(emit % backend) globals)))
-        body (str/join "\n" fn-defs)
+        other-code (when (seq others)
+                     (let [exprs (map #(emit % backend) others)]
+                       (if (= 1 (count exprs))
+                         (sp/shader-return backend (first exprs))
+                         (sp/shader-block backend exprs))))
+        body (str/join "\n" (remove nil? [other-code (str/join "\n" fn-defs)]))
         entry (sp/shader-entry-point backend entry-stage entry-fn-name)]
-    (str/join "\n" (filter seq [global-code body entry]))))
+    (str/join "\n" (filter seq [body entry]))))

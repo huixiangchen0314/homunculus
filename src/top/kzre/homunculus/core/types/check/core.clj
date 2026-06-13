@@ -27,10 +27,11 @@
                       {:node node :expected expected :actual actual})))))
 
 ;; 通用检查：若 expected 非 nil 且实际类型与 expected 不同，尝试转换或报错
+
 (defn check-type [node expected context]
   (let [actual (get-in node [:attrs :type])]
-    (if (or (nil? expected) (= actual expected))
-      node
+    (if (or (nil? expected) (= actual expected) (instance? TVar actual))
+      node   ;; 允许未确定的类型变量通过
       (try-convert node actual expected context))))
 
 (defn check-program
