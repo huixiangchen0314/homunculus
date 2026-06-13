@@ -69,11 +69,11 @@
         var-decls (map (fn [[var val]]
                          (let [var-name (:name var)
                                var-type (get-in var [:attrs :type])
+                               mutable? (get-in var [:attrs :mutable])  ;; 读取可变性
                                val-code (emit val backend)]
-                           (sp/shader-var-decl backend var-name var-type false val-code)))
+                           (sp/shader-var-decl backend var-name var-type (boolean mutable?) val-code)))
                        bindings)
         body-code (emit body backend)
-        ;; body 若是简单表达式，自动包裹 return
         body-final (if (or (not (satisfies? ir2p/INode body))
                            (#{:literal :call :variable :vector} (ir2p/kind body)))
                      (sp/shader-return backend body-code)

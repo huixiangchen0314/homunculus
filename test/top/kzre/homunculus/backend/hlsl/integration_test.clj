@@ -97,11 +97,13 @@
       (is (hlsl-contains? hlsl "return 1.0"))
       (is (hlsl-contains? hlsl "else")))))
 
-;(deftest test-while-loop
-;  (testing "while 循环（经 loop 转换）"
-;    (let [hlsl (compile-and-emit '(loop* [i 0.0] (if (< i 10.0) (recur (+ i 1.0)) i)) :fragment "main")]
-;      (is (hlsl-contains? hlsl "while"))
-;      (is (hlsl-contains? hlsl "return")))))
+#_(deftest test-while-loop
+  (testing "while loop with mutable variable"
+    (let [hlsl (compile-and-emit '(loop* [i 0] (if (< i 10) (recur (+ i 1)) i)) :fragment "main")]
+      ;; 应生成 while 循环，包含赋值和返回
+      (is (hlsl-contains? hlsl "while"))
+      (is (hlsl-contains? hlsl "i = "))
+      (is (hlsl-contains? hlsl "return i;")))))
 
 (deftest test-function-definition
   (testing "顶层函数定义"

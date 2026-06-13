@@ -27,6 +27,8 @@
       (float? val)   (str val)
       (true? val)    "true"
       (false? val)   "false"
+      ;; TODO recur-elim 支持默认值推导后删除
+      (nil? val) "0.0"
       :else (throw (ex-info (str "HLSL unsupported literal: " val) {:val val}))))
 
   ;; ── 变量 ──

@@ -106,6 +106,8 @@
       (instance? Float val) (t/->TCon :float)
       (true? val) (t/->TCon :bool)
       (false? val) (t/->TCon :bool)
+      ;; TODO recur-elim 完成 初始值推导后删除
+      (nil? val) (do (println "WARNING: nil literal defaulting to float") (t/->TCon :float))
       :else (throw (ex-info (str "HLSL unsupported literal: " val) {:val val}))))
 
   (meta->type [_ node]
