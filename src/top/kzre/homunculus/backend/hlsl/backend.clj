@@ -53,7 +53,7 @@
 
   (shader-function-decl [this name params return-type body]
     (str return-type " " (n/safe-name name) "(" (fmt/comma-sep params) ")\n"
-         (sp/shader-block this [body])))
+         body))   ;; body 已经格式化好（含大括号或单语句）
 
   (shader-return [_ expr]
     (str "return " expr ";"))
@@ -94,46 +94,46 @@
   ;; 核心改变：shader-program 接管入口生成
   ;; 在 backend/hlsl/backend.clj 中替换原有的 shader-program 实现
   (shader-program [this functions structs globals stage entry-fn-name]
-    (let [body (str/join "\n\n" (filter seq
+    (let [safe-entry-name (n/safe-name entry-fn-name)   ;; 关键修复
+          body (str/join "\n\n" (filter seq
                                         [(str/join "\n" globals)
                                          (str/join "\n" structs)
                                          (str/join "\n" functions)]))
-          ;; 查找入口函数签名：返回值 + 函数名 + 参数列表
           fn-str (some (fn [f]
-                         (when (.startsWith f (str "float4 " entry-fn-name "("))
+                         (when (.startsWith f (str "float4 " safe-entry-name "("))
                            f))
                        functions)
           entry (case stage
                   :vertex
                   (if fn-str
-                    (let [;; 提取括号内的参数串
-                          params-part (second (re-find #"\(([^)]*)\)" fn-str))
-                          ;; 解析每个参数 "float4 pos : SV_Position" -> {:name pos :type float4 :semantic SV_Position}
+                    (let [params-part (second (re-find #"\(([^)]*)\)" fn-str))
+                          ;; backend/hlsl/backend.clj 的 shader-program 内，替换 params 解析部分
                           params (when params-part
                                    (for [p (str/split params-part #",")]
                                      (let [p (str/trim p)
-                                           parts (str/split p #" : | ")
-                                           name (last parts)
-                                           type (first parts)
-                                           semantic (when (> (count parts) 2)
-                                                      (nth parts 2))]
-                                       {:name name :type type :semantic semantic})))
-                          input-members  (mapv #(select-keys % [:name :type :semantic]) params)
-                          input-struct   (sp/shader-struct-decl this "VSInput" input-members)
-                          output-struct  (sp/shader-struct-decl this "VSOutput" [{:name "pos" :type "float4" :semantic "SV_POSITION"}])
-                          call-args      (str/join ", " (map #(str "input." (:name %)) params))
-                          entry-body     (str "VSOutput output;\n"
-                                              "    output.pos = " entry-fn-name "(" call-args ");\n"
-                                              "    return output;")]
+                                           ;; 先分割语义部分： "float4 pos : SV_Position" -> ["float4 pos" "SV_Position"]
+                                           [type+name semantic] (str/split p #" : ")
+                                           ;; 再分割类型和名字： "float4 pos" -> ["float4" "pos"]
+                                           [type name]          (str/split (str/trim type+name) #" ")]
+                                       {:name (or name "unknown")
+                                        :type type
+                                        :semantic semantic})))
+                          input-members (mapv #(select-keys % [:name :type :semantic]) params)
+                          input-struct  (sp/shader-struct-decl this "VSInput" input-members)
+                          output-struct (sp/shader-struct-decl this "VSOutput" [{:name "pos" :type "float4" :semantic "SV_POSITION"}])
+                          call-args     (str/join ", " (map #(str "input." (:name %)) params))
+                          entry-body    (str "VSOutput output;\n"
+                                             "    output.pos = " safe-entry-name "(" call-args ");\n"
+                                             "    return output;")]
                       (str input-struct "\n" output-struct "\n"
                            "VSOutput main(VSInput input) {\n"
                            (fmt/indent 1) entry-body "\n"
                            "}"))
-                    ;; 无签名时退化
-                    (str "VSOutput main(VSInput input) { return " entry-fn-name "(input); }"))
+                    (throw (ex-info "Vertex shader requires a defshader entry with typed parameters"
+                                    {:stage stage :entry-fn-name entry-fn-name})))
                   :fragment
-                  (str "float4 main() : SV_TARGET { return " entry-fn-name "(); }")
-                  (str "void main() { " entry-fn-name "(); }"))]
+                  (str "float4 main() : SV_TARGET { return " safe-entry-name "(); }")
+                  (str "void main() { " safe-entry-name "(); }"))]
       (str body "\n\n" entry)))
 
   (shader-resource-decl [_ name res-type args]

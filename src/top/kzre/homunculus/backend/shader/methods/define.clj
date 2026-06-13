@@ -36,11 +36,11 @@
                                      (if semantic (str " : " (name semantic)) ""))))
                             params)
             body-code (emit body backend)
-            return-body (if (or (= (ir2p/kind body) :block)
-                                (#{:if :while :let :loop :assign :throw} (ir2p/kind body)))
-                          body-code
-                          (sp/shader-return backend body-code))
             return-type (if-let [rt (get-in body [:attrs :type])]
                           (sp/shader-type backend rt)
-                          "void")]
+                          "void")
+            ;; 如果 body 是 block，已经包含最后的 return；否则手动添加 return
+            return-body (if (= (ir2p/kind body) :block)
+                          body-code
+                          (sp/shader-return backend body-code))]
         (sp/shader-function-decl backend (:name node) param-strs return-type return-body)))))

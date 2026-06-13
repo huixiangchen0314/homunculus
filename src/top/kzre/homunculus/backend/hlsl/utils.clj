@@ -114,5 +114,5 @@
    'bool3     {:fn "bool3"}
    'bool4     {:fn "bool4"}
 
-   'sample {:fn "tex.Sample" :sample true}
+   'sample { :sample true}                                  ;; :fn "tex.Sample"
    })

@@ -16,34 +16,34 @@
 (defmethod emit :default [node backend]
   (throw (ex-info (str "Unhandled node: " node) {:node node})))
 
+;; backend/shader/emit.clj 中的 generate 函数
 (defn generate
   "生成完整着色器代码。基于类型检测区分资源与函数，委托给后端协议。"
   [ir2-roots backend entry-stage entry-fn-name]
   (let [defines       (filter #(= (ir2p/kind %) :define) ir2-roots)
-        ;; 资源检测：看 val 的类型是否为资源类型
-        resource-defs (filter #(let [v (:val %)
-                                     vty (get-in v [:attrs :type])]
-                                 (and vty (instance? TCon vty)
-                                      (contains? #{:texture2D :sampler :cbuffer} (:name vty))))
-                              defines)
-        function-defs (remove #(let [v (:val %)
-                                     vty (get-in v [:attrs :type])]
-                                 (and vty (instance? TCon vty)
-                                      (contains? #{:texture2D :sampler :cbuffer} (:name vty))))
-                              defines)
+        ;; 提取资源检测谓词，避免重复
+        resource-type? (fn [vty]
+                         (and vty (instance? TCon vty)
+                              (contains? #{:texture2D :sampler :cbuffer} (:name vty))))
+        resource-defs (filter #(resource-type? (get-in % [:val :attrs :type])) defines)
+        function-defs (remove #(resource-type? (get-in % [:val :attrs :type])) defines)
         fn-defs       (map #(emit % backend) function-defs)
         globals       (map #(emit % backend) resource-defs)
         others        (remove #(= (ir2p/kind %) :define) ir2-roots)]
     (if (seq function-defs)
-      ;; 有明确函数定义：直接交给 shader-program
       (sp/shader-program backend fn-defs [] globals entry-stage entry-fn-name)
-      ;; 只有表达式片段：包装成一个临时函数，再生成程序
+      ;; 只有表达式片段时：包装成临时函数
       (let [body-code (when (seq others)
-                        (let [exprs (map #(emit % backend) others)]
-                          (if (= 1 (count exprs))
-                            (sp/shader-return backend (first exprs))
-                            (sp/shader-block backend exprs))))
-            ;; 如果没有表达式，创建一个空函数体
-            body-code' (or body-code "")
-            tmp-fn     (sp/shader-function-decl backend entry-fn-name [] "void" body-code')]
+                        (let [emitted (map #(emit % backend) others)
+                              last-idx (dec (count emitted))
+                              ;; 为最后一个简单表达式加 return
+                              emitted' (map-indexed (fn [i code]
+                                                      (if (= i last-idx)
+                                                        (sp/shader-return backend code)
+                                                        code))
+                                                    emitted)]
+                          (sp/shader-block backend emitted')))
+            ;; 片段着色器固定返回 float4，其他 stage 暂用 void（可后续扩展）
+            ret-type  (case entry-stage :fragment "float4" "void")
+            tmp-fn    (sp/shader-function-decl backend entry-fn-name [] ret-type (or body-code ""))]
         (sp/shader-program backend [tmp-fn] [] globals entry-stage entry-fn-name)))))

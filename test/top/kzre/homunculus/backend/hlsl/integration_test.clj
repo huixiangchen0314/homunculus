@@ -45,10 +45,8 @@
 
 (def full-builtins (merge {} hlsl-front/builtins))
 
-
-
 (defn compile-and-emit [form entry-stage entry-fn-name]
-  (let [expanded   (macroexpand-deep form)
+  (let [expanded   (walk/macroexpand-all form)
         ir1-root   (ir1/->ir1 expanded)
         ir2-roots  (ir2/lower [ir1-root])
         no-recur   (mapv recur-elim/eliminate ir2-roots)
@@ -112,8 +110,6 @@
       (is (hlsl-contains? hlsl "return (x * x)"))
       (is (hlsl-contains? hlsl "float4 main() : SV_TARGET { return square(); }")))))
 
-;; 顶点着色器测试：当前 shader-program 尚未生成输入输出结构体，
-;; 因此只验证函数签名中的语义注解以及入口包装的调用方式。
 (deftest test-vertex-shader-entry
   (testing "顶点着色器入口点生成"
     (let [hlsl (compile-and-emit '(top.kzre.homunculus.backend.shader.dsl/defshader
@@ -121,10 +117,13 @@
                                     [^:SV_Position ^:float4 pos]
                                     pos)
                                  :vertex "vs-main")]
-      ;; 函数签名包含语义
       (is (str/includes? hlsl "float4 vs_main(float4 pos : SV_Position)"))
-      ;; 入口包装调用了 vs-main（注意名称可能因 safe-name 转换而不同，此处接受 vs-main）
-      (is (str/includes? hlsl "VSOutput main(VSInput input) { return vs-main(input); }")))))
+      (is (str/includes? hlsl "struct VSInput"))
+      (is (str/includes? hlsl "float4 pos : SV_Position;"))
+      (is (str/includes? hlsl "struct VSOutput"))
+      (is (str/includes? hlsl "float4 pos : SV_POSITION;"))
+      (is (str/includes? hlsl "output.pos = vs_main(input.pos);"))
+      (is (str/includes? hlsl "VSOutput main(VSInput input)")))))
 
 (deftest test-vertex-shader-with-input
   (testing "顶点着色器入口点生成（包含额外输入）"
@@ -134,7 +133,7 @@
                                      ^:TEXCOORD0  ^:float2 uv]
                                     pos)
                                  :vertex "vs-main")]
-      ;; 函数签名包含两个参数及语义
       (is (str/includes? hlsl "float4 vs_main(float4 pos : SV_Position, float2 uv : TEXCOORD0)"))
-      ;; 入口包装基本形式（参数传递方式为 input.xy，暂不严格检查）
-      (is (str/includes? hlsl "VSOutput main(VSInput input)")))))
+      (is (str/includes? hlsl "struct VSInput"))
+      (is (str/includes? hlsl "float2 uv : TEXCOORD0;"))
+      (is (str/includes? hlsl "output.pos = vs_main(input.pos, input.uv);")))))
