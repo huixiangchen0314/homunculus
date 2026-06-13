@@ -18,9 +18,11 @@
     "pixelshader" "vertexshader" "geometryshader" "hullshader"
     "domainshader" "computeshader"})
 
+;; backend/hlsl/utils.clj type-map 中添加
 (def type-map
-  "IR 类型关键字 → HLSL 类型字符串。"
-  {:int64   "int"
+  {:int     "int"   ;; 新增
+   :float   "float" ;; 新增
+   :int64   "int"
    :int32   "int"
    :int16   "int16_t"
    :uint64  "uint"
@@ -30,13 +32,13 @@
    :float16 "half"
    :bool    "bool"
    :nil     "void"
-   :vector  "float4"          ;; 默认向量类型，实际可能由泛型确定
+   :vector  "float4"
    :float2  "float2"
    :float3  "float3"
    :float4  "float4"
    :float3x3 "float3x3"
    :float4x4 "float4x4"
-   :string  "float" })
+   :string  "float"})
 
 (def builtin-map
   "Clojure 操作名 → HLSL 内置函数/运算符。"
