@@ -126,5 +126,20 @@
                                     [^:SV_Position ^:float4 pos]
                                     pos)
                                  :vertex "vs-main")]
-      (is (str/includes? hlsl "float4 vs_main(float4 pos : SV_Position)"))  ;; safe-name 把 - 转成了 _
-      (is (str/includes? hlsl "return pos;")))))
+      ;; 只有一个参数且为 SV_Position，不会生成 VSInput
+      (is (str/includes? hlsl "struct VSOutput"))
+      (is (str/includes? hlsl "SV_POSITION"))
+      (is (str/includes? hlsl "float4 vs_main(float4 pos : SV_Position)")))))
+
+(deftest test-vertex-shader-with-input
+  (testing "顶点着色器入口点生成（包含额外输入）"
+    (let [hlsl (compile-and-emit '(top.kzre.homunculus.backend.shader.dsl/defshader
+                                    :vertex vs-main
+                                    [^:SV_Position ^:float4 pos
+                                     ^:TEXCOORD0  ^:float2 uv]
+                                    pos)
+                                 :vertex "vs-main")]
+      (is (str/includes? hlsl "struct VSInput"))
+      (is (str/includes? hlsl "float2 uv : TEXCOORD0;"))
+      (is (str/includes? hlsl "struct VSOutput"))
+      (is (str/includes? hlsl "output.pos = vs_main(input.pos, input.uv);")))))

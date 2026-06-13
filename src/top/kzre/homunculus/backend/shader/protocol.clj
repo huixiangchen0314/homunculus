@@ -40,4 +40,12 @@
   ;; ── 类型转换 ──
   (shader-cast           [this expr src-ty dst-ty]
     "显式类型转换，如 '(float)x'。")
+
+  ;; ── 结构体定义 ──
+  (shader-struct-decl    [this name members]
+    "生成结构体定义。members 为向量，每个元素是 {:name :type :semantic} 的 map。semantic 可为 nil。")
+
+  ;; ── 程序组合 ──
+  (shader-program        [this functions structs globals entry]
+    "将函数定义、结构体定义、全局变量和入口点组合成完整的着色器程序字符串。")
   )

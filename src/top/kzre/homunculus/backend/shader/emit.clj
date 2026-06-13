@@ -109,7 +109,7 @@
                                            (some (fn [k]
                                                    (when (and (keyword? k)
                                                               (not (namespace k))
-                                                              (^[char] Character/isUpperCase (first (name k))))
+                                                              ( Character/isUpperCase  ^char (first (name k))))
                                                      k))
                                                  (keys metadata)))]
                             (str type-str " " param-name
@@ -175,20 +175,69 @@
 ;; ══════════════════════════════════════════
 ;; 顶层生成入口
 ;; ══════════════════════════════════════════
+;; backend/shader/emit.clj 中增加辅助函数和修改 generate
+
+(defn- param-semantic [p]
+  (let [meta (ir2p/node-meta p)]
+    (some (fn [k] (when (and (keyword? k) ( Character/isUpperCase ^char (first (name k)))) k))
+          (keys meta))))
+
+(defn- generate-vertex-entry [fn-name params backend]
+  (let [call-args (map (fn [p] (str "input." (sp/shader-var-ref backend (:name p)))) params)]
+    (str "VSOutput main(VSInput input) {\n"
+         "    VSOutput output;\n"
+         "    output.pos = " fn-name "(" (clojure.string/join ", " call-args) ");\n"
+         "    return output;\n"
+         "}")))
+
+(defn- generate-fragment-entry [fn-name params backend]
+  (let [output-param (first (filter #(= :SV_Target (param-semantic %)) params))
+        output-type (if output-param
+                      (let [ty (get-in output-param [:attrs :type])]
+                        (if ty (sp/shader-type backend ty) "float4"))
+                      "float4")]
+    (str output-type " main() : SV_TARGET {\n"
+         "    return " fn-name "();\n"
+         "}")))
+
 (defn generate
   [ir2-roots backend entry-stage entry-fn-name]
   (let [defines (filter #(= (ir2p/kind %) :define) ir2-roots)
-        others  (remove #(= (ir2p/kind %) :define) ir2-roots)
-        fn-defs (map #(emit % backend) defines)]
-    (if (seq defines)
-      ;; 有函数定义：只输出函数定义，不生成入口
-      (str/join "\n" fn-defs)
-      ;; 没有函数定义：为非定义表达式生成入口包装
-      (let [other-code (when (seq others)
-                         (let [exprs (map #(emit % backend) others)]
-                           (if (= 1 (count exprs))
-                             (sp/shader-return backend (first exprs))
-                             (sp/shader-block backend exprs))))
-            body (str/join "\n" (remove nil? [other-code]))
-            entry (sp/shader-entry-point backend entry-stage entry-fn-name)]
-        (str body "\n" entry)))))
+        fn-defs (map #(emit % backend) defines)
+        globals []
+        struct-defs (if (seq defines)
+                      (let [main-define (first defines)
+                            lambda (:val main-define)
+                            params (:params lambda)]
+                        (case entry-stage
+                          :vertex (let [inputs (remove #(= :SV_Position (param-semantic %)) params)
+                                        output-param (first (filter #(= :SV_Position (param-semantic %)) params))
+                                        output-type (if output-param
+                                                      (sp/shader-type backend (get-in output-param [:attrs :type]))
+                                                      "float4")]
+                                    (remove nil?
+                                            [(when (seq inputs)
+                                               (sp/shader-struct-decl backend "VSInput"
+                                                                      (mapv (fn [p] {:name (sp/shader-var-ref backend (:name p))
+                                                                                     :type (sp/shader-type backend (get-in p [:attrs :type]))
+                                                                                     :semantic (some-> (param-semantic p) name)})
+                                                                            inputs)))
+                                             (sp/shader-struct-decl backend "VSOutput"
+                                                                    [{:name "pos"
+                                                                      :type output-type
+                                                                      :semantic "SV_POSITION"}])]))
+                          :fragment [] ;; 片元后续补充
+                          []))
+                      [])
+        entry (if (seq defines)
+                (let [main-define (first defines)
+                      fn-name (sp/shader-var-ref backend (:name main-define))
+                      lambda (:val main-define)
+                      params (:params lambda)]
+                  (case entry-stage
+                    :vertex   (generate-vertex-entry fn-name params backend)
+                    :fragment (generate-fragment-entry fn-name params backend)
+                    (str "void main() { " fn-name "(); }")))
+                ;; 理论上不会到这里，因为 compile-and-emit 保证有 define
+                "")]
+    (sp/shader-program backend fn-defs struct-defs globals entry)))

@@ -110,4 +110,23 @@
 
   ;; ── 类型转换 ──
   (shader-cast [this expr src-ty dst-ty]
-    (str "(" (sp/shader-type this dst-ty) ")" expr)))
+    (str "(" (sp/shader-type this dst-ty) ")" expr))
+
+  ;; 结构体定义
+  (shader-struct-decl [_ name members]
+    (let [member-strs (map (fn [m]
+                             (str "    " (:type m) " " (:name m)
+                                  (when (:semantic m) (str " : " (:semantic m))) ";"))
+                           members)]
+      (str "struct " name " {\n"
+           (clojure.string/join "\n" member-strs) "\n"
+           "};")))
+
+  ;; 程序组合
+  (shader-program [_ functions structs globals entry]
+    (clojure.string/join "\n\n" (filter seq
+                                        [ (clojure.string/join "\n" globals)
+                                         (clojure.string/join "\n" structs)
+                                         (clojure.string/join "\n" functions)
+                                         entry ])))
+  )
