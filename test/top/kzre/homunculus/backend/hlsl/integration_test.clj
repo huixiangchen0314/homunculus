@@ -3,6 +3,7 @@
   (:require [clojure.test :refer :all]
             [clojure.string :as str]
             [clojure.walk :as walk]
+            [top.kzre.homunculus.backend.unity.backend :as unity]
             [top.kzre.homunculus.core.ir1.core :as ir1]
             [top.kzre.homunculus.core.ir1.forms]
             [top.kzre.homunculus.core.ir2.core :as ir2]
@@ -29,7 +30,8 @@
             [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
             [top.kzre.homunculus.backend.shader.emit :as emit]
             [top.kzre.homunculus.core.types.test-utils :refer :all]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
+            [top.kzre.homunculus.core.ir2.protocol :as ir2p])
+  (:import (top.kzre.homunculus.backend.unity.backend UnityBackend)))
 
 (def elab-config
   (reify elab-cfg/IElaborateConfig
@@ -137,3 +139,32 @@
       (is (str/includes? hlsl "struct VSInput"))
       (is (str/includes? hlsl "float2 uv : TEXCOORD0;"))
       (is (str/includes? hlsl "output.pos = vs_main(input.pos, input.uv);")))))
+
+
+
+;; 在 integration_test.clj 中添加
+(deftest test-unity-backend-fragment
+  (testing "Unity 后端生成 ShaderLab 片段着色器"
+    (let [hlsl-frontend (hlsl-front/->HLSLFrontend)
+          unity-backend (unity/->UnityBackend)
+          mock-backend  (->MockBackend)
+          full-builtins (merge {} hlsl-front/builtins)
+          compile (fn [form stage entry]
+                    (let [expanded   (walk/macroexpand-all form)
+                          ir1-root   (ir1/->ir1 expanded)
+                          ir2-roots  (ir2/lower [ir1-root])
+                          no-recur   (mapv recur-elim/eliminate ir2-roots)
+                          elaborated (elaborate/elaborate no-recur elab-config)
+                          mutable    (mut/analyze elaborated)
+                          checked-fn (builtin/check mutable full-builtins)
+                          inferred   (infer/run checked-fn :frontend hlsl-frontend)
+                          typed      (typed/type-check inferred :frontend hlsl-frontend :builtins full-builtins)
+                          checked    (check/check-program typed {:backend mock-backend})]
+                      (emit/generate checked unity-backend stage entry)))
+          hlsl (compile 42.0 :fragment "frag")]
+      (is (str/includes? hlsl "Shader \"Custom/frag\""))
+      (is (str/includes? hlsl "SubShader"))
+      (is (str/includes? hlsl "HLSLPROGRAM"))
+      (is (str/includes? hlsl "#pragma fragment frag"))
+      (is (str/includes? hlsl "return 42.0;"))
+      (is (str/includes? hlsl "ENDHLSL")))))
