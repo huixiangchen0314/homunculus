@@ -6,12 +6,13 @@
             [top.kzre.homunculus.core.types.env :as e]
             [top.kzre.homunculus.core.types.typed.unify :as u]
             [top.kzre.homunculus.core.types.typed.scheme :as s]
+            [top.kzre.homunculus.core.types.type :as type]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p])
   (:import (top.kzre.homunculus.core.types.typed.scheme TScheme)))
 
 (defmethod infer/infer :let [node context]
-  (if-let [existing (get-in node [:attrs :type])]
-    [existing node {}]
+  (if (type/has-type? node (:known-types context))
+    [(type/get-type node (:known-types context)) node {}]
     (let [bindings (:bindings node)
           [bind-nodes env-ext s-bindings]
           (reduce (fn [[bnds env subst] [var-node val-node]]
@@ -29,7 +30,7 @@
                           env2 (e/extend-env env var-name binding)
                           var-node' (if (instance? TScheme binding)
                                       var-node
-                                      (assoc-in var-node [:attrs :type] binding))]
+                                      (type/set-type! var-node binding))]
                       [(conj bnds [var-node' val-node']) env2 subst']))
                   [[] (:env context) {}]
                   bindings)
@@ -37,6 +38,5 @@
           [body-ty body-node s-body] (infer/infer (:body node) (assoc context :env env-body))
           s-final (merge s-bindings s-body)
           overall-ty (u/substitute body-ty s-final)
-          new-attrs (assoc (ir2p/attrs node) :type overall-ty)
-          new-node (assoc node :bindings (vec bind-nodes) :body body-node :attrs new-attrs)]
+          new-node (type/set-type! (assoc node :bindings (vec bind-nodes) :body body-node) overall-ty)]
       [overall-ty new-node s-final])))

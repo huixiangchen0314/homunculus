@@ -4,7 +4,8 @@
             [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.env :as e]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
+            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+            [top.kzre.homunculus.core.types.type :as type]))
 
 (defmethod infer/local-infer :variable [node context]
   (let [frontend (:frontend context)
@@ -14,5 +15,5 @@
                (e/lookup-env env var-name)
                (e/lookup-env env (symbol var-name)))]
     (if ty
-      (infer/success ty (assoc-in node [:attrs :type] ty))
+      (infer/success ty (type/ensure-type node ty))
       (infer/nothing node))))

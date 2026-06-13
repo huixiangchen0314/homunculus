@@ -4,6 +4,7 @@
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.typed.unify :as u]
             [top.kzre.homunculus.core.types.env :as e]
+            [top.kzre.homunculus.core.types.type :as type]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
 (def ^:dynamic *tv-id (atom 0))
@@ -16,23 +17,26 @@
 (defmulti infer
           "返回 [type, updated-node, substitution] 三元组。"
           (fn [node context]
-            (if (get-in node [:attrs :type])
+            (if (type/has-type? node (:known-types context))
               :already-typed
               (ir2p/kind node))))
 
 (defmethod infer :already-typed [node context]
-  [(:type (:attrs node)) node {}])
+  [(type/get-type node (:known-types context)) node {}])
+
 ;; ── 顶层入口 ──
 (defn type-check [ir2-roots & {:keys [frontend backend builtins]}]
   (binding [*tv-id (atom 0)]
-    (let [context {:frontend frontend :backend backend :tv-id *tv-id}
+    (let [known-types (when frontend (set (tp/frontend-types frontend)))
+          context {:frontend frontend
+                   :backend backend
+                   :known-types known-types
+                   :tv-id *tv-id}
           env (or builtins {})
           infer-top (fn infer-top [env nodes]
                       (when-let [root (first nodes)]
                         (let [[ty new-root s] (infer root (assoc context :env env))
-                              ;; 应用替换到环境
                               env' (apply-subst-to-env env s)
-                              ;; 如果是 define，扩展环境
                               new-env (if (= (ir2p/kind new-root) :define)
                                         (e/extend-env env' (:name new-root) ty)
                                         env')]

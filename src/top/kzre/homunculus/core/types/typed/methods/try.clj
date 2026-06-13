@@ -2,11 +2,12 @@
   (:require [top.kzre.homunculus.core.types.typed.core :as infer]
             [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.typed.unify :as u]
+            [top.kzre.homunculus.core.types.type :as type]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
 (defmethod infer/infer :try [node context]
-  (if-let [existing (get-in node [:attrs :type])]
-    [existing node {}]
+  (if (type/has-type? node (:known-types context))
+    [(type/get-type node (:known-types context)) node {}]
     (let [body-irs (:body node)
           catch-irs (:catches node)
           finally-irs (:finally node)
@@ -29,15 +30,15 @@
                             catch-irs)
           finally-nodes (when (seq finally-irs)
                           (mapv #(second (infer/infer % context)) finally-irs))
-          new-attrs (assoc (ir2p/attrs node) :type main-ty)]
-      [main-ty (assoc node :body (vec body-nodes)
-                           :catches catch-nodes
-                           :finally (vec (or finally-nodes []))
-                           :attrs new-attrs)])))
+          new-node (type/set-type! (assoc node :body (vec body-nodes)
+                                               :catches catch-nodes
+                                               :finally (vec (or finally-nodes [])))
+                                   main-ty)]
+      [main-ty new-node {}])))
 
 (defmethod infer/infer :catch [node context]
-  (if-let [existing (get-in node [:attrs :type])]
-    [existing node {}]
+  (if (type/has-type? node (:known-types context))
+    [(type/get-type node (:known-types context)) node {}]
     (let [body-irs (:body node)
           [body-ty body-nodes] (reduce (fn [[tys nodes] ir]
                                          (let [[ty nd] (infer/infer ir context)]
@@ -45,13 +46,13 @@
                                        [[] []]
                                        body-irs)
           ty (if (seq body-irs) (last body-ty) (t/->TCon :nil))
-          new-attrs (assoc (ir2p/attrs node) :type ty)]
-      [ty (assoc node :body (vec body-nodes) :attrs new-attrs)])))
+          new-node (type/set-type! (assoc node :body (vec body-nodes)) ty)]
+      [ty new-node {}])))
 
 (defmethod infer/infer :throw [node context]
-  (if-let [existing (get-in node [:attrs :type])]
-    [existing node]
+  (if (type/has-type? node (:known-types context))
+    [(type/get-type node (:known-types context)) node {}]
     (let [[_ expr-node] (infer/infer (:expr node) context)
           ty (t/->TCon :nil)
-          new-attrs (assoc (ir2p/attrs node) :type ty)]
-      [ty (assoc node :expr expr-node :attrs new-attrs)])))
+          new-node (type/set-type! (assoc node :expr expr-node) ty)]
+      [ty new-node {}])))

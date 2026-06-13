@@ -2,6 +2,7 @@
   "类型检查 pass：利用 typed‑pass 的结果和后端信息进行双向检查，插入类型转换。"
   (:require [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.protocol :as tp]
+            [top.kzre.homunculus.core.types.type :as type]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p])
   (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
 
@@ -27,9 +28,8 @@
                       {:node node :expected expected :actual actual})))))
 
 ;; 通用检查：若 expected 非 nil 且实际类型与 expected 不同，尝试转换或报错
-
 (defn check-type [node expected context]
-  (let [actual (get-in node [:attrs :type])]
+  (let [actual (type/get-type node)]  ;; 使用统一接口获取类型
     (if (or (nil? expected) (= actual expected) (instance? TVar actual))
       node   ;; 允许未确定的类型变量通过
       (try-convert node actual expected context))))

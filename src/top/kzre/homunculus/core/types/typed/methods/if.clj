@@ -2,6 +2,7 @@
   (:require [top.kzre.homunculus.core.types.typed.core :as infer]
             [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.typed.unify :as u]
+            [top.kzre.homunculus.core.types.type :as type]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p])
   (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
 
@@ -12,8 +13,8 @@
     [nil nil {}]))
 
 (defmethod infer/infer :if [node context]
-  (if-let [existing (get-in node [:attrs :type])]
-    [existing node {}]
+  (if (type/has-type? node (:known-types context))
+    [(type/get-type node (:known-types context)) node {}]
     (let [[test-ty test-node s-test] (infer/infer (:test node) context)
           _ (u/unify test-ty (t/->TCon :bool))
           [then-ty then-node s-then] (infer/infer (:then node) context)
@@ -22,5 +23,5 @@
         (u/unify then-ty else-ty))
       (let [overall-ty (if (= (ir2p/kind (:then node)) :recur) else-ty then-ty)
             s (merge s-test s-then s-else)
-            new-attrs (assoc (ir2p/attrs node) :type overall-ty)]
-        [overall-ty (assoc node :test test-node :then then-node :else else-node :attrs new-attrs) s]))))
+            new-node (type/set-type! (assoc node :test test-node :then then-node :else else-node) overall-ty)]
+        [overall-ty new-node s]))))

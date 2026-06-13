@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.core.types.infer.methods.if
   (:require [top.kzre.homunculus.core.types.infer.core :as infer]
             [top.kzre.homunculus.core.types.model :as t]
+            [top.kzre.homunculus.core.types.type :as type]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p])
   (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
 
@@ -18,7 +19,7 @@
         (infer/success then-ty
                        (-> node
                            (assoc :test test-node :then then-node :else else-node)
-                           (assoc-in [:attrs :type] then-ty)))
+                           (type/set-type! then-ty)))
         (infer/nothing (-> node
                            (assoc :test test-node :then then-node :else else-node))))
       (infer/nothing (-> node

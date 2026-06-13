@@ -4,13 +4,13 @@
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.env :as e]
             [top.kzre.homunculus.core.types.typed.scheme :as s]
+            [top.kzre.homunculus.core.types.type :as type]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p])
   (:import (top.kzre.homunculus.core.types.typed.scheme TScheme)))
 
 (defmethod infer/infer :variable [node context]
-  ;; 如果节点已有类型（来自 infer-pass 或标注），直接返回
-  (if-let [existing (get-in node [:attrs :type])]
-    [existing node {}]
+  (if (type/has-type? node (:known-types context))
+    [(type/get-type node (:known-types context)) node {}]
     (let [frontend (:frontend context)
           env (:env context)
           var-name (:name node)
@@ -21,4 +21,4 @@
           ty (if (instance? TScheme binding)
                (s/instantiate binding)
                binding)]
-      [ty (assoc-in node [:attrs :type] ty) {}])))
+      [ty (type/set-type! node ty) {}])))
