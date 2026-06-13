@@ -7,12 +7,14 @@
             [top.kzre.homunculus.core.types.ho-elim.core :as ho-elim]
             [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]))
 
-;; 简单的配置：只识别 reduce
 (def reduce-config
   (reify hop/IHoElimConfig
-    (known-ho-functions [_] {'reduce :reduce})))
+    (known-ho-functions [_] {'reduce :reduce})
+    (supports-dynamic-collections? [_] false)
+    (backend-length-fn [_] 'count)
+    (backend-nth-fn [_] 'nth)
+    (backend-less-than-fn [_] '<)))
 
-;; 辅助函数
 (defn- lit [val] (m/->LiteralNode val nil nil nil))
 (defn- vref [name] (m/->VariableNode name nil nil nil))
 (defn- call [f & args] (m/->CallNode f (vec args) nil nil nil))
@@ -48,13 +50,10 @@
           coll (vec-node [(lit 1) (lit 2) (lit 3)])
           reduce-call (call (vref "reduce") f init coll)
           result (ho-elim/eliminate reduce-call reduce-config)]
-      ;; 应生成嵌套调用 (+ (+ (+ 0 1) 2) 3)
       (is (= :call (node/kind result)))
       (let [outer (node/call-args result)]
         (is (= 2 (count outer)))
-        ;; 第二个参数是字面量 3
         (is (= (lit 3) (second outer)))
-        ;; 第一个参数是另一个调用 (+ (+ 0 1) 2)
         (let [inner (first outer)]
           (is (= :call (node/kind inner)))
           (let [inner-args (node/call-args inner)]
@@ -66,3 +65,14 @@
                 (is (= 2 (count inner-inner-args)))
                 (is (= init (first inner-inner-args)))
                 (is (= (lit 1) (second inner-inner-args)))))))))))
+
+(deftest test-reduce-non-vector
+  (testing "reduce with non-vector coll leaves call unchanged"
+    (let [init (lit 0)
+          f    (vref "+")
+          coll (vref "some-list")    ;; 变量，非向量
+          reduce-call (call (vref "reduce") f init coll)
+          result (ho-elim/eliminate reduce-call reduce-config)]
+      (is (= :call (node/kind result)))
+      (is (= "reduce" (node/var-name (node/call-fn result))))
+      (is (= 3 (count (node/call-args result)))))))

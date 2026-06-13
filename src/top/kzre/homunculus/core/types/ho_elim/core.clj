@@ -4,9 +4,9 @@
             [top.kzre.homunculus.core.ir2.node :as node]
             [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]
-            [top.kzre.homunculus.core.types.ho-elim.methods.reduce :as reduce-expand]))
+            [top.kzre.homunculus.core.types.ho-elim.methods.reduce :as reduce-expand]
+            [top.kzre.homunculus.core.types.ho-elim.methods.map :as map-expand]))
 
-;; 为每种节点类型提供 eliminate 方法，递归处理子节点并显式重建
 (defmulti eliminate
           (fn [node config] (ir2p/kind node)))
 
@@ -17,7 +17,8 @@
   (let [fn-name (some-> (node/call-fn node) node/var-name)
         ho-map  (hop/known-ho-functions config)
         strategy (get ho-map (symbol fn-name))]
-    (if (and strategy (= strategy :reduce))
+    (case strategy
+      :reduce
       (let [args (node/call-args node)]
         (if (= 3 (count args))
           (let [f-node (first args)
@@ -25,12 +26,24 @@
                 coll-node (nth args 2)]
             (if (= (node/kind coll-node) :vector)
               (reduce-expand/expand-reduce f-node init-node coll-node)
-              ;; 无法展开，递归处理子节点
               (let [new-fn (eliminate (node/call-fn node) config)
                     new-args (mapv #(eliminate % config) args)]
                 (node/->call new-fn new-args (node/attrs node) (node/node-meta node) (node/parent node)))))
           (throw (ex-info "reduce requires exactly 3 arguments" {:node node}))))
-      ;; 非目标函数，递归处理
+
+      :map
+      (let [args (node/call-args node)]
+        (if (= 2 (count args))
+          (let [f-node (first args)
+                coll-node (second args)]
+            (if (= (node/kind coll-node) :vector)
+              (map-expand/expand-map f-node coll-node)
+              (let [new-fn (eliminate (node/call-fn node) config)
+                    new-args (mapv #(eliminate % config) args)]
+                (node/->call new-fn new-args (node/attrs node) (node/node-meta node) (node/parent node)))))
+          (throw (ex-info "map requires exactly 2 arguments" {:node node}))))
+
+      ;; 非目标函数
       (let [new-fn (eliminate (node/call-fn node) config)
             new-args (mapv #(eliminate % config) (node/call-args node))]
         (node/->call new-fn new-args (node/attrs node) (node/node-meta node) (node/parent node))))))

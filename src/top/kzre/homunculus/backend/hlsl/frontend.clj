@@ -1,7 +1,9 @@
 (ns top.kzre.homunculus.backend.hlsl.frontend
   "HLSL 前端协议实现：向编译器描述 HLSL 的类型、字面量和内建函数。"
-  (:require [top.kzre.homunculus.core.types.protocol :as p]
-            [top.kzre.homunculus.core.types.model :as t]))
+  (:require
+   [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]
+   [top.kzre.homunculus.core.types.model :as t]
+   [top.kzre.homunculus.core.types.protocol :as p]))
 
 ;; ── HLSL 内置函数类型环境 ─────────────────
 (def builtins
@@ -126,3 +128,17 @@
     (throw (ex-info "HLSL does not support collection types" {:kind kind})))
   (builtin-functions [_]
     builtins))
+
+
+(defrecord HLSLHoElimConfig []
+  hop/IHoElimConfig
+  (known-ho-functions [_]
+    {'reduce :reduce, 'map :map})
+  (supports-dynamic-collections? [_]
+    false)
+  (backend-length-fn [_]
+    'count)
+  (backend-nth-fn [_]
+    'nth)
+  (backend-less-than-fn [_]
+    '<))
