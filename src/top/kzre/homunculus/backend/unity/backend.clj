@@ -97,24 +97,20 @@
            "};")))
 
   ;; ── 程序组合：生成完整 ShaderLab 代码 ──
-  (shader-program [_ functions structs globals stage entry-fn-name]
-    (let [safe-name (n/safe-name entry-fn-name)
-          hlsl-code (str/join "\n" (filter seq [globals structs functions]))
-          ;; 根据 stage 决定入口声明
-          pragma (case stage
-                   :vertex   "#pragma vertex vert"
-                   :fragment "#pragma fragment frag"
-                   "#pragma fragment frag")
-          ;; 默认顶点/片段函数名
-          vert-fn (if (= stage :vertex) safe-name "vert")
-          frag-fn (if (= stage :fragment) safe-name "frag")
-          ;; 包裹 ShaderLab
+  (shader-program [this functions structs globals entry-specs]
+    (let [hlsl-code (str/join "\n" (filter seq [globals structs functions]))
+          pragmas   (map (fn [{:keys [stage fn-name]}]
+                           (case stage
+                             :vertex   (str "#pragma vertex " (n/safe-name fn-name))
+                             :fragment (str "#pragma fragment " (n/safe-name fn-name))
+                             (str "#pragma fragment " (n/safe-name fn-name))))
+                         entry-specs)
           shader-str (str
-                       "Shader \"Custom/" safe-name "\" {\n"
+                       "Shader \"Custom/" (or (:fn-name (first entry-specs)) "main") "\" {\n"
                        "    SubShader {\n"
                        "        Pass {\n"
                        "            HLSLPROGRAM\n"
-                       "            " pragma "\n"
+                       "            " (str/join "\n            " pragmas) "\n"
                        "            " hlsl-code "\n"
                        "            ENDHLSL\n"
                        "        }\n"

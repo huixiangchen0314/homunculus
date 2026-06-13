@@ -140,9 +140,6 @@
       (is (str/includes? hlsl "float2 uv : TEXCOORD0;"))
       (is (str/includes? hlsl "output.pos = vs_main(input.pos, input.uv);")))))
 
-
-
-;; 在 integration_test.clj 中添加
 (deftest test-unity-backend-fragment
   (testing "Unity 后端生成 ShaderLab 片段着色器"
     (let [hlsl-frontend (hlsl-front/->HLSLFrontend)

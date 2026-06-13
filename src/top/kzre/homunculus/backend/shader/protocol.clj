@@ -48,7 +48,7 @@
     "生成结构体定义。members 为 {:name :type :semantic} 的向量。")
 
   ;; ── 程序组合 ──
-  (shader-program        [this functions structs globals stage entry-fn-name]
+  (shader-program        [this functions structs globals entry-specs]
     "将函数定义、结构体定义、全局变量组合成完整着色器程序。
      stage 为 :vertex / :fragment 等，entry-fn-name 为用户定义的着色器主函数名。
      后端负责生成入口包装并调用 entry-fn-name，返回完整程序字符串。")
@@ -58,4 +58,13 @@
     "生成资源声明（纹理、采样器、cbuffer 等）。
      name 为变量名，res-type 为关键字（:texture2D, :sampler, :cbuffer 等），
      args 为原始 IR2 节点列表，由后端解析。
-     返回完整声明语句字符串。"))
+     返回完整声明语句字符串。")
+
+  ;; ── 结构体定义辅助 ──
+  (shader-struct-from-params [this struct-name params]
+    "根据参数描述生成结构体定义字符串。
+     params 为 {:name :type :semantic} 的向量，semantic 可为 nil。
+     返回完整的 struct 定义，如 'struct VSInput { ... };'。
+     若 params 为空，可返回空字符串。")
+
+  )

@@ -93,48 +93,31 @@
 
   ;; 核心改变：shader-program 接管入口生成
   ;; 在 backend/hlsl/backend.clj 中替换原有的 shader-program 实现
-  (shader-program [this functions structs globals stage entry-fn-name]
-    (let [safe-entry-name (n/safe-name entry-fn-name)   ;; 关键修复
-          body (str/join "\n\n" (filter seq
+  (shader-program [this functions structs globals entry-specs]
+    (let [body (str/join "\n\n" (filter seq
                                         [(str/join "\n" globals)
                                          (str/join "\n" structs)
                                          (str/join "\n" functions)]))
-          fn-str (some (fn [f]
-                         (when (.startsWith f (str "float4 " safe-entry-name "("))
-                           f))
-                       functions)
-          entry (case stage
-                  :vertex
-                  (if fn-str
-                    (let [params-part (second (re-find #"\(([^)]*)\)" fn-str))
-                          ;; backend/hlsl/backend.clj 的 shader-program 内，替换 params 解析部分
-                          params (when params-part
-                                   (for [p (str/split params-part #",")]
-                                     (let [p (str/trim p)
-                                           ;; 先分割语义部分： "float4 pos : SV_Position" -> ["float4 pos" "SV_Position"]
-                                           [type+name semantic] (str/split p #" : ")
-                                           ;; 再分割类型和名字： "float4 pos" -> ["float4" "pos"]
-                                           [type name]          (str/split (str/trim type+name) #" ")]
-                                       {:name (or name "unknown")
-                                        :type type
-                                        :semantic semantic})))
-                          input-members (mapv #(select-keys % [:name :type :semantic]) params)
-                          input-struct  (sp/shader-struct-decl this "VSInput" input-members)
-                          output-struct (sp/shader-struct-decl this "VSOutput" [{:name "pos" :type "float4" :semantic "SV_POSITION"}])
-                          call-args     (str/join ", " (map #(str "input." (:name %)) params))
-                          entry-body    (str "VSOutput output;\n"
-                                             "    output.pos = " safe-entry-name "(" call-args ");\n"
-                                             "    return output;")]
-                      (str input-struct "\n" output-struct "\n"
-                           "VSOutput main(VSInput input) {\n"
-                           (fmt/indent 1) entry-body "\n"
-                           "}"))
-                    (throw (ex-info "Vertex shader requires a defshader entry with typed parameters"
-                                    {:stage stage :entry-fn-name entry-fn-name})))
-                  :fragment
-                  (str "float4 main() : SV_TARGET { return " safe-entry-name "(); }")
-                  (str "void main() { " safe-entry-name "(); }"))]
-      (str body "\n\n" entry)))
+          ;; 为每个入口生成包装
+          entries (for [{:keys [stage fn-name input-params output-params]} entry-specs]
+                    (case stage
+                      :vertex
+                      (let [input-struct  (sp/shader-struct-from-params this "VSInput" input-params)
+                            output-struct (sp/shader-struct-from-params this "VSOutput" output-params)
+                            safe-name     (n/safe-name fn-name)
+                            call-args     (str/join ", " (map #(str "input." (:name %)) input-params))
+                            entry-body    (str "VSOutput output;\n"
+                                               "    output." (:name (first output-params)) " = "
+                                               safe-name "(" call-args ");\n"
+                                               "    return output;")]
+                        (str input-struct "\n" output-struct "\n"
+                             "VSOutput main(VSInput input) {\n"
+                             (fmt/indent 1) entry-body "\n"
+                             "}"))
+                      :fragment
+                      (str "float4 main() : SV_TARGET { return " (n/safe-name fn-name) "(); }")
+                      (str "void main() { " (n/safe-name fn-name) "(); }")))]
+      (str body "\n\n" (str/join "\n\n" entries))))
 
   (shader-resource-decl [_ name res-type args]
     (let [reg-arg (first args)
@@ -143,4 +126,17 @@
         :texture2D (str "Texture2D<float4> " name " : register(t" reg-val ");")
         :sampler   (str "SamplerState " name " : register(s" reg-val ");")
         :cbuffer   (str "cbuffer " name " : register(b" reg-val ") { ... };")
-        (throw (ex-info "Unknown resource type" {:type res-type}))))))
+        (throw (ex-info "Unknown resource type" {:type res-type})))))
+
+  (shader-struct-from-params [_ struct-name params]
+    (if (seq params)
+      (let [member-strs (map (fn [p]
+                               (str "    " (:type p) " " (:name p)
+                                    (when (:semantic p) (str " : " (:semantic p))) ";"))
+                             params)]
+        (str "struct " struct-name " {\n"
+             (str/join "\n" member-strs) "\n"
+             "};"))
+      ""))   ; 无参数时返回空字符串
+
+  )
