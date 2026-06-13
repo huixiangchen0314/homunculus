@@ -80,10 +80,10 @@
 (deftest test-if
   (testing "if with else"
     (let [node (if-node (vref "cond") (lit 1) (lit 2))]
-      (is (= "if (cond) { 1 } else { 2 }" (emit/emit node backend)))))
+      (is (= "if (cond) { return 1; } else { return 2; }" (emit/emit node backend)))))
   (testing "if without else"
     (let [node (if-node (vref "cond") (lit 1) nil)]
-      (is (= "if (cond) { 1 }" (emit/emit node backend))))))
+      (is (= "if (cond) { return 1; }" (emit/emit node backend))))))
 
 ;; ── while 测试 ──
 (deftest test-while

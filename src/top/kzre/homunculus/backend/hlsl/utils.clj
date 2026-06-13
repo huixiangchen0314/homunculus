@@ -46,18 +46,31 @@
    '-         {:op " - " :infix true}
    '*         {:op " * " :infix true}
    '/         {:op " / " :infix true}
+
+   '<         {:op " < " :infix true}
+   '>         {:op " > " :infix true}
+   '<=        {:op " <= " :infix true}
+   '>=        {:op " >= " :infix true}
+   '==        {:op " == " :infix true}
+   '!=        {:op " != " :infix true}
+   '!         {:fn "!" :prefix true}
+   '&&        {:op " && " :infix true}
+   '||        {:op " || " :infix true}
+
+   'pow       {:fn "pow"}
+   'not       {:fn "!" :prefix true}   ; 逻辑非
    'inc       {:fn "inc"}
    'dec       {:fn "dec"}
-   'zero?     {:fn "!" :prefix true}     ;; 实际可能需要生成 (x == 0)
-   'pos?      {:fn ">" :infix true :second "0"}
-   'neg?      {:fn "<" :infix true :second "0"}
+   ;'zero?     {:fn "!" :prefix true}     ;; 实际可能需要生成 (x == 0)
+   ;'pos?      {:fn ">" :infix true :second "0"}
+   ;'neg?      {:fn "<" :infix true :second "0"}
    'abs       {:fn "abs"}
    'min       {:fn "min"}
    'max       {:fn "max"}
    'clamp     {:fn "clamp"}
    'lerp      {:fn "lerp"}
    'sqrt      {:fn "sqrt"}
-   'pow       {:fn "pow"}
+   'saturate  {:fn "saturate"}
    'sin       {:fn "sin"}
    'cos       {:fn "cos"}
    'tan       {:fn "tan"}
@@ -65,10 +78,18 @@
    'acos      {:fn "acos"}
    'atan      {:fn "atan"}
    'atan2     {:fn "atan2"}
+   'exp       {:fn "exp"}
+   'log       {:fn "log"}
+   'log2      {:fn "log2"}
+   'log10     {:fn "log10"}
    'floor     {:fn "floor"}
    'ceil      {:fn "ceil"}
    'round     {:fn "round"}
    'trunc     {:fn "trunc"}
+   'frac      {:fn "frac"}
+   'ddx       {:fn "ddx"}
+   'ddy       {:fn "ddy"}
+   'fwidth    {:fn "fwidth"}
    'fmod      {:fn "fmod"}
    'dot       {:fn "dot"}
    'cross     {:fn "cross"}
@@ -81,7 +102,15 @@
    'mul       {:fn "mul"}
    'tex2D     {:fn "tex2D" :sample true}
    'texCube   {:fn "texCUBE" :sample true}
-   'saturate  {:fn "saturate"}
-   'ddx       {:fn "ddx"}
-   'ddy       {:fn "ddy"}
-   'fwidth    {:fn "fwidth"}})
+
+   'float     {:fn "float"}
+   'int       {:fn "int"}
+   'bool      {:fn "bool"}
+
+   'int2      {:fn "int2"}
+   'int3      {:fn "int3"}
+   'int4      {:fn "int4"}
+   'bool2     {:fn "bool2"}
+   'bool3     {:fn "bool3"}
+   'bool4     {:fn "bool4"}
+   })
