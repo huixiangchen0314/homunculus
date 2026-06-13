@@ -25,7 +25,7 @@
                 init-node (second args)
                 coll-node (nth args 2)]
             (if (= (node/kind coll-node) :vector)
-              (reduce-expand/expand-reduce f-node init-node coll-node)
+              (reduce-expand/expand-reduce f-node init-node coll-node config)
               (let [new-fn (eliminate (node/call-fn node) config)
                     new-args (mapv #(eliminate % config) args)]
                 (node/->call new-fn new-args (node/attrs node) (node/node-meta node) (node/parent node)))))
@@ -37,7 +37,7 @@
           (let [f-node (first args)
                 coll-node (second args)]
             (if (= (node/kind coll-node) :vector)
-              (map-expand/expand-map f-node coll-node)
+              (map-expand/expand-map f-node coll-node config)
               (let [new-fn (eliminate (node/call-fn node) config)
                     new-args (mapv #(eliminate % config) args)]
                 (node/->call new-fn new-args (node/attrs node) (node/node-meta node) (node/parent node)))))

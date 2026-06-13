@@ -5,9 +5,9 @@
             [top.kzre.homunculus.core.ir2.node :as node]
             [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.types.ho-elim.core :as ho-elim]
-            [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]))
+            [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]
+            [top.kzre.homunculus.core.types.model :as t]))
 
-;; ── 配置：固定长度展开，不支持动态 ──
 (def fixed-config
   (reify hop/IHoElimConfig
     (known-ho-functions [_] {'reduce :reduce, 'map :map})
@@ -16,27 +16,31 @@
     (backend-nth-fn [_] 'nth)
     (backend-less-than-fn [_] '<)))
 
-;; ── 辅助函数 ──
 (defn- lit [val] (m/->LiteralNode val nil nil nil))
 (defn- vref [name] (m/->VariableNode name nil nil nil))
 (defn- call [f & args] (m/->CallNode f (vec args) nil nil nil))
-(defn- vec-node [items] (m/->VectorNode items nil nil nil))
+
+(defn- typed-vec [items]
+  (let [elem-ty (t/->TCon :int)
+        shape   (t/->FixedLength (count items))
+        ty      (t/->TContainer :vector elem-ty shape)]
+    (m/->VectorNode items {:type ty} nil nil)))
 
 ;; ══════════════════════════════════════════════
-;; Reduce 测试
+;; Reduce
 ;; ══════════════════════════════════════════════
 (deftest reduce-empty
   (let [init (lit 0)
         f    (vref "+")
-        coll (vec-node [])
+        coll (typed-vec [])
         r    (call (vref "reduce") f init coll)
         res  (ho-elim/eliminate r fixed-config)]
-    (is (identical? init res) "空向量应直接返回初始值")))
+    (is (identical? init res))))
 
 (deftest reduce-single
   (let [init (lit 0)
         f    (vref "+")
-        coll (vec-node [(lit 1)])
+        coll (typed-vec [(lit 1)])
         r    (call (vref "reduce") f init coll)
         res  (ho-elim/eliminate r fixed-config)]
     (is (= :call (node/kind res)))
@@ -49,13 +53,13 @@
 (deftest reduce-multiple
   (let [init (lit 0)
         f    (vref "+")
-        coll (vec-node [(lit 1) (lit 2) (lit 3)])
+        coll (typed-vec [(lit 1) (lit 2) (lit 3)])
         r    (call (vref "reduce") f init coll)
         res  (ho-elim/eliminate r fixed-config)]
     (is (= :call (node/kind res)))
     (let [args (node/call-args res)]
       (is (= 2 (count args)))
-      (is (= (lit 3) (second args)))            ;; (+ (+ (+ 0 1) 2) 3)
+      (is (= (lit 3) (second args)))
       (let [inner (first args)]
         (is (= :call (node/kind inner)))
         (let [iargs (node/call-args inner)]
@@ -79,11 +83,11 @@
     (is (= 3 (count (node/call-args res))))))
 
 ;; ══════════════════════════════════════════════
-;; Map 测试
+;; Map
 ;; ══════════════════════════════════════════════
 (deftest map-empty
   (let [f    (vref "inc")
-        coll (vec-node [])
+        coll (typed-vec [])
         r    (call (vref "map") f coll)
         res  (ho-elim/eliminate r fixed-config)]
     (is (= :vector (node/kind res)))
@@ -91,7 +95,7 @@
 
 (deftest map-single
   (let [f    (vref "inc")
-        coll (vec-node [(lit 1)])
+        coll (typed-vec [(lit 1)])
         r    (call (vref "map") f coll)
         res  (ho-elim/eliminate r fixed-config)]
     (is (= :vector (node/kind res)))
@@ -104,7 +108,7 @@
 
 (deftest map-multiple
   (let [f    (vref "inc")
-        coll (vec-node [(lit 1) (lit 2) (lit 3)])
+        coll (typed-vec [(lit 1) (lit 2) (lit 3)])
         r    (call (vref "map") f coll)
         res  (ho-elim/eliminate r fixed-config)]
     (is (= :vector (node/kind res)))
@@ -125,23 +129,22 @@
     (is (= 2 (count (node/call-args res))))))
 
 ;; ══════════════════════════════════════════════
-;; 配置相关测试
+;; 配置相关
 ;; ══════════════════════════════════════════════
 (deftest unknown-ho-function
-  (let [r   (call (vref "filter") (vref "odd?") (vec-node []))
+  (let [r   (call (vref "filter") (vref "odd?") (typed-vec []))
         res (ho-elim/eliminate r fixed-config)]
-    (is (= :call (node/kind res))                ;; 未注册的函数保持不变
-        (is (= "filter" (node/var-name (node/call-fn res))))))
+    (is (= :call (node/kind res)))
+    (is (= "filter" (node/var-name (node/call-fn res))))))
 
-  (deftest dynamic-collection-throws
-    (let [dyn-config (reify hop/IHoElimConfig
-                       (known-ho-functions [_] {'reduce :reduce})
-                       (supports-dynamic-collections? [_] false)
-                       (backend-length-fn [_] 'count)
-                       (backend-nth-fn [_] 'nth)
-                       (backend-less-than-fn [_] '<))
-          r   (call (vref "reduce") (vref "+") (lit 0) (vref "xs"))
-          res (ho-elim/eliminate r dyn-config)]
-      ;; 由于不支持动态，且 coll 不是 vector，应保留原调用
-      (is (= :call (node/kind res)))
-      (is (= "reduce" (node/var-name (node/call-fn res)))))))
+(deftest dynamic-collection-throws
+  (let [dyn-config (reify hop/IHoElimConfig
+                     (known-ho-functions [_] {'reduce :reduce})
+                     (supports-dynamic-collections? [_] false)
+                     (backend-length-fn [_] 'count)
+                     (backend-nth-fn [_] 'nth)
+                     (backend-less-than-fn [_] '<))
+        r   (call (vref "reduce") (vref "+") (lit 0) (vref "xs"))
+        res (ho-elim/eliminate r dyn-config)]
+    (is (= :call (node/kind res)))
+    (is (= "reduce" (node/var-name (node/call-fn res))))))

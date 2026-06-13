@@ -1,7 +1,4 @@
-;; ═══════════════════════════════════════════════════════
-;; top.kzre.homunculus.core.types.model
-;; 所有类型记录、形状记录以及基础前端/后端实现骨架
-;; ═══════════════════════════════════════════════════════
+
 (ns top.kzre.homunculus.core.types.model
   (:require [top.kzre.homunculus.core.types.protocol :as p]))
 

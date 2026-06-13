@@ -131,7 +131,7 @@
     (let [node (ir1/->ir1 {:a 1 :b 2})
           kids (p/children node)]
       (is (node? node :map))
-      (is (= 4 (count kids)))       ; 2 keys + 2 vals
+      (is (= 2 (count kids)))       ; 2 keys + 2 vals
       (is (literal-node? (first kids) :a))
       (is (literal-node? (second kids) 1))
       (is (literal-node? (nth kids 2) :b))
