@@ -1,5 +1,6 @@
 (ns top.kzre.homunculus.backend.shader.protocol
-  "着色器后端协议：抽象 HLSL/GLSL 共性的代码生成接口。")
+  "着色器后端协议：抽象 HLSL/GLSL 共性的代码生成接口。
+   所有方法接收的是已经生成好的字符串片段，后端只需按目标语言语法拼接。")
 
 (defprotocol IShaderBackend
   ;; ── 类型与字面量 ──
@@ -10,42 +11,51 @@
 
   ;; ── 变量 ──
   (shader-var-decl       [this name ir-type mutable? init-expr]
-    "生成变量声明语句。若 init-expr 非 nil 则含初始化，如 'float x = 1.0;'；否则仅声明 'float x;'。")
+    "生成变量声明语句。init-expr 为 nil 时只声明不初始化。")
   (shader-var-ref        [this name]
-    "变量引用，返回变量名字符串（可能带修饰符）。")
+    "变量引用，返回变量名字符串。")
 
   ;; ── 赋值 ──
   (shader-assign         [this var val]
-    "赋值语句，如 'x = 5;'。")
+    "赋值语句，返回完整语句。")
 
   ;; ── 控制流 ──
   (shader-if             [this test then else]
-    "if 语句，else 可为 nil 表示无 else 分支。")
+    "if 语句。test 不应包含外层括号，else 可为 nil。")
   (shader-while          [this test body]
-    "while 循环。")
+    "while 循环。test 不应包含外层括号。")
   (shader-block          [this stmts]
-    "将多条语句（字符串序列）组合成一个代码块，自动添加大括号和分号。")
+    "将多条语句组合成一个代码块，自动添加大括号和必要分号。")
 
   ;; ── 函数 ──
   (shader-function-decl  [this name params return-type body]
-    "生成函数定义，params 为字符串列表，return-type 为字符串，body 为函数体字符串。")
+    "生成函数定义。params 为已格式化的参数字符串列表。")
   (shader-return         [this expr]
     "return 语句。")
-  ;; backend/shader/protocol.clj 的 IShaderBackend 中增加一行：
-  (shader-call [this fn-name args] "生成函数调用；允许后端实现中缀运算符等特殊形式。")
-  ;; ── 入口与阶段 ──
-  (shader-entry-point    [this stage fn-name]
-    "生成入口函数，调用指定函数 fn-name，stage 为 :vertex、:fragment 等，用于附加系统语义。")
+
+  ;; ── 函数调用 / 运算符 ──
+  (shader-call           [this fn-name args]
+    "生成函数调用或运算符表达式。args 为参数字符串列表。
+     后端可根据内置函数表将某些函数转换为中缀/前缀运算符或特殊语法。
+     返回完整表达式字符串（不含分号）。")
 
   ;; ── 类型转换 ──
   (shader-cast           [this expr src-ty dst-ty]
-    "显式类型转换，如 '(float)x'。")
+    "显式类型转换表达式。")
 
-  ;; ── 结构体定义 ──
+  ;; ── 结构体 ──
   (shader-struct-decl    [this name members]
-    "生成结构体定义。members 为向量，每个元素是 {:name :type :semantic} 的 map。semantic 可为 nil。")
+    "生成结构体定义。members 为 {:name :type :semantic} 的向量。")
 
   ;; ── 程序组合 ──
-  (shader-program        [this functions structs globals entry]
-    "将函数定义、结构体定义、全局变量和入口点组合成完整的着色器程序字符串。")
-  )
+  (shader-program        [this functions structs globals stage entry-fn-name]
+    "将函数定义、结构体定义、全局变量组合成完整着色器程序。
+     stage 为 :vertex / :fragment 等，entry-fn-name 为用户定义的着色器主函数名。
+     后端负责生成入口包装并调用 entry-fn-name，返回完整程序字符串。")
+
+  ;; ── 资源声明 ──
+  (shader-resource-decl  [this name res-type args]
+    "生成资源声明（纹理、采样器、cbuffer 等）。
+     name 为变量名，res-type 为关键字（:texture2D, :sampler, :cbuffer 等），
+     args 为原始 IR2 节点列表，由后端解析。
+     返回完整声明语句字符串。"))

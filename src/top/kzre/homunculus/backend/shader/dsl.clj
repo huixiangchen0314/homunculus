@@ -8,17 +8,7 @@
      ~(with-meta (list* 'fn* (vec params) body) {:shader-stage stage})))
 
 
-(defmacro texture2D [& {:keys [register]}]
-  {:resource-type :texture2D :register register})
-
-(defmacro sampler [& {:keys [register]}]
-  {:resource-type :sampler :register register})
-
-(defmacro cbuffer [members & {:keys [register]}]
-  (let [member-specs (mapv (fn [m]
-                             (let [sym (if (symbol? m) m (first m))
-                                   meta (meta sym)]
-                               {:name (name sym)
-                                :type (some (fn [k] (when (keyword? k) k)) (keys meta))}))
-                           members)]
-    {:resource-type :cbuffer :register register :members member-specs}))
+;; 资源构造器：普通 Clojure 函数，类型由 typed 推断（前端 builtins 提供）
+(defn texture2D     [register] nil)
+(defn sampler-state [register] nil)
+(defn cbuffer       [register & members] nil)

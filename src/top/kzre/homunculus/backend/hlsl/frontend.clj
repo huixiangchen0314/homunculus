@@ -92,6 +92,10 @@
    'bool3     (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TCon :bool3))))
    'bool4     (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TCon :bool4)))))
    ;; … 更多内置函数可陆续添加
+
+   'texture2D     (t/->TFun (t/->TCon :int) (t/->TCon :texture2D))
+   'sampler-state (t/->TFun (t/->TCon :int) (t/->TCon :sampler))
+   'sample        (t/->TFun (t/->TCon :texture2D) (t/->TFun (t/->TCon :sampler) (t/->TCon :float4)))
    })
 
 ;; ── HLSL 前端信息实现 ────────────────────
