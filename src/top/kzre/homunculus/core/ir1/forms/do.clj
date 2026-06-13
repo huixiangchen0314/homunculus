@@ -4,7 +4,7 @@
 
 (defmethod ir1/form->node 'do [form]
   (let [[_ & exprs] form]
-    (m/->DoNode (vec exprs) nil nil)))
+    (m/->DoNode (vec exprs) (meta form) nil)))
 
 (defmethod ir1/build-tree :do [node]
   (m/->DoNode (mapv ir1/->ir1 (:exprs node)) (:meta node) (:parent node)))

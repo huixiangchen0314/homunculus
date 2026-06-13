@@ -5,7 +5,7 @@
 (defmethod ir1/form->node 'let* [form]
   (let [[_ bindings & body] form
         bind-count (/ (count bindings) 2)]
-    (m/->LetNode bindings body bind-count nil nil)))
+    (m/->LetNode bindings body bind-count (meta form) nil)))
 
 (defmethod ir1/build-tree :let [node]
   (let [bindings (:bindings node)

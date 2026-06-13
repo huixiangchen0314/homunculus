@@ -5,7 +5,7 @@
 (defmethod ir1/form->node 'loop* [form]
   (let [[_ bindings & body] form
         bind-count (/ (count bindings) 2)]
-    (m/->LoopNode bindings body bind-count nil nil)))
+    (m/->LoopNode bindings body bind-count (meta form) nil)))
 
 (defmethod ir1/build-tree :loop [node]
   (let [bindings (:bindings node)
@@ -17,7 +17,7 @@
 
 (defmethod ir1/form->node 'recur [form]
   (let [[_ & exprs] form]
-    (m/->RecurNode (vec exprs) nil nil)))
+    (m/->RecurNode (vec exprs) (meta form) nil)))
 
 (defmethod ir1/build-tree :recur [node]
   (m/->RecurNode (mapv ir1/->ir1 (:exprs node)) (:meta node) (:parent node)))

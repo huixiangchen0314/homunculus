@@ -4,7 +4,7 @@
 
 (defmethod ir1/form->node 'var [form]
   (let [[_ var-sym] form]
-    (m/->VarNode var-sym nil nil)))
+    (m/->VarNode var-sym (meta form) nil)))
 
 (defmethod ir1/build-tree :var [node]
   (m/->VarNode (ir1/->ir1 (:var-sym node)) (:meta node) (:parent node)))

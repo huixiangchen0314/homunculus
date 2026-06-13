@@ -166,16 +166,10 @@
 ;; ══════════════════════════════════════════
 ;; 顶层生成入口
 ;; ══════════════════════════════════════════
-(defn generate
-  [ir2-roots backend entry-stage entry-fn-name]
+(defn generate [ir2-roots backend entry-stage entry-fn-name]
   (let [defines (filter #(= (ir2p/kind %) :define) ir2-roots)
-        others  (remove #(= (ir2p/kind %) :define) ir2-roots)
+        ;; 从第一个 define 的 node-meta 读取阶段，若无则使用传入的 entry-stage
+        stage   (or (some-> (first defines) ir2p/node-meta :shader-stage) entry-stage)
         fn-defs (map #(emit % backend) defines)
-        other-code (when (seq others)
-                     (let [exprs (map #(emit % backend) others)]
-                       (if (= 1 (count exprs))
-                         (sp/shader-return backend (first exprs))
-                         (sp/shader-block backend exprs))))
-        body (str/join "\n" (remove nil? [other-code (str/join "\n" fn-defs)]))
-        entry (sp/shader-entry-point backend entry-stage entry-fn-name)]
-    (str/join "\n" (filter seq [body entry]))))
+        entry   (sp/shader-entry-point backend stage entry-fn-name)]
+    (str (str/join "\n" fn-defs) "\n" entry)))

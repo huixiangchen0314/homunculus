@@ -7,7 +7,7 @@
         [name params body] (if (symbol? maybe-name)
                              [maybe-name params body]
                              [nil maybe-name (cons params body)])]
-    (m/->FnNode name (mapv (fn [p] {:sym p :meta (meta p)}) params) body nil nil)))
+    (m/->FnNode name (mapv (fn [p] {:sym p :meta (meta p)}) params) body (meta form) nil)))
 
 (defmethod ir1/build-tree :fn [node]
   (let [name (:name node)

@@ -4,7 +4,7 @@
 
 (defmethod ir1/form->node 'if [form]
   (let [[_ test then else] form]
-    (m/->IfNode test then else nil nil)))
+    (m/->IfNode test then else (meta form) nil)))
 
 (defmethod ir1/build-tree :if [node]
   (m/->IfNode (ir1/->ir1 (:test node))

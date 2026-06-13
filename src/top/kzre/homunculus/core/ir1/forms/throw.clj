@@ -4,7 +4,7 @@
 
 (defmethod ir1/form->node 'throw [form]
   (let [[_ expr] form]
-    (m/->ThrowNode expr nil nil)))
+    (m/->ThrowNode expr (meta form) nil)))
 
 (defmethod ir1/build-tree :throw [node]
   (m/->ThrowNode (ir1/->ir1 (:expr node)) (:meta node) (:parent node)))

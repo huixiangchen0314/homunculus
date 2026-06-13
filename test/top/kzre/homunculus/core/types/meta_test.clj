@@ -1,15 +1,17 @@
 (ns top.kzre.homunculus.core.types.meta-test
-  (:require [clojure.test :refer :all]
-            [top.kzre.homunculus.core.ir1.core :as ir1]
-            [top.kzre.homunculus.core.ir1.protocol :as ir1p]
-            [top.kzre.homunculus.core.ir2.core :as ir2]
-            [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [top.kzre.homunculus.core.ir1.forms]
-            [top.kzre.homunculus.core.ir2.forms]
-            [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
-            [top.kzre.homunculus.backend.shader.emit :as emit]))
+  (:require
+   [clojure.string :as str]
+   [clojure.test :refer :all]
+   [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
+   [top.kzre.homunculus.backend.shader.emit :as emit]
+   [top.kzre.homunculus.core.ir1.core :as ir1]
+   [top.kzre.homunculus.core.ir1.forms]
+   [top.kzre.homunculus.core.ir1.protocol :as ir1p]
+   [top.kzre.homunculus.core.ir2.core :as ir2]
+   [top.kzre.homunculus.core.ir2.forms]
+   [top.kzre.homunculus.core.ir2.model :as m]
+   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+   [top.kzre.homunculus.core.types.model :as t]))
 
 (def backend (hlsl-backend/->HLSLBackend))
 
@@ -70,3 +72,22 @@
                                        (return pos)))]
             (is (= :vertex (:shader-stage (meta (second form)))))
             (is (= 'vs-main (second form)))))
+
+(deftest defshader-integration-test
+  (testing "defshader 展开后 lowering 应保留参数语义"
+    (require 'top.kzre.homunculus.backend.shader.dsl)
+    (let [form (macroexpand-1 '(top.kzre.homunculus.backend.shader.dsl/defshader
+                                 :vertex vs-main
+                                 [^:SV_Position ^:float4 pos]
+                                 (return pos)))
+          ir1-root (ir1/->ir1 form)
+          ir2-roots (ir2/lower [ir1-root])
+          ;; 第一个根应为 define
+          define-node (first ir2-roots)]
+      (is (= :define (ir2p/kind define-node)))
+      ;; define 的 node-meta 应包含 :shader-stage
+      (is (= :vertex (:shader-stage (ir2p/node-meta define-node))))
+      ;; 内部 lambda 的参数应包含 :SV_Position 元数据
+      (let [lambda (:val define-node)
+            param  (first (:params lambda))]
+        (is (contains? (ir2p/node-meta param) :SV_Position))))))

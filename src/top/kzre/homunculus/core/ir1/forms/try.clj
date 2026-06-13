@@ -9,7 +9,7 @@
         catches (take-while #(= 'catch (first %)) after-body)
         finally-part (drop (count catches) after-body)
         finally-expr (when (= 'finally (ffirst finally-part)) (rest (first finally-part)))]
-    (m/->TryNode (vec body) (mapv rest catches) finally-expr nil nil)))
+    (m/->TryNode (vec body) (mapv rest catches) finally-expr (meta form) nil)))
 
 (defmethod ir1/build-tree :try [node]
   (let [body-irs    (mapv ir1/->ir1 (:body node))

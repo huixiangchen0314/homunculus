@@ -71,12 +71,19 @@
     (str "return " expr ";"))
 
   ;; ── 入口与阶段 ──
-  (shader-entry-point [_ stage fn-name]
-    ;; 简化：根据 stage 关键字生成系统语义，这里仅示例
+  (shader-entry-point [this stage fn-name]
+    ;; 从某个 define 节点中读取阶段信息，但此方法只接收 stage 参数，因此需要外部传入正确的 stage
+    ;; 我们将在 generate 函数中传入正确的 stage
     (case stage
-      :vertex   (str "void main() { " fn-name "(); }")  ;; 实际需附加 SV_Position 等，由 codegen 处理
-      :fragment (str "void main() { " fn-name "(); }")
-      (throw (ex-info "Unknown shader stage" {:stage stage}))))
+      :vertex   (str "struct VSOutput { float4 pos : SV_POSITION; };\n"
+                     "VSOutput main() {\n"
+                     "    VSOutput o;\n"
+                     "    o.pos = " fn-name "();\n"
+                     "    return o;\n}")
+      :fragment (str "float4 main() : SV_TARGET {\n"
+                     "    return " fn-name "();\n}")
+      ;; 默认
+      (str "void main() { " fn-name "(); }")))
 
   (shader-call [this fn-name args]
     (let [sym (symbol fn-name)  ;; 变量引用返回的是字符串，需转符号以匹配 builtin-map
