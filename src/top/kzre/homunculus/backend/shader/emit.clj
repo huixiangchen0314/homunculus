@@ -94,11 +94,19 @@
         param-strs (map (fn [p]
                           (let [ty (get-in p [:attrs :type])
                                 type-str (if ty (sp/shader-type backend ty) "float")
-                                name (sp/shader-var-ref backend (:name p))]
-                            (str type-str " " name)))
+                                param-name (sp/shader-var-ref backend (:name p))  ;; 局部改名
+                                metadata (ir2p/node-meta p)
+                                semantic (when (map? metadata)
+                                           (some (fn [k]
+                                                   (when (and (keyword? k)
+                                                              (not (namespace k))
+                                                              (^[char] Character/isUpperCase (first (name k))))
+                                                     k))
+                                                 (keys metadata)))]
+                            (str type-str " " param-name
+                                 (if semantic (str " : " (name semantic)) ""))))
                         params)
         body-code (emit body backend)
-        ;; 若体是 block 或控制流，不加 return；否则自动包裹 return
         return-body (if (or (= (ir2p/kind body) :block)
                             (#{:if :while :let :loop :assign :throw} (ir2p/kind body)))
                       body-code
