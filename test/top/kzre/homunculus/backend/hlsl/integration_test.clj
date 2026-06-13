@@ -47,7 +47,9 @@
 
 (def full-builtins (merge {} hlsl-front/builtins))
 
-(defn compile-and-emit [form entry-stage entry-fn-name]
+(defn compile-and-emit
+  "编译 Clojure 形式并生成着色器代码。entries 为入口列表，每项 {:stage :vertex/:fragment, :fn-name \"...\"}"
+  [form entries]
   (let [expanded   (walk/macroexpand-all form)
         ir1-root   (ir1/->ir1 expanded)
         ir2-roots  (ir2/lower [ir1-root])
@@ -58,41 +60,41 @@
         inferred   (infer/run checked-fn :frontend hlsl-frontend)
         typed      (typed/type-check inferred :frontend hlsl-frontend :builtins full-builtins)
         checked    (check/check-program typed {:backend mock-backend})]
-    (emit/generate checked hlsl-backend-inst entry-stage entry-fn-name)))
+    (emit/generate checked hlsl-backend-inst entries)))
 
 (defn hlsl-contains? [hlsl substr]
   (str/includes? hlsl substr))
 
 (deftest test-simple-literal
   (testing "数字字面量"
-    (let [hlsl (compile-and-emit 42.0 :fragment "frag")]
+    (let [hlsl (compile-and-emit 42.0 [{:stage :fragment :fn-name "frag"}])]
       (is (hlsl-contains? hlsl "return 42.0;"))
       (is (hlsl-contains? hlsl "float4 main() : SV_TARGET { return frag(); }")))))
 
 (deftest test-simple-call
   (testing "(+ 1.0 2.0)"
-    (let [hlsl (compile-and-emit '(+ 1.0 2.0) :fragment "frag")]
+    (let [hlsl (compile-and-emit '(+ 1.0 2.0) [{:stage :fragment :fn-name "frag"}])]
       (is (hlsl-contains? hlsl "(1.0 + 2.0)"))
       (is (hlsl-contains? hlsl "return"))
       (is (hlsl-contains? hlsl "frag()")))))
 
 (deftest test-let-binding
   (testing "let 绑定"
-    (let [hlsl (compile-and-emit '(let* [x 42.0] x) :fragment "frag")]
+    (let [hlsl (compile-and-emit '(let* [x 42.0] x) [{:stage :fragment :fn-name "frag"}])]
       (is (hlsl-contains? hlsl "const float x = 42.0"))
       (is (hlsl-contains? hlsl "return x;"))
       (is (hlsl-contains? hlsl "frag()")))))
 
 (deftest test-float4-constructor
   (testing "向量构造 float4"
-    (let [hlsl (compile-and-emit '(float4 1.0 2.0 3.0 4.0) :fragment "frag")]
+    (let [hlsl (compile-and-emit '(float4 1.0 2.0 3.0 4.0) [{:stage :fragment :fn-name "frag"}])]
       (is (hlsl-contains? hlsl "float4(1.0, 2.0, 3.0, 4.0)"))
       (is (hlsl-contains? hlsl "return"))
       (is (hlsl-contains? hlsl "frag()")))))
 
 (deftest test-if-statement
   (testing "if 表达式"
-    (let [hlsl (compile-and-emit '(if true 1.0 0.0) :fragment "frag")]
+    (let [hlsl (compile-and-emit '(if true 1.0 0.0) [{:stage :fragment :fn-name "frag"}])]
       (is (hlsl-contains? hlsl "if (true)"))
       (is (hlsl-contains? hlsl "return 1.0"))
       (is (hlsl-contains? hlsl "else"))
@@ -100,14 +102,14 @@
 
 (deftest test-while-loop
   (testing "while loop with mutable variable"
-    (let [hlsl (compile-and-emit '(loop* [i 0.0] (if (< i 10.0) (recur (+ i 1.0)) i)) :fragment "frag")]
+    (let [hlsl (compile-and-emit '(loop* [i 0.0] (if (< i 10.0) (recur (+ i 1.0)) i)) [{:stage :fragment :fn-name "frag"}])]
       (is (hlsl-contains? hlsl "while"))
       (is (hlsl-contains? hlsl "i = "))
       (is (hlsl-contains? hlsl "frag()")))))
 
 (deftest test-function-definition
   (testing "顶层函数定义"
-    (let [hlsl (compile-and-emit '(def square (fn* [^:float x] (* x x))) :fragment "square")]
+    (let [hlsl (compile-and-emit '(def square (fn* [^:float x] (* x x))) [{:stage :fragment :fn-name "square"}])]
       (is (hlsl-contains? hlsl "float square(float x)"))
       (is (hlsl-contains? hlsl "return (x * x)"))
       (is (hlsl-contains? hlsl "float4 main() : SV_TARGET { return square(); }")))))
@@ -118,7 +120,7 @@
                                     :vertex vs-main
                                     [^:SV_Position ^:float4 pos]
                                     pos)
-                                 :vertex "vs-main")]
+                                 [{:stage :vertex :fn-name "vs-main"}])]
       (is (str/includes? hlsl "float4 vs_main(float4 pos : SV_Position)"))
       (is (str/includes? hlsl "struct VSInput"))
       (is (str/includes? hlsl "float4 pos : SV_Position;"))
@@ -134,7 +136,7 @@
                                     [^:SV_Position ^:float4 pos
                                      ^:TEXCOORD0  ^:float2 uv]
                                     pos)
-                                 :vertex "vs-main")]
+                                 [{:stage :vertex :fn-name "vs-main"}])]
       (is (str/includes? hlsl "float4 vs_main(float4 pos : SV_Position, float2 uv : TEXCOORD0)"))
       (is (str/includes? hlsl "struct VSInput"))
       (is (str/includes? hlsl "float2 uv : TEXCOORD0;"))
@@ -146,7 +148,7 @@
           unity-backend (unity/->UnityBackend)
           mock-backend  (->MockBackend)
           full-builtins (merge {} hlsl-front/builtins)
-          compile (fn [form stage entry]
+          compile (fn [form entries]
                     (let [expanded   (walk/macroexpand-all form)
                           ir1-root   (ir1/->ir1 expanded)
                           ir2-roots  (ir2/lower [ir1-root])
@@ -157,13 +159,11 @@
                           inferred   (infer/run checked-fn :frontend hlsl-frontend)
                           typed      (typed/type-check inferred :frontend hlsl-frontend :builtins full-builtins)
                           checked    (check/check-program typed {:backend mock-backend})]
-                      (emit/generate checked unity-backend stage entry)))
-          hlsl (compile 42.0 :fragment "frag")]
+                      (emit/generate checked unity-backend entries)))
+          hlsl (compile 42.0 [{:stage :fragment :fn-name "frag"}])]
       (is (str/includes? hlsl "Shader \"Custom/frag\""))
       (is (str/includes? hlsl "SubShader"))
       (is (str/includes? hlsl "HLSLPROGRAM"))
       (is (str/includes? hlsl "#pragma fragment frag"))
       (is (str/includes? hlsl "return 42.0;"))
       (is (str/includes? hlsl "ENDHLSL")))))
-
-

@@ -37,7 +37,7 @@
           define (m/->DefineNode 'lambert lambda nil nil nil nil)
           roots [define]
           ;; 生成 HLSL
-          result (emit/generate roots backend :fragment "lambert")]
+          result (emit/generate roots backend [{:stage :fragment :fn-name "lambert"}])]
       (println "Generated HLSL:\n" result)
       ;; 验证关键部分
       (is (s/includes? result "float4 lambert(float4 pos, float3 normal)"))

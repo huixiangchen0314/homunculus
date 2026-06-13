@@ -92,11 +92,9 @@
            "};")))
 
   ;; 程序组合：委托给 shader-entry-wrapper 生成每个入口
-  (shader-program [this functions structs globals entry-specs]
-    (let [body (str/join "\n\n" (filter seq
-                                        [(str/join "\n" globals)
-                                         (str/join "\n" structs)
-                                         (str/join "\n" functions)]))
+  (sp/shader-program [this functions structs globals entry-specs]
+    (let [all-parts (concat globals structs functions)
+          body (when (seq all-parts) (str/join "\n\n" all-parts))
           entries (for [{:keys [stage fn-name input-params output-params]} entry-specs]
                     (sp/shader-entry-wrapper this stage fn-name input-params output-params))]
       (str body "\n\n" (str/join "\n\n" entries))))

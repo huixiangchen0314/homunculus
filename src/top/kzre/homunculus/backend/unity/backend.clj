@@ -133,7 +133,7 @@
 
   ;; ── 程序组合：生成完整 ShaderLab 代码 ──
   (shader-program [this functions structs globals entry-specs]
-    (let [hlsl-body (str/join "\n" (filter seq [globals structs functions]))
+    (let [hlsl-body (str/join "\n" (concat globals structs functions))
           pragmas   (map (fn [{:keys [stage fn-name]}]
                            (str "#pragma " (name stage) " " (n/safe-name fn-name)))
                          entry-specs)
