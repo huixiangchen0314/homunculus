@@ -53,7 +53,7 @@
 
   (shader-function-decl [this name params return-type body]
     (str return-type " " (n/safe-name name) "(" (fmt/comma-sep params) ")\n"
-         body))   ;; body 已经格式化好（含大括号或单语句）
+         body))
 
   (shader-return [_ expr]
     (str "return " expr ";"))
@@ -68,7 +68,7 @@
             (str "(" (first args) (:op info) (second args) ")")
             (throw (ex-info "Infix op requires 2 args" {:fn fn-name :args args})))
 
-          (:sample info)   ;; 采样统一处理
+          (:sample info)
           (let [[tex sam & rest] args]
             (str tex ".Sample(" sam (when (seq rest) (str ", " (str/join ", " rest))) ")"))
 
@@ -91,32 +91,14 @@
            (str/join "\n" member-strs) "\n"
            "};")))
 
-  ;; 核心改变：shader-program 接管入口生成
-  ;; 在 backend/hlsl/backend.clj 中替换原有的 shader-program 实现
+  ;; 程序组合：委托给 shader-entry-wrapper 生成每个入口
   (shader-program [this functions structs globals entry-specs]
     (let [body (str/join "\n\n" (filter seq
                                         [(str/join "\n" globals)
                                          (str/join "\n" structs)
                                          (str/join "\n" functions)]))
-          ;; 为每个入口生成包装
           entries (for [{:keys [stage fn-name input-params output-params]} entry-specs]
-                    (case stage
-                      :vertex
-                      (let [input-struct  (sp/shader-struct-from-params this "VSInput" input-params)
-                            output-struct (sp/shader-struct-from-params this "VSOutput" output-params)
-                            safe-name     (n/safe-name fn-name)
-                            call-args     (str/join ", " (map #(str "input." (:name %)) input-params))
-                            entry-body    (str "VSOutput output;\n"
-                                               "    output." (:name (first output-params)) " = "
-                                               safe-name "(" call-args ");\n"
-                                               "    return output;")]
-                        (str input-struct "\n" output-struct "\n"
-                             "VSOutput main(VSInput input) {\n"
-                             (fmt/indent 1) entry-body "\n"
-                             "}"))
-                      :fragment
-                      (str "float4 main() : SV_TARGET { return " (n/safe-name fn-name) "(); }")
-                      (str "void main() { " (n/safe-name fn-name) "(); }")))]
+                    (sp/shader-entry-wrapper this stage fn-name input-params output-params))]
       (str body "\n\n" (str/join "\n\n" entries))))
 
   (shader-resource-decl [_ name res-type args]
@@ -137,6 +119,26 @@
         (str "struct " struct-name " {\n"
              (str/join "\n" member-strs) "\n"
              "};"))
-      ""))   ; 无参数时返回空字符串
+      ""))
 
-  )
+  (shader-entry-wrapper [this stage entry-fn-name input-params output-params]
+    (let [safe-name (n/safe-name entry-fn-name)]
+      (case stage
+        :vertex
+        (let [input-struct  (sp/shader-struct-from-params this "VSInput" input-params)
+              output-struct (sp/shader-struct-from-params this "VSOutput" output-params)
+              call-args     (str/join ", " (map #(str "input." (:name %)) input-params))
+              output-pos    (if (seq output-params)
+                              (:name (first output-params))
+                              "pos")
+              entry-body    (str "VSOutput output;\n"
+                                 "    output." output-pos " = " safe-name "(" call-args ");\n"
+                                 "    return output;")]
+          (str (when (seq input-params) (str input-struct "\n"))
+               (when (seq output-params) (str output-struct "\n"))
+               "VSOutput main(VSInput input) {\n"
+               (fmt/indent 1) entry-body "\n"
+               "}"))
+        :fragment
+        (str "float4 main() : SV_TARGET { return " safe-name "(); }")
+        (str "void main() { " safe-name "(); }")))))

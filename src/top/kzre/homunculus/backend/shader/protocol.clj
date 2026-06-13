@@ -67,4 +67,11 @@
      返回完整的 struct 定义，如 'struct VSInput { ... };'。
      若 params 为空，可返回空字符串。")
 
+  ;; ── 入口包装 ──
+  (shader-entry-wrapper [this stage entry-fn-name input-params output-params]
+    "生成一个入口函数（如 main），在其中调用 entry-fn-name。
+     stage 为 :vertex / :fragment 等。
+     input-params 和 output-params 为参数描述向量，各元素 {:name :type :semantic}。
+     返回完整入口函数字符串（含签名和函数体）。")
+
   )
