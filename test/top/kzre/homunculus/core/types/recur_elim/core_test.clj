@@ -1,9 +1,11 @@
 (ns top.kzre.homunculus.core.types.recur-elim.core-test
-  (:require [clojure.test :refer [deftest is testing are]]
-            [top.kzre.homunculus.core.types.recur-elim.core :as sut]
-            [top.kzre.homunculus.core.types.recur-elim.methods]
-            [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.ir2.protocol :as p]))
+  (:require
+   [clojure.test :refer [deftest is testing]]
+   [top.kzre.homunculus.core.ir2.model :as m]
+   [top.kzre.homunculus.core.ir2.protocol :as p]
+   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+   [top.kzre.homunculus.core.types.recur-elim.core :as sut]
+   [top.kzre.homunculus.core.types.recur-elim.methods]))
 
 ;; ── 辅助构造函数（简化节点创建） ──
 (defn- variable [name]
@@ -132,3 +134,46 @@
       (is (satisfies? p/INode output))
       ;; block 内递归调用不会抛异常
       (is (some? output)))))
+
+
+(deftest loop-while-conversion-preserves-args
+  (let [i-var   (m/->VariableNode "i" nil nil nil)
+        init    (m/->LiteralNode 0.0 nil nil nil)
+        test-node (m/->CallNode (m/->VariableNode "<" nil nil nil)
+                                [i-var (m/->LiteralNode 10.0 nil nil nil)]
+                                nil nil nil)
+        recur-node (m/->RecurNode [(m/->CallNode (m/->VariableNode "+" nil nil nil)
+                                                 [i-var (m/->LiteralNode 1.0 nil nil nil)]
+                                                 nil nil nil)] nil nil nil)
+        if-node (m/->IfNode test-node recur-node i-var nil nil nil)
+        loop-node (m/->LoopNode [[i-var init]] if-node nil nil nil)
+        result (sut/transform-loop loop-node)]
+    ;; 转换后应为 let 节点
+    (is (= :let (ir2p/kind result)))
+    (let [body-block (:body result)                    ;; let 的 body 是一个 block
+          exprs (:exprs body-block)]
+      ;; block 的第一个表达式是 while 节点
+      (let [while-node (first exprs)]
+        (is (= :while (ir2p/kind while-node)))
+        ;; while 的条件应该是 recur-flag 变量（不是原始 < 调用）
+        (let [while-test (:test while-node)]
+          (is (= :variable (ir2p/kind while-test)))
+          (is (clojure.string/starts-with? (:name while-test) "recur?")))
+        ;; while 的 body 应包含赋值操作（具体内容由 convert-tail 生成）
+        ;; while 的 body 应包含赋值操作，具体形式由 convert-tail 决定
+        (let [while-body (:body while-node)]
+          (is (satisfies? ir2p/INode while-body))
+          ;; 深度遍历 while-body，查找对 "i" 的赋值
+          (let [found (atom false)]
+            ((fn walk [n]
+               (when (satisfies? ir2p/INode n)
+                 (when (and (= (ir2p/kind n) :assign)
+                            (= "i" (:name (:var n))))
+                   (reset! found true))
+                 (doseq [c (ir2p/children n)] (walk c))))
+             while-body)
+            (is @found "while 循环体中应包含对变量 i 的赋值操作"))))
+      ;; block 的第二个表达式应该是 result 变量引用
+      (let [result-ref (second exprs)]
+        (is (= :variable (ir2p/kind result-ref)))
+        (is (clojure.string/starts-with? (:name result-ref) "result"))))))

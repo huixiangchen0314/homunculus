@@ -15,14 +15,15 @@
         recur-flag (u/fresh-name 'recur?)
 
         convert-expr (fn convert-expr [node]
+                       (println "convert-expr enter:" (when (satisfies? ir2p/INode node) (ir2p/kind node)) ":" (ex-data node))
                        (if (satisfies? ir2p/INode node)
                          (case (ir2p/kind node)
                            :recur
                            (throw (ex-info "recur used outside tail position" {:node node}))
                            :literal
-                           node
+                           (do (println "convert-expr literal ->" node) node)
                            :variable
-                           node
+                           (do (println "convert-expr variable ->" node) node)
                            :if
                            (m/->IfNode (convert-expr (:test node))
                                        (convert-expr (:then node))
@@ -37,27 +38,32 @@
                            (m/->BlockNode (mapv convert-expr (:exprs node))
                                           (:attrs node) (:meta node) (:parent node))
                            :call
-                           (m/->CallNode (convert-expr (:fn node))
-                                         (mapv convert-expr (:args node))
-                                         (:attrs node) (:meta node) (:parent node))
+                           (let [new-fn (convert-expr (:fn node))
+                                 new-args (mapv convert-expr (:args node))]
+                             (println "convert-expr call: fn" (:name new-fn) "args" (map :name new-args))
+                             (m/->CallNode new-fn new-args
+                                           (:attrs node) (:meta node) (:parent node)))
                            :assign
                            (m/->AssignNode (convert-expr (:var node))
                                            (convert-expr (:val node))
                                            (:attrs node) (:meta node) (:parent node))
                            ;; 其他节点类型原样返回（通常不会出现在非尾位置）
-                           node)
-                         node))
+                           (do (println "convert-expr fallback ->" (ir2p/kind node)) node))
+                         (do (println "convert-expr non-INode") node)))
 
         convert-tail (fn convert-tail [node]
+                       (println "convert-tail enter:" (when (satisfies? ir2p/INode node) (ir2p/kind node)))
                        (if (satisfies? ir2p/INode node)
                          (case (ir2p/kind node)
                            :recur
                            (let [args (:args node)
                                  assigns (mapv (fn [var arg]
-                                                 (m/->AssignNode
-                                                   (m/->VariableNode var nil nil nil)
-                                                   (convert-expr arg)
-                                                   nil nil nil))
+                                                 (let [cvt (convert-expr arg)]
+                                                   (println "recur arg:" arg "converted to" cvt)
+                                                   (m/->AssignNode
+                                                     (m/->VariableNode var nil nil nil)
+                                                     cvt
+                                                     nil nil nil)))
                                                var-names args)
                                  set-flag (m/->AssignNode
                                             (m/->VariableNode recur-flag nil nil nil)
@@ -92,6 +98,7 @@
                                                (m/->LiteralNode false nil nil nil)
                                                nil nil nil)]
                              (m/->BlockNode [result-assign flag-assign] nil nil nil)))
+                         ;; 非 INode 叶子
                          (let [result-assign (m/->AssignNode
                                                (m/->VariableNode result-var nil nil nil)
                                                node
@@ -107,7 +114,7 @@
                                      (convert-expr init)])
                                   bindings)
           all-bindings (into loop-var-bindings
-                             [[(m/->VariableNode result-var nil nil nil) (m/->LiteralNode nil nil nil nil)]
+                             [[(m/->VariableNode result-var nil nil nil) (m/->LiteralNode 0.0 nil nil nil)]
                               [(m/->VariableNode recur-flag nil nil nil) (m/->LiteralNode true nil nil nil)]])
           loop-body (convert-tail body)
           while-node (m/->WhileNode

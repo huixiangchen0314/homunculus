@@ -47,9 +47,9 @@
                     (wrap-return else-code (:else node))))))
 
 (defmethod emit :while [node backend]
-  (sp/shader-while backend
-                   (emit (:test node) backend)
-                   (emit (:body node) backend)))
+  (let [test-code (emit (:test node) backend)
+        body-code (emit (:body node) backend)]
+    (sp/shader-while backend test-code body-code)))
 
 (defmethod emit :block [node backend]
   (let [stmts (:exprs node)
@@ -62,7 +62,7 @@
                                    (sp/shader-return backend code)
                                    code)))
                              stmts)]
-    (str/join "\n" emitted)))
+    (str/join ";\n" emitted)))          ;; 用分号连接，每个语句独立
 
 (defmethod emit :let [node backend]
   (let [bindings (:bindings node)
@@ -173,5 +173,27 @@
         resource-defs (filter #(:resource-type (ir2p/node-meta %)) defines)
         function-defs (remove #(:resource-type (ir2p/node-meta %)) defines)
         fn-defs       (map #(emit % backend) function-defs)
-        globals       (map #(emit % backend) resource-defs)]
-    (str (str/join "\n" globals) "\n" (str/join "\n" fn-defs))))
+        globals       (map #(emit % backend) resource-defs)
+        others        (remove #(= (ir2p/kind %) :define) ir2-roots)]
+    (if (seq function-defs)
+      ;; 有函数定义：输出函数定义和入口包装
+      (let [main-fn      (first function-defs)
+            fn-name      (sp/shader-var-ref backend (:name main-fn))
+            entry        (sp/shader-entry-point backend entry-stage fn-name)]
+        (str (str/join "\n" globals)
+             "\n"
+             (str/join "\n" fn-defs)
+             "\n"
+             entry))
+      ;; 无函数定义：为非定义表达式生成入口
+      (let [other-code  (when (seq others)
+                          (let [exprs (map #(emit % backend) others)]
+                            (if (= 1 (count exprs))
+                              (sp/shader-return backend (first exprs))
+                              (sp/shader-block backend exprs))))
+            entry       (sp/shader-entry-point backend entry-stage entry-fn-name)]
+        (str (str/join "\n" globals)
+             "\n"
+             other-code
+             "\n"
+             entry)))))

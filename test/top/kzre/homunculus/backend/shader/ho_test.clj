@@ -54,6 +54,7 @@
         ;; 2. 高阶消除
         ho-elimed  (ho-elim/process typed ho-elim-config)
         ;; 3. 再次类型推断（为展开的新节点赋予类型）
+        ;; TODO 增加一个轻量级的局部传播 pass 完成展开节点的类型推断
         typed2     (typed/type-check ho-elimed :frontend hlsl-frontend :builtins full-builtins)
         ;; 4. 后续 Pass
         mutable    (mut/analyze typed2)
