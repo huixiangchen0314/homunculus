@@ -59,8 +59,17 @@
 
 ;; ── block ──
 (defmethod emit :block [node backend]
-  (let [stmts (map #(emit % backend) (:exprs node))]
-    (str/join ";\n" stmts)))
+  (let [stmts (:exprs node)
+        n (count stmts)
+        emitted (map-indexed (fn [i expr]
+                               (let [code (emit expr backend)]
+                                 (if (and (= i (dec n))
+                                          (satisfies? ir2p/INode expr)
+                                          (#{:literal :call :variable :vector} (ir2p/kind expr)))
+                                   (sp/shader-return backend code)
+                                   code)))
+                             stmts)]
+    (str/join "\n" emitted)))
 
 ;; ── let 绑定 ──
 (defmethod emit :let [node backend]
@@ -166,10 +175,20 @@
 ;; ══════════════════════════════════════════
 ;; 顶层生成入口
 ;; ══════════════════════════════════════════
-(defn generate [ir2-roots backend entry-stage entry-fn-name]
+(defn generate
+  [ir2-roots backend entry-stage entry-fn-name]
   (let [defines (filter #(= (ir2p/kind %) :define) ir2-roots)
-        ;; 从第一个 define 的 node-meta 读取阶段，若无则使用传入的 entry-stage
-        stage   (or (some-> (first defines) ir2p/node-meta :shader-stage) entry-stage)
-        fn-defs (map #(emit % backend) defines)
-        entry   (sp/shader-entry-point backend stage entry-fn-name)]
-    (str (str/join "\n" fn-defs) "\n" entry)))
+        others  (remove #(= (ir2p/kind %) :define) ir2-roots)
+        fn-defs (map #(emit % backend) defines)]
+    (if (seq defines)
+      ;; 有函数定义：只输出函数定义，不生成入口
+      (str/join "\n" fn-defs)
+      ;; 没有函数定义：为非定义表达式生成入口包装
+      (let [other-code (when (seq others)
+                         (let [exprs (map #(emit % backend) others)]
+                           (if (= 1 (count exprs))
+                             (sp/shader-return backend (first exprs))
+                             (sp/shader-block backend exprs))))
+            body (str/join "\n" (remove nil? [other-code]))
+            entry (sp/shader-entry-point backend entry-stage entry-fn-name)]
+        (str body "\n" entry)))))

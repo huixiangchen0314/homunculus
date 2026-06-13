@@ -7,8 +7,11 @@
             [top.kzre.homunculus.core.ir2.core :as ir2]
             [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.ir2.forms]
+            [top.kzre.homunculus.core.types.protocol :as p]
             [top.kzre.homunculus.core.types.recur-elim.core :as recur-elim]
             [top.kzre.homunculus.core.types.recur-elim.methods]
+            [top.kzre.homunculus.backend.shader.dsl :as dsl]
+            [top.kzre.homunculus.core.types.annotate-meta :as am]
             [top.kzre.homunculus.core.types.elaborate.core :as elaborate]
             [top.kzre.homunculus.core.types.elaborate.methods]
             [top.kzre.homunculus.core.types.elaborate.protocol :as elab-cfg]
@@ -42,16 +45,18 @@
 (def full-builtins (merge {} hlsl-front/builtins))
 
 (defn compile-and-emit [form entry-stage entry-fn-name]
-  (let [ir1-root   (ir1/->ir1 form)
+  (let [expanded   (macroexpand form)   ;; 展开宏，确保 defshader 等被处理
+        ir1-root   (ir1/->ir1 expanded)
         ir2-roots  (ir2/lower [ir1-root])
         no-recur   (mapv recur-elim/eliminate ir2-roots)
         elaborated (elaborate/elaborate no-recur elab-config)
-        mutable    (mut/analyze elaborated)
+        known-types (set (p/frontend-types hlsl-frontend))
+        annotated  (am/annotate elaborated known-types)
+        mutable    (mut/analyze annotated)
         checked-fn (builtin/check mutable full-builtins)
         inferred   (infer/run checked-fn :frontend hlsl-frontend)
         typed      (typed/type-check inferred :frontend hlsl-frontend :builtins full-builtins)
         checked    (check/check-program typed {:backend mock-backend})
-        ;; 若没有 define，包装成函数
         roots      (if (some #(= (ir2p/kind %) :define) checked)
                      checked
                      (let [body (if (= 1 (count checked))
@@ -70,7 +75,8 @@
   (testing "数字字面量"
     (let [hlsl (compile-and-emit 42.0 :fragment "main")]
       (is (hlsl-contains? hlsl "return 42.0;"))
-      (is (hlsl-contains? hlsl "void main()")))))
+      ;; 不再检查 void main()
+      )))
 
 (deftest test-simple-call
   (testing "(+ 1.0 2.0)"
@@ -99,8 +105,7 @@
 
 #_(deftest test-while-loop
   (testing "while loop with mutable variable"
-    (let [hlsl (compile-and-emit '(loop* [i 0] (if (< i 10) (recur (+ i 1)) i)) :fragment "main")]
-      ;; 应生成 while 循环，包含赋值和返回
+    (let [hlsl (compile-and-emit '(loop* [i 0.0] (if (< i 10.0) (recur (+ i 1.0)) i)) :fragment "main")]
       (is (hlsl-contains? hlsl "while"))
       (is (hlsl-contains? hlsl "i = "))
       (is (hlsl-contains? hlsl "return i;")))))
@@ -110,4 +115,16 @@
     (let [hlsl (compile-and-emit '(def square (fn* [^:float x] (* x x))) :fragment "square")]
       (is (hlsl-contains? hlsl "float square(float x)"))
       (is (hlsl-contains? hlsl "return (x * x)"))
-      (is (hlsl-contains? hlsl "void main()")))))
+      ;; 不再检查 void main()
+      )))
+
+
+(deftest test-vertex-shader-entry
+  (testing "顶点着色器入口点生成"
+    (let [hlsl (compile-and-emit '(top.kzre.homunculus.backend.shader.dsl/defshader
+                                    :vertex vs-main
+                                    [^:SV_Position ^:float4 pos]
+                                    pos)
+                                 :vertex "vs-main")]
+      (is (str/includes? hlsl "float4 vs_main(float4 pos : SV_Position)"))  ;; safe-name 把 - 转成了 _
+      (is (str/includes? hlsl "return pos;")))))

@@ -16,8 +16,12 @@
 (defmulti infer
           "返回 [type, updated-node, substitution] 三元组。"
           (fn [node context]
-            (ir2p/kind node)))
+            (if (get-in node [:attrs :type])
+              :already-typed
+              (ir2p/kind node))))
 
+(defmethod infer :already-typed [node context]
+  [(:type (:attrs node)) node {}])
 ;; ── 顶层入口 ──
 (defn type-check [ir2-roots & {:keys [frontend backend builtins]}]
   (binding [*tv-id (atom 0)]

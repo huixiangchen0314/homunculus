@@ -59,7 +59,7 @@
       (str "if (" test ") { " then " }")))
 
   (shader-while [_ test body]
-    (str "while (" test ") { " body " }"))
+    (str "while " test " { " body " }"))   ;; 去掉外层括号
 
   (shader-block [_ stmts]
     (str "{\n" (fmt/indent 1) (clojure.string/join (str ";\n" (fmt/indent 1)) stmts) ";\n}"))
@@ -72,16 +72,21 @@
 
   ;; ── 入口与阶段 ──
   (shader-entry-point [this stage fn-name]
-    ;; 从某个 define 节点中读取阶段信息，但此方法只接收 stage 参数，因此需要外部传入正确的 stage
-    ;; 我们将在 generate 函数中传入正确的 stage
     (case stage
-      :vertex   (str "struct VSOutput { float4 pos : SV_POSITION; };\n"
-                     "VSOutput main() {\n"
-                     "    VSOutput o;\n"
-                     "    o.pos = " fn-name "();\n"
-                     "    return o;\n}")
-      :fragment (str "float4 main() : SV_TARGET {\n"
-                     "    return " fn-name "();\n}")
+      :vertex   (str "struct VSInput {\n"
+                     "    float4 position : POSITION;\n"
+                     "};\n"
+                     "struct VSOutput {\n"
+                     "    float4 pos : SV_POSITION;\n"
+                     "};\n"
+                     "VSOutput main(VSInput input) {\n"
+                     "    VSOutput output;\n"
+                     "    output.pos = " fn-name "(input.position);\n"
+                     "    return output;\n"
+                     "}")
+      :fragment (str "float4 main(float4 pos : SV_POSITION) : SV_TARGET {\n"
+                     "    return " fn-name "(pos);\n"
+                     "}")
       ;; 默认
       (str "void main() { " fn-name "(); }")))
 

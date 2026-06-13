@@ -159,3 +159,28 @@
   (testing "default (unknown node kind) should throw"
     (is (thrown? ExceptionInfo
                  (emit/emit {:kind :bogus} backend)))))
+
+
+(deftest test-while-assign
+  (let [x (m/->VariableNode "i" {:mutable true :type (t/->TCon :int)} nil nil)
+        test (m/->CallNode (m/->VariableNode "<" nil nil nil)
+                           [x (m/->LiteralNode 10 nil nil nil)]
+                           nil nil nil)
+        body (m/->AssignNode x
+                             (m/->CallNode (m/->VariableNode "+" nil nil nil)
+                                           [x (m/->LiteralNode 1 nil nil nil)]
+                                           nil nil nil)
+                             nil nil nil)
+        while-node (m/->WhileNode test body nil nil nil)
+        block (m/->BlockNode
+                [(m/->AssignNode x (m/->LiteralNode 0 nil nil nil) nil nil nil)
+                 while-node
+                 x]
+                nil nil nil)
+        lambda (m/->LambdaNode [] block [] nil nil nil nil)
+        define (m/->DefineNode 'loop-test lambda nil nil nil nil)
+        result (emit/emit define backend)]
+    (is (str/includes? result "i = 0;"))
+    (is (str/includes? result "while (i < 10) { i = (i + 1); }"))
+    (is (str/includes? result "return i;"))))
+
