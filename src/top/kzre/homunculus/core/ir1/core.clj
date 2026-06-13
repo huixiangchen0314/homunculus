@@ -57,10 +57,7 @@
   (m/->LiteralNode form nil nil))
 (defmethod form->node :symbol [form]
   (m/->SymbolNode form (meta form) nil))
-(defmethod form->node :vector [form]
-  (m/->VectorNode (vec form) nil nil))
-(defmethod form->node :map [form]
-  (m/->MapNode (vec form) nil nil))
+
 (defmethod form->node :call [form]
   (let [[op & args] form]
     (m/->CallNode op args nil nil)))
@@ -75,13 +72,6 @@
 (defmethod build-tree :literal [node] node)
 (defmethod build-tree :symbol  [node] node)
 
-(defmethod build-tree :vector [node]
-  (m/->VectorNode (mapv ->ir1 (:items node)) (:meta node) (:parent node)))
-
-(defmethod build-tree :map [node]
-  (let [pairs (:pairs node)
-        ir-pairs (mapcat (fn [[k v]] [(->ir1 k) (->ir1 v)]) pairs)]
-    (m/->MapNode ir-pairs (:meta node) (:parent node))))
 
 (defmethod build-tree :call [node]
   (m/->CallNode (->ir1 (:op node))

@@ -34,10 +34,11 @@
             [ty result _] (typed/infer node {:frontend frontend :env {"x" (t/->TCon :int32)}})]
         (is (tcon? ty :int32))
         (is (tcon? (get-type result) :int32))))
-    (testing "unbound variable throws"
-      (let [node (m/->VariableNode "unknown" nil nil nil)]
-        (is (thrown? clojure.lang.ExceptionInfo
-                     (typed/infer node {:frontend frontend :env {}})))))))
+    (testing "unbound variable generates fresh TVar"
+      (let [node (m/->VariableNode "unknown" nil nil nil)
+            [ty result _] (typed/infer node {:frontend frontend :env {}})]
+        (is (tvar? ty))
+        (is (tvar? (get-type result)))))))
 
 (deftest infer-call-test
   (let [frontend (->MockFrontend)

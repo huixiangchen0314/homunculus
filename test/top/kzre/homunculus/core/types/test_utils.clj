@@ -1,9 +1,11 @@
 (ns top.kzre.homunculus.core.types.test-utils
   "公共测试工具，提供模拟前端和常用类型断言。"
-  (:require [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.core.types.protocol :as tp]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p])
-  (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
+  (:require
+   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+   [top.kzre.homunculus.core.types.model :as t ]
+   [top.kzre.homunculus.core.types.protocol :as tp])
+  (:import
+    [top.kzre.homunculus.core.types.model TCon TContainer TFun TVar]))
 
 (defrecord MockFrontend []
   tp/IFrontendInfo
@@ -35,7 +37,10 @@
     :else nil))
 
 (defn tcon? [ty name]
-  (and (instance? TCon ty) (= name (:name ty))))
+  (cond
+    (instance? TCon ty) (= (:name ty) name)
+    (instance? TContainer ty) (= (:kind ty) name)
+    :else false))
 
 (defn tfun? [ty] (instance? TFun ty))
 (defn tvar? [ty] (instance? TVar ty))

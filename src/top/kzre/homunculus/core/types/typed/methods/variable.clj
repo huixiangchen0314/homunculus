@@ -16,9 +16,10 @@
           var-name (:name node)
           binding (or (when frontend (tp/meta->type frontend node))
                       (e/lookup-env env var-name)
-                      (e/lookup-env env (symbol var-name))
-                      (throw (ex-info "Unbound variable" {:name var-name})))
-          ty (if (instance? TScheme binding)
-               (s/instantiate binding)
-               binding)]
+                      (e/lookup-env env (symbol var-name)))
+          ty (if binding
+               (if (instance? TScheme binding)
+                 (s/instantiate binding)
+                 binding)
+               (t/->TVar (gensym "var")))]   ;; 未绑定 -> 自由类型变量
       [ty (type/set-type! node ty) {}])))

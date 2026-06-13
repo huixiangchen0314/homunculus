@@ -3,14 +3,15 @@
             [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.typed.unify :as u]
             [top.kzre.homunculus.core.types.type :as type]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p])
-  (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
+            [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
 (defmethod infer/infer :call [node context]
   (if (type/has-type? node (:known-types context))
     [(type/get-type node (:known-types context)) node {}]
     (let [env (:env context)
           [fn-ty fn-node s-fn] (infer/infer (:fn node) context)
+          ;_ (when-not (type/fun-type? fn-ty)
+          ;    (throw (ex-info "Call target is not a function" {:fn-ty fn-ty})))
           args (:args node)
           [arg-tys arg-nodes s-args]
           (loop [arg-irs args, tys [], nodes [], subst s-fn]

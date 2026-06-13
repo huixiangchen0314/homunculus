@@ -10,4 +10,6 @@
             [top.kzre.homunculus.core.ir1.forms.var]
             [top.kzre.homunculus.core.ir1.forms.throw]
             [top.kzre.homunculus.core.ir1.forms.set!]
+            [top.kzre.homunculus.core.ir1.forms.vector]
+            [top.kzre.homunculus.core.ir1.forms.map]
             [top.kzre.homunculus.core.ir1.forms.try]))
