@@ -2,6 +2,7 @@
   "全管线集成测试：Clojure 形式 → IR1 → IR2 → Passes → HLSL 代码。"
   (:require [clojure.test :refer :all]
             [clojure.string :as str]
+            [clojure.walk :as walk]
             [top.kzre.homunculus.core.ir1.core :as ir1]
             [top.kzre.homunculus.core.ir1.forms]
             [top.kzre.homunculus.core.ir2.core :as ir2]
@@ -43,30 +44,32 @@
 (def mock-backend (->MockBackend))
 
 (def full-builtins (merge {} hlsl-front/builtins))
+(defn macroexpand-deep [form]
+  (clojure.walk/postwalk (fn [f] (if (seq? f) (macroexpand f) f)) form))
 
 (defn compile-and-emit [form entry-stage entry-fn-name]
-  (let [expanded   (macroexpand form)   ;; 展开宏，确保 defshader 等被处理
+  (let [expanded   (macroexpand-deep form)
         ir1-root   (ir1/->ir1 expanded)
         ir2-roots  (ir2/lower [ir1-root])
-        no-recur   (mapv recur-elim/eliminate ir2-roots)
+        ;; 分离资源定义和函数定义
+        resource-defs (filter #(and (= (ir2p/kind %) :define)
+                                    (:resource-type (ir2p/node-meta %)))
+                              ir2-roots)
+        function-defs (remove #(and (= (ir2p/kind %) :define)
+                                    (:resource-type (ir2p/node-meta %)))
+                              ir2-roots)
+        ;; 函数定义走完整 Pass 链
+        no-recur   (mapv recur-elim/eliminate function-defs)
         elaborated (elaborate/elaborate no-recur elab-config)
-        known-types (set (p/frontend-types hlsl-frontend))
-        annotated  (am/annotate elaborated known-types)
+        annotated  (am/annotate elaborated (set (p/frontend-types hlsl-frontend)))
         mutable    (mut/analyze annotated)
         checked-fn (builtin/check mutable full-builtins)
         inferred   (infer/run checked-fn :frontend hlsl-frontend)
         typed      (typed/type-check inferred :frontend hlsl-frontend :builtins full-builtins)
         checked    (check/check-program typed {:backend mock-backend})
-        roots      (if (some #(= (ir2p/kind %) :define) checked)
-                     checked
-                     (let [body (if (= 1 (count checked))
-                                  (first checked)
-                                  (m/->BlockNode checked nil nil nil))
-                           ret-ty (get-in body [:attrs :type])]
-                       [(m/->DefineNode (symbol entry-fn-name)
-                                        (m/->LambdaNode [] body [] nil nil nil nil)
-                                        nil nil nil nil)]))]
-    (emit/generate roots hlsl-backend-inst entry-stage entry-fn-name)))
+        ;; 合并
+        all-roots  (concat resource-defs checked)]
+    (emit/generate all-roots hlsl-backend-inst entry-stage entry-fn-name)))
 
 (defn hlsl-contains? [hlsl substr]
   (str/includes? hlsl substr))
@@ -143,3 +146,19 @@
       (is (str/includes? hlsl "float2 uv : TEXCOORD0;"))
       (is (str/includes? hlsl "struct VSOutput"))
       (is (str/includes? hlsl "output.pos = vs_main(input.pos, input.uv);")))))
+
+
+(deftest test-resource-declarations
+  (testing "纹理、采样器、常量缓冲区声明生成"
+    (let [hlsl (compile-and-emit '(do
+                                    (top.kzre.homunculus.backend.shader.dsl/deftexture gAlbedo :texture2D :register "t0")
+                                    (top.kzre.homunculus.backend.shader.dsl/defsampler gSampler :register "s0")
+                                    (top.kzre.homunculus.backend.shader.dsl/defcbuffer Globals
+                                                                                       [^:float4x4 matVP ^:float4 lightDir] :register "b0")
+                                    (+ 1.0 2.0))
+                                 :fragment "main")]
+      (is (str/includes? hlsl "Texture2D<float4> gAlbedo : register(t0);"))
+      (is (str/includes? hlsl "SamplerState gSampler : register(s0);"))
+      (is (str/includes? hlsl "cbuffer Globals : register(b0) {"))
+      (is (str/includes? hlsl "float4x4 matVP;"))
+      (is (str/includes? hlsl "float4 lightDir;")))))

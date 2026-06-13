@@ -97,33 +97,49 @@
 
 ;; ── 函数定义 ──
 (defmethod emit :define [node backend]
-  (let [val (:val node)
-        params (:params val)
-        body   (:body val)
-        param-strs (map (fn [p]
-                          (let [ty (get-in p [:attrs :type])
-                                type-str (if ty (sp/shader-type backend ty) "float")
-                                param-name (sp/shader-var-ref backend (:name p))  ;; 局部改名
-                                metadata (ir2p/node-meta p)
-                                semantic (when (map? metadata)
-                                           (some (fn [k]
-                                                   (when (and (keyword? k)
-                                                              (not (namespace k))
-                                                              ( Character/isUpperCase  ^char (first (name k))))
-                                                     k))
-                                                 (keys metadata)))]
-                            (str type-str " " param-name
-                                 (if semantic (str " : " (name semantic)) ""))))
-                        params)
-        body-code (emit body backend)
-        return-body (if (or (= (ir2p/kind body) :block)
-                            (#{:if :while :let :loop :assign :throw} (ir2p/kind body)))
-                      body-code
-                      (sp/shader-return backend body-code))
-        return-type (if-let [rt (get-in body [:attrs :type])]
-                      (sp/shader-type backend rt)
-                      "void")]
-    (sp/shader-function-decl backend (:name node) param-strs return-type return-body)))
+  (let [meta (ir2p/node-meta node)]
+    (if (:resource-type meta)
+      ;; 资源声明分支
+      (let [res-type (:resource-type meta)
+            name (sp/shader-var-ref backend (:name node))
+            reg (:resource-register meta)]
+        (case res-type
+          :texture2D (str "Texture2D<float4> " name (when reg (str " : register(" reg ")")) ";")
+          :sampler   (str "SamplerState " name (when reg (str " : register(" reg ")")) ";")
+          :cbuffer   (let [members (:resource-members meta)
+                           member-str (clojure.string/join "\n    "
+                                                           (map (fn [m] (str (sp/shader-type backend (t/->TCon (:type m))) " " (:name m) ";")) members))]
+                       (str "cbuffer " name (when reg (str " : register(" reg ")")) " {\n    " member-str "\n};"))
+          (throw (ex-info "Unknown resource type" {:type res-type}))))
+      ;; 函数定义分支（原有逻辑）
+      (let [val (:val node)
+            params (:params val)
+            body   (:body val)
+            param-strs (map (fn [p]
+                              (let [ty (get-in p [:attrs :type])
+                                    type-str (if ty (sp/shader-type backend ty) "float")
+                                    param-name (sp/shader-var-ref backend (:name p))
+                                    metadata (ir2p/node-meta p)
+                                    semantic (when (map? metadata)
+                                               (some (fn [k]
+                                                       (when (and (keyword? k)
+                                                                  (not (namespace k))
+                                                                  (re-find #"^[A-Z]" (name k)))
+                                                         k))
+                                                     (keys metadata)))]
+                                (str type-str " " param-name
+                                     (if semantic (str " : " (name semantic)) ""))))
+                            params)
+            body-code (emit body backend)
+            return-body (if (or (= (ir2p/kind body) :block)
+                                (#{:if :while :let :loop :assign :throw} (ir2p/kind body)))
+                          body-code
+                          (sp/shader-return backend body-code))
+            return-type (if-let [rt (get-in body [:attrs :type])]
+                          (sp/shader-type backend rt)
+                          "void")]
+        (sp/shader-function-decl backend (:name node) param-strs return-type return-body)))))
+
 
 ;; ── lambda 节点（不应独立出现，但防御性处理）──
 (defmethod emit :lambda [node backend]
@@ -200,37 +216,37 @@
          "    return " fn-name "();\n"
          "}")))
 
-(defn generate
-  [ir2-roots backend entry-stage entry-fn-name]
-  (let [defines (filter #(= (ir2p/kind %) :define) ir2-roots)
-        fn-defs (map #(emit % backend) defines)
-        globals []
-        struct-defs (if (seq defines)
-                      (let [main-define (first defines)
-                            lambda (:val main-define)
-                            params (:params lambda)]
-                        (case entry-stage
-                          :vertex (let [inputs (remove #(= :SV_Position (param-semantic %)) params)
-                                        output-param (first (filter #(= :SV_Position (param-semantic %)) params))
-                                        output-type (if output-param
-                                                      (sp/shader-type backend (get-in output-param [:attrs :type]))
-                                                      "float4")]
-                                    (remove nil?
-                                            [(when (seq inputs)
-                                               (sp/shader-struct-decl backend "VSInput"
-                                                                      (mapv (fn [p] {:name (sp/shader-var-ref backend (:name p))
-                                                                                     :type (sp/shader-type backend (get-in p [:attrs :type]))
-                                                                                     :semantic (some-> (param-semantic p) name)})
-                                                                            inputs)))
-                                             (sp/shader-struct-decl backend "VSOutput"
-                                                                    [{:name "pos"
-                                                                      :type output-type
-                                                                      :semantic "SV_POSITION"}])]))
-                          :fragment [] ;; 片元后续补充
-                          []))
-                      [])
-        entry (if (seq defines)
-                (let [main-define (first defines)
+(defn generate [ir2-roots backend entry-stage entry-fn-name]
+  (let [defines        (filter #(= (ir2p/kind %) :define) ir2-roots)
+        resource-defs  (filter #(:resource-type (ir2p/node-meta %)) defines)
+        function-defs  (remove #(:resource-type (ir2p/node-meta %)) defines)
+        fn-defs        (map #(emit % backend) function-defs)
+        globals        (map #(emit % backend) resource-defs)
+        struct-defs    (if (seq function-defs)
+                         (let [main-define (first function-defs)
+                               lambda (:val main-define)
+                               params (:params lambda)
+                               fn-name (sp/shader-var-ref backend (:name main-define))]
+                           (case entry-stage
+                             :vertex (let [inputs (remove #(= :SV_Position (param-semantic %)) params)
+                                           output-param (first (filter #(= :SV_Position (param-semantic %)) params))
+                                           output-type (if output-param (sp/shader-type backend (get-in output-param [:attrs :type])) "float4")]
+                                       (remove nil?
+                                               [(when (seq inputs)
+                                                  (sp/shader-struct-decl backend "VSInput"
+                                                                         (mapv (fn [p] {:name (sp/shader-var-ref backend (:name p))
+                                                                                        :type (sp/shader-type backend (get-in p [:attrs :type]))
+                                                                                        :semantic (some-> (param-semantic p) name)})
+                                                                               inputs)))
+                                                (sp/shader-struct-decl backend "VSOutput"
+                                                                       [{:name "pos"
+                                                                         :type output-type
+                                                                         :semantic "SV_POSITION"}])]))
+                             :fragment []
+                             []))
+                         [])
+        entry (if (seq function-defs)
+                (let [main-define (first function-defs)
                       fn-name (sp/shader-var-ref backend (:name main-define))
                       lambda (:val main-define)
                       params (:params lambda)]
@@ -238,6 +254,5 @@
                     :vertex   (generate-vertex-entry fn-name params backend)
                     :fragment (generate-fragment-entry fn-name params backend)
                     (str "void main() { " fn-name "(); }")))
-                ;; 理论上不会到这里，因为 compile-and-emit 保证有 define
                 "")]
     (sp/shader-program backend fn-defs struct-defs globals entry)))
