@@ -50,3 +50,7 @@
 (defn generic-binary []
   (let [a (t/->TVar (gensym "a"))]
     (sc/->TScheme [a] (fn-> a a a))))
+
+(defn generic-ternary []
+  (let [a (t/->TVar (gensym "a"))]
+    (sc/->TScheme [a] (fn-> a a a a))))

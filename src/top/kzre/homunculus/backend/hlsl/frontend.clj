@@ -55,10 +55,10 @@
      'pow   (utils/generic-binary)
      'step  (utils/generic-binary)
      'fmod  (utils/generic-binary)
-     ;; ── 三元（暂保留具体） ──
-     'clamp (utils/ternary-math (t/->TCon :float))
-     'lerp  (utils/ternary-math (t/->TCon :float))
-     'smoothstep (utils/fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
+     ;; ── 三元 ──
+     'clamp      (utils/generic-ternary)
+     'lerp       (utils/generic-ternary)
+     'smoothstep (utils/generic-ternary)
      ;; 向量构造
      'float2 (utils/vector-ctor (t/->TCon :float2) 2)
      'float3 (utils/vector-ctor (t/->TCon :float3) 3)

@@ -28,5 +28,7 @@
           s-unify (u/unify fn-ty' desired)
           s-final (merge s s-unify)
           ret-ty (u/substitute ret-tv s-final)
-          new-node (type/set-type! (assoc node :fn fn-node :args (vec arg-nodes)) ret-ty)]
+          fn-ty-final (u/substitute fn-ty s-final)          ;; 把实例化的 TScheme 写回节点
+          fn-node'    (type/set-type! fn-node fn-ty-final)
+          new-node (type/set-type! (assoc node :fn fn-node'  :args (vec arg-nodes)) ret-ty)]
       [ret-ty new-node s-final])))

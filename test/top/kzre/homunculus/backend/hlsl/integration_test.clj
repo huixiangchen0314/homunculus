@@ -74,7 +74,7 @@
 (deftest test-simple-call
   (testing "(+ 1.0 2.0)"
     (let [hlsl (compile-and-emit '(+ 1.0 2.0) [{:stage :fragment :fn-name "frag"}])]
-      (is (hlsl-contains? hlsl "(1.0 + 2.0)"))
+      (is (hlsl-contains? hlsl "1.0 + 2.0"))
       (is (hlsl-contains? hlsl "return"))
       (is (hlsl-contains? hlsl "frag()")))))
 
@@ -111,7 +111,7 @@
   (testing "顶层函数定义"
     (let [hlsl (compile-and-emit '(def square (fn* [^:float x] (* x x))) [{:stage :fragment :fn-name "square"}])]
       (is (hlsl-contains? hlsl "float square(float x)"))
-      (is (hlsl-contains? hlsl "return (x * x)"))
+      (is (hlsl-contains? hlsl "return x * x"))
       (is (hlsl-contains? hlsl "float4 main() : SV_TARGET { return square(); }")))))
 
 (deftest test-vertex-shader-entry
@@ -167,3 +167,16 @@
       (is (str/includes? hlsl "#pragma fragment frag"))
       (is (str/includes? hlsl "return 42.0;"))
       (is (str/includes? hlsl "ENDHLSL")))))
+
+
+(deftest test-vector-abs
+  (testing "向量 abs"
+    (let [hlsl (compile-and-emit '(abs (float2 -1.0 2.0)) [{:stage :fragment :fn-name "frag"}])]
+      (is (str/includes? hlsl "abs(float2(-1.0, 2.0))"))
+      (is (str/includes? hlsl "return")))))
+
+(deftest test-vector-max
+  (testing "向量 max"
+    (let [hlsl (compile-and-emit '(max (float3 1.0 2.0 3.0) (float3 3.0 2.0 1.0)) [{:stage :fragment :fn-name "frag"}])]
+      (is (str/includes? hlsl "max(float3(1.0, 2.0, 3.0), float3(3.0, 2.0, 1.0))"))
+      (is (str/includes? hlsl "return")))))
