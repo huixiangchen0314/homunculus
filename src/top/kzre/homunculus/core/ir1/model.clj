@@ -156,3 +156,11 @@
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
+
+(defrecord NsNode [name docstring attr-map references meta parent]
+  p/INode
+  (kind [_] :ns)
+  (children [_] [])
+  (node-meta [_] meta)
+  (parent [_] parent)
+  (set-parent [this p] (assoc this :parent p)))
