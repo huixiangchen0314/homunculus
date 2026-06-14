@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.string :as str]
             [top.kzre.homunculus.backend.shader.emit :as emit]
+            [top.kzre.homunculus.backend.shader.methods]
             [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
             [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.types.model :as t]
@@ -93,7 +94,7 @@
 ;; ── block 测试 ──
 (deftest test-block
   (let [node (block (lit 1) (lit 2) (lit 3))]
-    (is (= "1;\n2;\n3" (emit/emit node backend)))))
+    (is (= "1;\n2;\nreturn 3;" (emit/emit node backend)))))
 
 ;; ── let 测试 ──
 (deftest test-let
@@ -181,6 +182,6 @@
         define (m/->DefineNode 'loop-test lambda nil nil nil nil)
         result (emit/emit define backend)]
     (is (str/includes? result "i = 0;"))
-    (is (str/includes? result "while (i < 10) { i = (i + 1); }"))
+    (is (str/includes? result "while (i < 10) { i = i + 1; }"))
     (is (str/includes? result "return i;"))))
 

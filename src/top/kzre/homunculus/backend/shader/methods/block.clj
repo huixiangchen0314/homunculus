@@ -1,4 +1,3 @@
-;; backend/shader/methods/block.clj
 (ns top.kzre.homunculus.backend.shader.methods.block
   (:require [top.kzre.homunculus.backend.shader.emit :refer [emit]]
             [top.kzre.homunculus.backend.shader.protocol :as sp]
@@ -16,4 +15,4 @@
                                    (sp/shader-return backend code)
                                    code)))
                              stmts)]
-    (sp/shader-block backend emitted)))
+    (str/join ";\n" emitted)))

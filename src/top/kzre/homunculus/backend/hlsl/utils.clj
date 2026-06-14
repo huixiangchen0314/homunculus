@@ -1,5 +1,7 @@
 (ns top.kzre.homunculus.backend.hlsl.utils
-  "HLSL 专用工具：保留字、类型映射、内置函数对照。")
+  "HLSL 专用工具：保留字、类型构造快捷函数。"
+  (:require [top.kzre.homunculus.core.types.model :as t]
+            [top.kzre.homunculus.core.types.typed.scheme :as sc]))
 
 (def reserved-words
   "HLSL 保留字集合，用于自动转义冲突的变量名。"
@@ -18,101 +20,33 @@
     "pixelshader" "vertexshader" "geometryshader" "hullshader"
     "domainshader" "computeshader"})
 
-;; backend/hlsl/utils.clj type-map 中添加
-(def type-map
-  {:int     "int"   ;; 新增
-   :float   "float" ;; 新增
-   :int64   "int"
-   :int32   "int"
-   :int16   "int16_t"
-   :uint64  "uint"
-   :uint32  "uint"
-   :float64 "double"
-   :float32 "float"
-   :float16 "half"
-   :bool    "bool"
-   :nil     "void"
-   :vector  "float4"
-   :float2  "float2"
-   :float3  "float3"
-   :float4  "float4"
-   :float3x3 "float3x3"
-   :float4x4 "float4x4"
-   :string  "float"})
+;; ── 类型构造快捷函数（用于 frontend builtins）──
+(defn fn-> [& types]
+  "从参数类型列表和返回类型构造多参数 TFun。"
+  (let [ret (last types)
+        args (butlast types)]
+    (reduce (fn [acc arg] (t/->TFun arg acc)) ret (reverse args))))
 
-(def builtin-map
-  "Clojure 操作名 → HLSL 内置函数/运算符。"
-  {'+         {:op " + " :infix true}
-   '-         {:op " - " :infix true}
-   '*         {:op " * " :infix true}
-   '/         {:op " / " :infix true}
+(defn bin-op [ty ret]
+  (fn-> ty ty ret))
 
-   '<         {:op " < " :infix true}
-   '>         {:op " > " :infix true}
-   '<=        {:op " <= " :infix true}
-   '>=        {:op " >= " :infix true}
-   '==        {:op " == " :infix true}
-   '!=        {:op " != " :infix true}
-   '!         {:fn "!" :prefix true}
-   '&&        {:op " && " :infix true}
-   '||        {:op " || " :infix true}
+(defn unary-math [ty]
+  (fn-> ty ty))
 
-   'pow       {:fn "pow"}
-   'not       {:fn "!" :prefix true}   ; 逻辑非
-   'inc       {:fn "inc"}
-   'dec       {:fn "dec"}
-   ;'zero?     {:fn "!" :prefix true}     ;; 实际可能需要生成 (x == 0)
-   ;'pos?      {:fn ">" :infix true :second "0"}
-   ;'neg?      {:fn "<" :infix true :second "0"}
-   'abs       {:fn "abs"}
-   'min       {:fn "min"}
-   'max       {:fn "max"}
-   'clamp     {:fn "clamp"}
-   'lerp      {:fn "lerp"}
-   'sqrt      {:fn "sqrt"}
-   'saturate  {:fn "saturate"}
-   'sin       {:fn "sin"}
-   'cos       {:fn "cos"}
-   'tan       {:fn "tan"}
-   'asin      {:fn "asin"}
-   'acos      {:fn "acos"}
-   'atan      {:fn "atan"}
-   'atan2     {:fn "atan2"}
-   'exp       {:fn "exp"}
-   'log       {:fn "log"}
-   'log2      {:fn "log2"}
-   'log10     {:fn "log10"}
-   'floor     {:fn "floor"}
-   'ceil      {:fn "ceil"}
-   'round     {:fn "round"}
-   'trunc     {:fn "trunc"}
-   'frac      {:fn "frac"}
-   'ddx       {:fn "ddx"}
-   'ddy       {:fn "ddy"}
-   'fwidth    {:fn "fwidth"}
-   'fmod      {:fn "fmod"}
-   'dot       {:fn "dot"}
-   'cross     {:fn "cross"}
-   'normalize {:fn "normalize"}
-   'length    {:fn "length"}
-   'distance  {:fn "distance"}
-   'reflect   {:fn "reflect"}
-   'refract   {:fn "refract"}
-   'transpose {:fn "transpose"}
-   'mul       {:fn "mul"}
-   'tex2D     {:fn "tex2D" :sample true}
-   'texCube   {:fn "texCUBE" :sample true}
+(defn binary-math [ty]
+  (fn-> ty ty ty))
 
-   'float     {:fn "float"}
-   'int       {:fn "int"}
-   'bool      {:fn "bool"}
+(defn ternary-math [ty]
+  (fn-> ty ty ty ty))
 
-   'int2      {:fn "int2"}
-   'int3      {:fn "int3"}
-   'int4      {:fn "int4"}
-   'bool2     {:fn "bool2"}
-   'bool3     {:fn "bool3"}
-   'bool4     {:fn "bool4"}
+(defn vector-ctor [vec-ty n]
+  (let [args (repeat n (t/->TCon :float))]
+    (apply fn-> (concat args [vec-ty]))))
 
-   'sample { :sample true}                                  ;; :fn "tex.Sample"
-   })
+(defn generic-unary []
+  (let [a (t/->TVar (gensym "a"))]
+    (sc/->TScheme [a] (fn-> a a))))
+
+(defn generic-binary []
+  (let [a (t/->TVar (gensym "a"))]
+    (sc/->TScheme [a] (fn-> a a a))))

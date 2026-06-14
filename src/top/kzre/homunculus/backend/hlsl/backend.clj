@@ -8,12 +8,107 @@
     [top.kzre.homunculus.backend.util.naming :as n]
     [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
+;; ── HLSL 类型映射 ──
+(def type-map
+  {:int     "int"
+   :float   "float"
+   :int64   "int"
+   :int32   "int"
+   :int16   "int16_t"
+   :uint64  "uint"
+   :uint32  "uint"
+   :float64 "double"
+   :float32 "float"
+   :float16 "half"
+   :bool    "bool"
+   :nil     "void"
+   :vector  "float4"
+   :float2  "float2"
+   :float3  "float3"
+   :float4  "float4"
+   :float3x3 "float3x3"
+   :float4x4 "float4x4"
+   :string  "float"})
+
+;; ── HLSL 内置函数/运算符映射 ──
+(def builtin-map
+  {'+         {:op " + " :infix true}
+   '-         {:op " - " :infix true}
+   '*         {:op " * " :infix true}
+   '/         {:op " / " :infix true}
+
+   '<         {:op " < " :infix true}
+   '>         {:op " > " :infix true}
+   '<=        {:op " <= " :infix true}
+   '>=        {:op " >= " :infix true}
+   '==        {:op " == " :infix true}
+   '!=        {:op " != " :infix true}
+   '!         {:fn "!" :prefix true}
+   '&&        {:op " && " :infix true}
+   '||        {:op " || " :infix true}
+
+   'pow       {:fn "pow"}
+   'not       {:fn "!" :prefix true}
+   'inc       {:fn "inc"}
+   'dec       {:fn "dec"}
+   'abs       {:fn "abs"}
+   'min       {:fn "min"}
+   'max       {:fn "max"}
+   'clamp     {:fn "clamp"}
+   'lerp      {:fn "lerp"}
+   'sqrt      {:fn "sqrt"}
+   'saturate  {:fn "saturate"}
+   'sin       {:fn "sin"}
+   'cos       {:fn "cos"}
+   'tan       {:fn "tan"}
+   'asin      {:fn "asin"}
+   'acos      {:fn "acos"}
+   'atan      {:fn "atan"}
+   'atan2     {:fn "atan2"}
+   'exp       {:fn "exp"}
+   'log       {:fn "log"}
+   'log2      {:fn "log2"}
+   'log10     {:fn "log10"}
+   'floor     {:fn "floor"}
+   'ceil      {:fn "ceil"}
+   'round     {:fn "round"}
+   'trunc     {:fn "trunc"}
+   'frac      {:fn "frac"}
+   'ddx       {:fn "ddx"}
+   'ddy       {:fn "ddy"}
+   'fwidth    {:fn "fwidth"}
+   'fmod      {:fn "fmod"}
+   'dot       {:fn "dot"}
+   'cross     {:fn "cross"}
+   'normalize {:fn "normalize"}
+   'length    {:fn "length"}
+   'distance  {:fn "distance"}
+   'reflect   {:fn "reflect"}
+   'refract   {:fn "refract"}
+   'transpose {:fn "transpose"}
+   'mul       {:fn "mul"}
+   'tex2D     {:fn "tex2D" :sample true}
+   'texCube   {:fn "texCUBE" :sample true}
+
+   'float     {:fn "float"}
+   'int       {:fn "int"}
+   'bool      {:fn "bool"}
+
+   'int2      {:fn "int2"}
+   'int3      {:fn "int3"}
+   'int4      {:fn "int4"}
+   'bool2     {:fn "bool2"}
+   'bool3     {:fn "bool3"}
+   'bool4     {:fn "bool4"}
+
+   'sample { :sample true}})
+
 (defrecord HLSLBackend []
   sp/IShaderBackend
 
   (shader-type [_ ir-type]
     (let [name (:name ir-type)]
-      (or (get utils/type-map name) "float")))
+      (or (get type-map name) "float")))
 
   (shader-literal [_ val]
     (cond
@@ -33,7 +128,7 @@
         (str decl ";"))))
 
   (shader-var-ref [this name]
-    (if (get utils/builtin-map (symbol name))
+    (if (get builtin-map (symbol name))
       name
       (n/safe-name name)))
 
@@ -60,12 +155,12 @@
 
   (shader-call [this fn-name args]
     (let [sym (symbol fn-name)
-          info (get utils/builtin-map sym)]
+          info (get builtin-map sym)]
       (if info
         (cond
           (:infix info)
           (if (= 2 (count args))
-            (str "(" (first args) (:op info) (second args) ")")
+            (str (first args) (:op info) (second args))
             (throw (ex-info "Infix op requires 2 args" {:fn fn-name :args args})))
 
           (:sample info)
@@ -91,7 +186,6 @@
            (str/join "\n" member-strs) "\n"
            "};")))
 
-  ;; 程序组合：委托给 shader-entry-wrapper 生成每个入口
   (sp/shader-program [this functions structs globals entry-specs]
     (let [all-parts (concat globals structs functions)
           body (when (seq all-parts) (str/join "\n\n" all-parts))
@@ -145,5 +239,4 @@
                  (fmt/indent 1) "return " safe-name "(" call-args ");\n"
                  "}"))
           (str "float4 main() : SV_TARGET { return " safe-name "(); }"))
-
         ))))

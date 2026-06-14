@@ -6,6 +6,7 @@
             [top.kzre.homunculus.core.ir1.forms]
             [top.kzre.homunculus.core.ir2.core :as ir2]
             [top.kzre.homunculus.core.ir2.forms]
+            [top.kzre.homunculus.backend.shader.methods]
             [top.kzre.homunculus.core.types.recur-elim.core :as recur-elim]
             [top.kzre.homunculus.core.types.recur-elim.methods]
             [top.kzre.homunculus.core.types.elaborate.core :as elaborate]

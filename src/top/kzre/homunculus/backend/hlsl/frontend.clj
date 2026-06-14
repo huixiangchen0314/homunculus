@@ -1,102 +1,95 @@
 (ns top.kzre.homunculus.backend.hlsl.frontend
   "HLSL 前端协议实现：向编译器描述 HLSL 的类型、字面量和内建函数。"
   (:require
-   [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]
-   [top.kzre.homunculus.core.types.model :as t]
-   [top.kzre.homunculus.core.types.protocol :as p]))
+    [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]
+    [top.kzre.homunculus.core.types.model :as t]
+    [top.kzre.homunculus.backend.hlsl.utils :as utils]
+    [top.kzre.homunculus.core.types.protocol :as p]))
 
 ;; ── HLSL 内置函数类型环境 ─────────────────
 (def builtins
-  "从 Clojure 符号到 HLSL 函数类型的映射。HM 推断将以此为基础。"
-  {'+
-   (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float)))
-   '-
-   (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float)))
-   '*
-   (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float)))
-   '/
-   (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float)))
-   'float4
-   (t/->TFun (t/->TCon :float)
-             (t/->TFun (t/->TCon :float)
-                       (t/->TFun (t/->TCon :float)
-                                 (t/->TFun (t/->TCon :float) (t/->TCon :float4)))))
-   'float3 (t/->TFun (t/->TCon :float)
-             (t/->TFun (t/->TCon :float)
-                       (t/->TFun (t/->TCon :float) (t/->TCon :float3))))
-   'float2 (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float2)))
-
-   '<   (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
-   '>   (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
-   '<=  (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
-   '>=  (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
-   ;'=   (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
-   '==        (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
-   '!=        (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :bool)))
-   '!         (t/->TFun (t/->TCon :bool) (t/->TCon :bool))
-   '&&        (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TCon :bool)))
-   '||        (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TCon :bool)))
-
-
-   'not (t/->TFun (t/->TCon :bool) (t/->TCon :bool))
-   'abs       (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'max       (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float)))
-   'min       (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float)))
-   'clamp     (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float))))
-   'saturate  (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'sin       (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'cos       (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'tan       (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'asin      (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'acos      (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'atan      (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'atan2     (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float)))
-   'sqrt      (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'pow       (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float)))
-   'exp       (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'log       (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'log2      (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'log10     (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'floor     (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'ceil      (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'round     (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'trunc     (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'frac      (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'ddx       (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'ddy       (t/->TFun (t/->TCon :float) (t/->TCon :float))
-   'fwidth    (t/->TFun (t/->TCon :float) (t/->TCon :float))
-
-   ;; TODO Generalized
-   'dot       (t/->TFun (t/->TCon :float3) (t/->TFun (t/->TCon :float3) (t/->TCon :float)))
-   'cross     (t/->TFun (t/->TCon :float3) (t/->TFun (t/->TCon :float3) (t/->TCon :float3)))
-   'normalize (t/->TFun (t/->TCon :float3) (t/->TCon :float3))
-   'length    (t/->TFun (t/->TCon :float3) (t/->TCon :float))
-   'distance  (t/->TFun (t/->TCon :float3) (t/->TFun (t/->TCon :float3) (t/->TCon :float)))
-   'reflect   (t/->TFun (t/->TCon :float3) (t/->TFun (t/->TCon :float3) (t/->TCon :float3)))
-   'refract   (t/->TFun (t/->TCon :float3) (t/->TFun (t/->TCon :float3) (t/->TFun (t/->TCon :float) (t/->TCon :float3))))
-
-   'mul       (t/->TFun (t/->TCon :float4x4) (t/->TFun (t/->TCon :float4) (t/->TCon :float4)))
-   'transpose (t/->TFun (t/->TCon :float4x4) (t/->TCon :float4x4))
-
-   'tex2D     (t/->TFun (t/->TCon :texture2D) (t/->TFun (t/->TCon :sampler) (t/->TCon :float4)))
-   'texCube   (t/->TFun (t/->TCon :textureCube) (t/->TFun (t/->TCon :sampler) (t/->TCon :float4)))
-
-   'float     (t/->TFun (t/->TCon :int) (t/->TCon :float))
-   'int       (t/->TFun (t/->TCon :float) (t/->TCon :int))
-   'bool      (t/->TFun (t/->TCon :int) (t/->TCon :bool))
-
-   'int2      (t/->TFun (t/->TCon :int) (t/->TFun (t/->TCon :int) (t/->TCon :int2)))
-   'int3      (t/->TFun (t/->TCon :int) (t/->TFun (t/->TCon :int) (t/->TFun (t/->TCon :int) (t/->TCon :int3))))
-   'int4      (t/->TFun (t/->TCon :int) (t/->TFun (t/->TCon :int) (t/->TFun (t/->TCon :int) (t/->TFun (t/->TCon :int) (t/->TCon :int4)))))
-   'bool2     (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TCon :bool2)))
-   'bool3     (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TCon :bool3))))
-   'bool4     (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TCon :bool4)))))
-   ;; … 更多内置函数可陆续添加
-
-   'texture2D     (t/->TFun (t/->TCon :int) (t/->TCon :texture2D))
-   'sampler-state (t/->TFun (t/->TCon :int) (t/->TCon :sampler))
-   'sample        (t/->TFun (t/->TCon :texture2D) (t/->TFun (t/->TCon :sampler) (t/->TCon :float4)))
-   })
+  (merge
+    ;; 算术二元运算（保持具体，中缀生成以后泛化）
+    {'+ (utils/bin-op (t/->TCon :float) (t/->TCon :float))
+     '- (utils/bin-op (t/->TCon :float) (t/->TCon :float))
+     '* (utils/bin-op (t/->TCon :float) (t/->TCon :float))
+     '/ (utils/bin-op (t/->TCon :float) (t/->TCon :float))
+     ;; 比较二元运算
+     '<  (utils/bin-op (t/->TCon :float) (t/->TCon :bool))
+     '>  (utils/bin-op (t/->TCon :float) (t/->TCon :bool))
+     '<= (utils/bin-op (t/->TCon :float) (t/->TCon :bool))
+     '>= (utils/bin-op (t/->TCon :float) (t/->TCon :bool))
+     '== (utils/bin-op (t/->TCon :float) (t/->TCon :bool))
+     '!= (utils/bin-op (t/->TCon :float) (t/->TCon :bool))
+     ;; 逻辑
+     '!  (utils/unary-math (t/->TCon :bool))
+     '&& (utils/bin-op (t/->TCon :bool) (t/->TCon :bool))
+     '|| (utils/bin-op (t/->TCon :bool) (t/->TCon :bool))
+     'not (utils/unary-math (t/->TCon :bool))
+     ;; ── 数学函数（泛型一元） ──
+     'abs      (utils/generic-unary)
+     'saturate (utils/generic-unary)
+     'sin      (utils/generic-unary)
+     'cos      (utils/generic-unary)
+     'tan      (utils/generic-unary)
+     'asin     (utils/generic-unary)
+     'acos     (utils/generic-unary)
+     'atan     (utils/generic-unary)
+     'sqrt     (utils/generic-unary)
+     'exp      (utils/generic-unary)
+     'log      (utils/generic-unary)
+     'log2     (utils/generic-unary)
+     'log10    (utils/generic-unary)
+     'floor    (utils/generic-unary)
+     'ceil     (utils/generic-unary)
+     'round    (utils/generic-unary)
+     'trunc    (utils/generic-unary)
+     'frac     (utils/generic-unary)
+     'ddx      (utils/generic-unary)
+     'ddy      (utils/generic-unary)
+     'fwidth   (utils/generic-unary)
+     ;; ── 数学函数（泛型二元） ──
+     'max   (utils/generic-binary)
+     'min   (utils/generic-binary)
+     'atan2 (utils/generic-binary)
+     'pow   (utils/generic-binary)
+     'step  (utils/generic-binary)
+     'fmod  (utils/generic-binary)
+     ;; ── 三元（暂保留具体） ──
+     'clamp (utils/ternary-math (t/->TCon :float))
+     'lerp  (utils/ternary-math (t/->TCon :float))
+     'smoothstep (utils/fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
+     ;; 向量构造
+     'float2 (utils/vector-ctor (t/->TCon :float2) 2)
+     'float3 (utils/vector-ctor (t/->TCon :float3) 3)
+     'float4 (utils/vector-ctor (t/->TCon :float4) 4)
+     ;; 类型转换
+     'float (utils/fn-> (t/->TCon :int) (t/->TCon :float))
+     'int   (utils/fn-> (t/->TCon :float) (t/->TCon :int))
+     'bool  (utils/fn-> (t/->TCon :int) (t/->TCon :bool))
+     'int2  (utils/vector-ctor (t/->TCon :int2) 2)
+     'int3  (utils/vector-ctor (t/->TCon :int3) 3)
+     'int4  (utils/vector-ctor (t/->TCon :int4) 4)
+     'bool2 (utils/vector-ctor (t/->TCon :bool2) 2)
+     'bool3 (utils/vector-ctor (t/->TCon :bool3) 3)
+     'bool4 (utils/vector-ctor (t/->TCon :bool4) 4)
+     ;; 向量/矩阵运算
+     'dot       (utils/fn-> (t/->TCon :float3) (t/->TCon :float3) (t/->TCon :float))
+     'cross     (utils/fn-> (t/->TCon :float3) (t/->TCon :float3) (t/->TCon :float3))
+     'normalize (utils/generic-unary)
+     'length    (utils/fn-> (t/->TCon :float3) (t/->TCon :float))
+     'distance  (utils/fn-> (t/->TCon :float3) (t/->TCon :float3) (t/->TCon :float))
+     'reflect   (utils/fn-> (t/->TCon :float3) (t/->TCon :float3) (t/->TCon :float3))
+     'refract   (utils/fn-> (t/->TCon :float3) (t/->TCon :float3) (t/->TCon :float) (t/->TCon :float3))
+     'mul       (utils/fn-> (t/->TCon :float4x4) (t/->TCon :float4) (t/->TCon :float4))
+     'transpose (utils/unary-math (t/->TCon :float4x4))
+     ;; 纹理
+     'tex2D     (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float4))
+     'texCube   (utils/fn-> (t/->TCon :textureCube) (t/->TCon :sampler) (t/->TCon :float4))
+     ;; 资源与采样
+     'texture2D     (utils/fn-> (t/->TCon :int) (t/->TCon :texture2D))
+     'sampler-state (utils/fn-> (t/->TCon :int) (t/->TCon :sampler))
+     'sample        (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float4))}))
 
 ;; ── HLSL 前端信息实现 ────────────────────
 (deftype HLSLFrontend []
@@ -112,27 +105,23 @@
       (instance? Float val) (t/->TCon :float)
       (true? val) (t/->TCon :bool)
       (false? val) (t/->TCon :bool)
-      ;; TODO recur-elim 完成 初始值推导后删除
       (nil? val) (do (println "WARNING: nil literal defaulting to float") (t/->TCon :float))
       :else (throw (ex-info (str "HLSL unsupported literal: " val) {:val val}))))
 
   (meta->type [_ node]
-    ;; Clojure 元数据可能包含类型标注 ^:float4，或语义标注 ^:SV_Position
     (when-let [tag (get-in node [:meta :tag])]
       (if (keyword? tag)
-        ;; 将其视为类型构造器名，如 :float4 → TCon :float4
         (t/->TCon (-> tag name keyword))
         (throw (ex-info "Meta tag must be keyword" {:tag tag})))))
 
-  ;; HLSL 中向量和矩阵被视为内置函数构造，不需要容器推断
   (infer-collection-type [_ form]
     (throw (ex-info "HLSL does not support collection literals" {:form form})))
 
   (collection-type-ctor [_ kind element-type shape]
     (throw (ex-info "HLSL does not support collection types" {:kind kind})))
+
   (builtin-functions [_]
     builtins))
-
 
 (defrecord HLSLHoElimConfig []
   hop/IHoElimConfig
