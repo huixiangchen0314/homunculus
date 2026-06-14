@@ -218,3 +218,20 @@
       (is (str/includes? hlsl "SamplerState samp : register(s1);"))
       (is (str/includes? hlsl "tex.SampleLevel(samp, float2(0.5, 0.5), 0.0)"))
       (is (str/includes? hlsl "return")))))
+
+
+(deftest test-out-parameter
+  (testing "out 参数"
+    (let [hlsl (compile-and-emit '(def myFunc (fn* [^:float x ^:out ^:float result]
+                                                (set! result x)))
+                                 [{:stage :fragment :fn-name "frag"}])]
+      (is (str/includes? hlsl "void myFunc(float x, out float result)"))
+      (is (str/includes? hlsl "result = x;")))))
+
+(deftest test-inout-parameter
+  (testing "inout 参数"
+    (let [hlsl (compile-and-emit '(def myFunc (fn* [^:float x ^{:float true :inout true} y]
+                                                (set! y (+ x y))))
+                                 [{:stage :fragment :fn-name "frag"}])]
+      (is (str/includes? hlsl "void myFunc(float x, inout float y)"))
+      (is (str/includes? hlsl "y = x + y;")))))

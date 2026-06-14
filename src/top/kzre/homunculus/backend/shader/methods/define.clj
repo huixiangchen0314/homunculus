@@ -32,13 +32,20 @@
                                                                   (not (namespace k))
                                                                   (re-find #"^[A-Z]" (name k)))
                                                          k))
-                                                     (keys metadata)))]
-                                (str type-str " " param-name
+                                                     (keys metadata)))
+                                    modifier (cond
+                                               (contains? (set (keys metadata)) :out)   "out"
+                                               (contains? (set (keys metadata)) :inout) "inout"
+                                               :else nil)]
+                                (str (when modifier (str modifier " "))
+                                     type-str " " param-name
                                      (if semantic (str " : " (name semantic)) ""))))
                             params)
             body-code (emit body backend)
             return-type (if-let [rt (get-in body [:attrs :type])]
-                          (sp/shader-type backend rt)
+                          (if (and (satisfies? tp/IType rt) (= (tp/type-kind rt) :con) (= (:name rt) :nil))
+                            "void"
+                            (sp/shader-type backend rt))
                           "void")
             return-body (if (or (= (ir2p/kind body) :block)
                                 (#{:if :while :let :loop :assign :throw} (ir2p/kind body)))
