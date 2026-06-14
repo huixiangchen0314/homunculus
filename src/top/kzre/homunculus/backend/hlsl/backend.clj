@@ -138,5 +138,12 @@
                (fmt/indent 1) entry-body "\n"
                "}"))
         :fragment
-        (str "float4 main() : SV_TARGET { return " safe-name "(); }")
-        (str "void main() { " safe-name "(); }")))))
+        (if (seq input-params)
+          (let [param-strs (map (fn [p] (str (:type p) " " (:name p) " : " (:semantic p))) input-params)
+                call-args  (str/join ", " (map :name input-params))]
+            (str "float4 main(" (str/join ", " param-strs) ") : SV_TARGET {\n"
+                 (fmt/indent 1) "return " safe-name "(" call-args ");\n"
+                 "}"))
+          (str "float4 main() : SV_TARGET { return " safe-name "(); }"))
+
+        ))))
