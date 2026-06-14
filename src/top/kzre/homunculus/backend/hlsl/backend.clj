@@ -265,18 +265,32 @@
     (let [safe-name (n/safe-name entry-fn-name)]
       (case stage
         :vertex
-        (let [input-struct  (sp/shader-struct-from-params this "VSInput" input-params)
+        (let [system-values #{"SV_VERTEXID" "SV_INSTANCEID"}
+              ;; 分离系统值与普通输入
+              sys-params  (filter #(contains? system-values (:semantic %)) input-params)
+              vsin-params (remove #(contains? system-values (:semantic %)) input-params)
+              input-struct  (sp/shader-struct-from-params this "VSInput" vsin-params)
               output-struct (sp/shader-struct-from-params this "VSOutput" output-params)
-              call-args     (str/join ", " (map #(str "input." (:name %)) input-params))
-              output-pos    (if (seq output-params)
-                              (:name (first output-params))
-                              "pos")
-              entry-body    (str "VSOutput output;\n"
-                                 "    output." output-pos " = " safe-name "(" call-args ");\n"
-                                 "    return output;")]
-          (str (when (seq input-params) (str input-struct "\n"))
+              ;; 普通输入通过结构体成员传递
+              call-args   (concat
+                            (map #(str "input." (:name %)) vsin-params)
+                            (map :name sys-params))
+              output-pos  (if (seq output-params)
+                            (:name (first output-params))
+                            "pos")
+              entry-body  (str "VSOutput output;\n"
+                               "    output." output-pos " = " safe-name "("
+                               (str/join ", " call-args) ");\n"
+                               "    return output;")]
+          (str (when (seq vsin-params) (str input-struct "\n"))
                (when (seq output-params) (str output-struct "\n"))
-               "VSOutput main(VSInput input) {\n"
+               "VSOutput main(VSInput input"
+               ;; 系统值作为额外参数
+               (when (seq sys-params)
+                 (str ", " (str/join ", "
+                                     (map #(str (:type %) " " (:name %) " : " (:semantic %))
+                                          sys-params))))
+               ") {\n"
                (fmt/indent 1) entry-body "\n"
                "}"))
         :fragment
