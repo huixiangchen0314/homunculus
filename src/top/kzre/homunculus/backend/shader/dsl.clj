@@ -12,3 +12,4 @@
 (defn texture2D     [register] nil)
 (defn sampler-state [register] nil)
 (defn cbuffer       [register & members] nil)
+

@@ -101,7 +101,22 @@
    'bool3     {:fn "bool3"}
    'bool4     {:fn "bool4"}
 
-   'sample { :sample true}})
+   'sample { :sample true}
+
+   'sw-x    {:swizzle "x"}
+   'sw-y    {:swizzle "y"}
+   'sw-z    {:swizzle "z"}
+   'sw-w    {:swizzle "w"}
+   'sw-xy   {:swizzle "xy"}
+   'sw-xz   {:swizzle "xz"}
+   'sw-yz   {:swizzle "yz"}
+   'sw-zw   {:swizzle "zw"}
+   'sw-xyz  {:swizzle "xyz"}
+   'sw-rgb  {:swizzle "rgb"}
+   'sw-xyzw {:swizzle "xyzw"}
+   'sw-rgba {:swizzle "rgba"}
+
+   })
 
 (defrecord HLSLBackend []
   sp/IShaderBackend
@@ -162,6 +177,9 @@
           (if (= 2 (count args))
             (str (first args) (:op info) (second args))
             (throw (ex-info "Infix op requires 2 args" {:fn fn-name :args args})))
+
+          (:swizzle info)
+          (str (first args) "." (:swizzle info))
 
           (:sample info)
           (let [[tex sam & rest] args]

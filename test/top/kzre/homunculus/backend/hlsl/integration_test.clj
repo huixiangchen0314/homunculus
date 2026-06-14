@@ -180,3 +180,8 @@
     (let [hlsl (compile-and-emit '(max (float3 1.0 2.0 3.0) (float3 3.0 2.0 1.0)) [{:stage :fragment :fn-name "frag"}])]
       (is (str/includes? hlsl "max(float3(1.0, 2.0, 3.0), float3(3.0, 2.0, 1.0))"))
       (is (str/includes? hlsl "return")))))
+
+(deftest test-swizzle-xy
+  (let [hlsl (compile-and-emit '(sw-xy (float4 1.0 2.0 3.0 4.0)) [{:stage :fragment :fn-name "frag"}])]
+    (is (str/includes? hlsl "float4(1.0, 2.0, 3.0, 4.0).xy"))
+    (is (str/includes? hlsl "return"))))

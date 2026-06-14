@@ -83,6 +83,21 @@
      'refract   (utils/fn-> (t/->TCon :float3) (t/->TCon :float3) (t/->TCon :float) (t/->TCon :float3))
      'mul       (utils/fn-> (t/->TCon :float4x4) (t/->TCon :float4) (t/->TCon :float4))
      'transpose (utils/unary-math (t/->TCon :float4x4))
+
+     ;; Swizzle
+     'sw-x    (utils/fn-> (t/->TCon :float4) (t/->TCon :float))
+     'sw-y    (utils/fn-> (t/->TCon :float4) (t/->TCon :float))
+     'sw-z    (utils/fn-> (t/->TCon :float4) (t/->TCon :float))
+     'sw-w    (utils/fn-> (t/->TCon :float4) (t/->TCon :float))
+     'sw-xy   (utils/fn-> (t/->TCon :float4) (t/->TCon :float2))
+     'sw-xz   (utils/fn-> (t/->TCon :float4) (t/->TCon :float2))
+     'sw-yz   (utils/fn-> (t/->TCon :float4) (t/->TCon :float2))
+     'sw-zw   (utils/fn-> (t/->TCon :float4) (t/->TCon :float2))
+     'sw-xyz  (utils/fn-> (t/->TCon :float4) (t/->TCon :float3))
+     'sw-rgb  (utils/fn-> (t/->TCon :float4) (t/->TCon :float3))
+     'sw-xyzw (utils/fn-> (t/->TCon :float4) (t/->TCon :float4))
+     'sw-rgba (utils/fn-> (t/->TCon :float4) (t/->TCon :float4))
+
      ;; 纹理
      'tex2D     (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float4))
      'texCube   (utils/fn-> (t/->TCon :textureCube) (t/->TCon :sampler) (t/->TCon :float4))
