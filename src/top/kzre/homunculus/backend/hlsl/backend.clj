@@ -301,7 +301,13 @@
                "void main(triangle " in-struct-name " input[3], inout TriangleStream<" out-struct-name "> stream) {\n"
                (fmt/indent 1) safe-name "(input, stream);\n"
                "}"))
-
+        :compute
+        (let [safe-name (n/safe-name entry-fn-name)
+              numthreads (or (some-> output-params first :numthreads) [1 1 1])]
+          (str "[numthreads(" (str/join ", " numthreads) ")]\n"
+               "void main() {\n"
+               (fmt/indent 1) safe-name "();\n"
+               "}"))
         )))
 
   (shader-global-decl [this name ir-type init-expr]
