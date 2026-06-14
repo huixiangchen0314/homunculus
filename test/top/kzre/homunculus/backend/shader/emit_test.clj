@@ -1,13 +1,12 @@
 (ns top.kzre.homunculus.backend.shader.emit-test
-  (:require [clojure.test :refer :all]
-            [clojure.string :as s]
+  (:require [clojure.string :as s]
+            [clojure.test :refer :all]
+            [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
             [top.kzre.homunculus.backend.shader.emit :as emit]
             [top.kzre.homunculus.backend.shader.methods]
-            [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
-            [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.ir2.forms]
-            [top.kzre.homunculus.core.types.model :as t])
-  (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
+            [top.kzre.homunculus.core.ir2.model :as m]
+            [top.kzre.homunculus.core.types.model :as t]))
 
 (def backend (hlsl-backend/->HLSLBackend))
 

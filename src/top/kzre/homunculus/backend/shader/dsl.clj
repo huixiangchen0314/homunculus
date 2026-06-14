@@ -5,7 +5,7 @@
   "定义着色器入口函数。stage 为 :vertex, :fragment 等，params 为带类型标注的参数向量。"
   [stage name params & body]
   `(def ~name
-     ~(with-meta (list* 'fn* (vec params) body) {:shader-stage stage})))
+     ~(with-meta (list* 'fn* params body) {:shader-stage stage})))
 
 (defmacro defuniform
   "定义全局 uniform 常量。展开为带 :uniform 元数据的 def。"

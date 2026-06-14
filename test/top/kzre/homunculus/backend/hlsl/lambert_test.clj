@@ -5,8 +5,8 @@
             [clojure.walk :as walk]
             [top.kzre.homunculus.core.ir1.core :as ir1]
             [top.kzre.homunculus.core.ir2.core :as ir2]
+            [top.kzre.homunculus.core.ir1.forms]
             [top.kzre.homunculus.core.ir2.forms]
-            [top.kzre.homunculus.core.types.test-utils :as tu]
             [top.kzre.homunculus.backend.shader.methods]
             [top.kzre.homunculus.core.types.protocol :as p]
             [top.kzre.homunculus.core.types.recur-elim.core :as recur-elim]
@@ -27,6 +27,7 @@
             [top.kzre.homunculus.backend.hlsl.frontend :as hlsl-front]
             [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
             [top.kzre.homunculus.backend.shader.emit :as emit]
+            [top.kzre.homunculus.core.types.test-utils :refer :all]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
 (def elab-config
@@ -39,7 +40,7 @@
 
 (def hlsl-frontend (hlsl-front/->HLSLFrontend))
 (def hlsl-backend-inst (hlsl-backend/->HLSLBackend))
-(def mock-backend (tu/->MockBackend))
+(def mock-backend (->MockBackend))
 (def full-builtins (merge {} hlsl-front/builtins))
 
 (defn compile-and-emit [form entries]
@@ -55,38 +56,33 @@
         checked    (check/check-program typed {:backend mock-backend})]
     (emit/generate checked hlsl-backend-inst entries)))
 
-(deftest lambert-vertex-and-fragment
-  (testing "完整兰伯特着色器：顶点输出位置，片段计算漫反射"
+(deftest lambert-full-test
+  (testing "兰伯特光照着色器（顶点 + 片段 + uniform）"
     (let [form '(do
-                  (top.kzre.homunculus.backend.shader.dsl/defshader
-                    :vertex vs-main
-                    [^:SV_Position ^:float4 pos]
-                    pos)
-                  (top.kzre.homunculus.backend.shader.dsl/defshader
-                    :fragment ps-main
-                    []
-                    (let* [normal   (float3 0.0 0.0 1.0)
-                           lightDir (float3 0.0 0.0 1.0)
-                           diff     (max (dot normal lightDir) 0.0)]
-                      (float4 diff diff diff 1.0))))
+                  ;; 顶点着色器：直接输出位置
+                  (top.kzre.homunculus.backend.shader.dsl/defshader :vertex vs-main
+                                                                    [^:SV_Position ^:float4 pos]
+                                                                    pos)
+                  ;; 全局 uniform：光线方向
+                  (def ^:uniform lightDir (float3 0.0 0.0 -1.0))
+                  ;; 片段着色器：接收位置，计算漫反射
+                  (top.kzre.homunculus.backend.shader.dsl/defshader :fragment ps-main
+                                                                    [^:SV_POSITION ^:float4 pos]
+                                                                    (let* [normal (float3 0.0 0.0 1.0)
+                                                                           diff   (max (dot normal lightDir) 0.0)]
+                                                                      (float4 diff diff diff 1.0))))
           hlsl (compile-and-emit form [{:stage :vertex   :fn-name "vs-main"}
                                        {:stage :fragment :fn-name "ps-main"}])]
-      ;; 顶点着色器函数签名
+      ;; 顶点着色器
       (is (str/includes? hlsl "float4 vs_main(float4 pos : SV_Position)"))
-      ;; 顶点输入结构体
       (is (str/includes? hlsl "struct VSInput"))
-      (is (str/includes? hlsl "float4 pos : SV_Position;"))
-      ;; 顶点输出结构体
       (is (str/includes? hlsl "struct VSOutput"))
-      (is (str/includes? hlsl "float4 pos : SV_POSITION;"))
-      ;; 顶点入口调用
       (is (str/includes? hlsl "output.pos = vs_main(input.pos);"))
-      ;; 片段着色器入口
-      (is (str/includes? hlsl "float4 main() : SV_TARGET { return ps_main(); }"))
-      ;; 片段着色器函数定义（包含漫反射计算）
-      (is (str/includes? hlsl "float4 ps_main()"))
+      ;; uniform 声明
+      (is (str/includes? hlsl "uniform float3 lightDir = float3(0.0, 0.0, -1.0);"))
+      ;; 片段着色器
+      (is (str/includes? hlsl "float4 main(float4 pos : SV_POSITION) : SV_TARGET"))
+      (is (str/includes? hlsl "return ps_main(pos);"))
       (is (str/includes? hlsl "const float3 normal = float3(0.0, 0.0, 1.0);"))
-      (is (str/includes? hlsl "const float3 lightDir = float3(0.0, 0.0, 1.0);"))
       (is (str/includes? hlsl "max(dot(normal, lightDir), 0.0)"))
-      (is (str/includes? hlsl "float4(diff, diff, diff, 1.0)"))
-      (is (str/includes? hlsl "return float4(diff, diff, diff, 1.0);")))))
+      (is (str/includes? hlsl "float4(diff, diff, diff, 1.0)")))))

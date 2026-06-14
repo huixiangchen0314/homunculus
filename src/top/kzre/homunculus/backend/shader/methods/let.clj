@@ -9,7 +9,9 @@
         body     (:body node)
         var-decls (map (fn [[var val]]
                          (let [var-name (:name var)
-                               var-type (get-in var [:attrs :type])
+                               ;; 优先用 var 自身的类型，若无则从 val 推断的类型获取
+                               var-type (or (get-in var [:attrs :type])
+                                            (get-in val [:attrs :type]))
                                mutable? (get-in var [:attrs :mutable])
                                val-code (emit val backend)]
                            (sp/shader-var-decl backend var-name var-type (boolean mutable?) val-code)))

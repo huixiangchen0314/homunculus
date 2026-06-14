@@ -3,6 +3,8 @@
   (:require [clojure.string :as str]
             [clojure.test :refer :all]
             [top.kzre.homunculus.backend.hlsl.backend :as hlsl]
+            [top.kzre.homunculus.core.ir1.forms]
+            [top.kzre.homunculus.core.ir2.forms]
             [top.kzre.homunculus.backend.shader.protocol :as sp]))
 
 (def backend (hlsl/->HLSLBackend))

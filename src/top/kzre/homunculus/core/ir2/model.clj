@@ -2,6 +2,17 @@
   "IR2 语言无关 AST 的节点记录定义。所有节点实现 INode 协议。"
   (:require [top.kzre.homunculus.core.ir2.protocol :as p]))
 
+
+(defrecord LambdaNode [params body captures fn-name attrs meta  parent]
+  p/INode
+  (kind [_] :lambda)
+  ;; params 是 VariableNode 列表，body 是子节点
+  (children [_] (into (vec params) [body]))
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
 (defrecord LiteralNode [val attrs meta parent]
   p/INode
   (kind [_] :literal)
@@ -80,15 +91,6 @@
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord LambdaNode [params body captures fn-name attrs meta  parent]
-  p/INode
-  (kind [_] :lambda)
-  ;; params 是 VariableNode 列表，body 是子节点
-  (children [_] (into (vec params) [body]))
-  (attrs [_] attrs)
-  (node-meta [_] meta)
-  (parent [_] parent)
-  (set-parent [this p] (assoc this :parent p)))
 
 
 

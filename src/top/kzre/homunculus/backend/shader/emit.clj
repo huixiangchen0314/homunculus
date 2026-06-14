@@ -3,9 +3,8 @@
   (:require [top.kzre.homunculus.backend.shader.protocol :as sp]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]
             [clojure.string :as str]
-            [top.kzre.homunculus.core.types.model :as t])
-  (:import [top.kzre.homunculus.core.types.model TCon]
-           [top.kzre.homunculus.core.ir2.model LambdaNode]))
+            [top.kzre.homunculus.core.types.model :as t]
+            [top.kzre.homunculus.core.types.protocol :as tp]))
 
 (defmulti emit
           (fn [node backend]
@@ -27,26 +26,28 @@
                                   [r]))
                               ir2-roots)
         defines       (filter #(= (ir2p/kind %) :define) flat-roots)
-        resource-type? (fn [vty]
-                         (and vty (instance? TCon vty)
-                              (contains? #{:texture2D :sampler :cbuffer} (:name vty))))
+        resource-type? (fn [ty]
+                         (and ty (= (tp/type-kind ty) :con)
+                              (contains? #{:texture2D :sampler :cbuffer} (:name ty))))
         resource-defs (filter #(resource-type? (get-in % [:val :attrs :type])) defines)
-        ;; 全局常量：非资源、非LambdaNode、无 shader-stage
+        ;; 全局常量：非资源、非 lambda（kind 不是 :lambda）、无 shader-stage
         global-defs   (filter #(and (= (ir2p/kind %) :define)
                                     (not (resource-type? (get-in % [:val :attrs :type])))
                                     (not (some? (some-> (ir2p/node-meta %) :shader-stage)))
-                                    (not (instance? LambdaNode (:val %))))
+                                    (let [val (:val %)]
+                                      (not (and val (= (ir2p/kind val) :lambda)))))
                               defines)
-        ;; 函数定义：val 为 LambdaNode 且非资源（无论是否有 shader-stage）
+        ;; 函数定义：val 为 lambda 且非资源（无论是否有 shader-stage）
         function-defs (remove #(or (resource-type? (get-in % [:val :attrs :type]))
-                                   (not (instance? LambdaNode (:val %))))
+                                   (let [val (:val %)]
+                                     (not (and val (= (ir2p/kind val) :lambda)))))
                               defines)
         fn-def-map    (into {} (map (fn [d] [(name (:name d)) (emit d backend)]) function-defs))
         globals       (map #(emit % backend) resource-defs)
         global-decls  (for [d global-defs
                             :let [val (:val d)
                                   ir-type (get-in val [:attrs :type])
-                                  init-expr (when (and val (not (instance? LambdaNode val)))
+                                  init-expr (when (and val (not (= (ir2p/kind val) :lambda)))
                                               (emit val backend))]]
                         (sp/shader-global-decl backend (name (:name d)) ir-type init-expr))
         others        (remove #(= (ir2p/kind %) :define) flat-roots)

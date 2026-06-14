@@ -50,7 +50,8 @@
               (symbol? form) :symbol
               (vector? form) :vector
               (map? form)    :map
-              (seq? form)    (if (symbol? (first form)) (first form) :call)
+              (or (seq? form) (list? form)) (if (symbol? (first form))
+                                              (first form) :call)
               :else (throw (ex-info (str "Unsupported form: " form) {:form form})))))
 
 (defmethod form->node :literal [form]
