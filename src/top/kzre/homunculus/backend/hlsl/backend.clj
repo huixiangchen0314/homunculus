@@ -6,6 +6,7 @@
     [top.kzre.homunculus.backend.shader.protocol :as sp]
     [top.kzre.homunculus.backend.util.format :as fmt]
     [top.kzre.homunculus.backend.shader.emit :as e]
+    [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.backend.util.naming :as n]
     [top.kzre.homunculus.core.ir2.protocol :as ir2p]
     [top.kzre.homunculus.core.types.model :as t]))
@@ -292,4 +293,21 @@
     (let [type-str (sp/shader-type this ir-type)
           var-name (n/safe-name name)]
       (str "uniform " type-str " " var-name
-           (when init-expr (str " = " init-expr)) ";"))))
+           (when init-expr (str " = " init-expr)) ";")))
+
+
+  tp/IBackendInfo
+  (prims [_] [])
+  (builtin-type? [_ ty-name] (contains? #{:int :float :bool :float2 :float3 :float4 :float4x4} ty-name))
+  (strictness [_] {:strict false})
+  (type-conversion [_ src-ty dst-ty]
+    ;; 允许 int 和 float 之间相互转换，代价较低
+    (cond
+      (and (= (:name src-ty) :int) (= (:name dst-ty) :float)) 1
+      (and (= (:name src-ty) :float) (= (:name dst-ty) :int)) 2
+      :else nil))
+  (resolve-container [_ container-ty] container-ty)
+  (backend-container-type [_ kind element-ty shape] (t/->TCon :float4))
+
+
+  )
