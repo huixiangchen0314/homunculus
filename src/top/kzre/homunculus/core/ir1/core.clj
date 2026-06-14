@@ -79,6 +79,7 @@
                 (:meta node)
                 (:parent node)))
 
+
 (defn ->ir1 [form]
   (let [raw-node (form->node form)
         tree     (build-tree raw-node)]

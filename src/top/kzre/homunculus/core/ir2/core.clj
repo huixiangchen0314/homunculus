@@ -21,11 +21,13 @@
     [(m/->VectorNode items nil (ir1-meta node) nil)]))
 
 (defmethod lower-ast :map [node env]
-  (let [pairs (:pairs node)
-        kvs (mapcat (fn [[k v]]
-                      [(first (lower-ast k env))
-                       (first (lower-ast v env))])
-                    (partition 2 pairs))]
+  (let [kids    (ir1p/children node)   ;; 交替的键、值节点
+        lowered (map #(first (lower-ast % env)) kids)
+        kvs     (loop [rem lowered, acc []]
+                  (if (>= (count rem) 2)
+                    (recur (drop 2 rem)
+                           (conj acc (first rem) (second rem)))
+                    acc))]
     [(m/->MapNode kvs nil (ir1-meta node) nil)]))
 
 (defmethod lower-ast :call [node env]

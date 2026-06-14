@@ -5,8 +5,10 @@
     [top.kzre.homunculus.backend.hlsl.utils :as utils]
     [top.kzre.homunculus.backend.shader.protocol :as sp]
     [top.kzre.homunculus.backend.util.format :as fmt]
+    [top.kzre.homunculus.backend.shader.emit :as e]
     [top.kzre.homunculus.backend.util.naming :as n]
-    [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
+    [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+    [top.kzre.homunculus.core.types.model :as t]))
 
 ;; ── HLSL 类型映射 ──
 (def type-map
@@ -100,6 +102,8 @@
    'bool2     {:fn "bool2"}
    'bool3     {:fn "bool3"}
    'bool4     {:fn "bool4"}
+
+   'float4x4 {:fn "float4x4"}
 
    'sample { :sample true}
 
@@ -210,13 +214,27 @@
                     (sp/shader-entry-wrapper this stage fn-name input-params output-params))]
       (str body "\n\n" (str/join "\n\n" entries))))
 
-  (shader-resource-decl [_ name res-type args]
+  (shader-resource-decl [this res-name res-type args]
     (let [reg-arg (first args)
-          reg-val (when (and reg-arg (= (ir2p/kind reg-arg) :literal)) (:val reg-arg))]
+          reg-val (or (when (and reg-arg (= (ir2p/kind reg-arg) :literal)) (:val reg-arg)) 0)]
       (case res-type
-        :texture2D (str "Texture2D<float4> " name " : register(t" reg-val ");")
-        :sampler   (str "SamplerState " name " : register(s" reg-val ");")
-        :cbuffer   (str "cbuffer " name " : register(b" reg-val ") { ... };")
+        :texture2D (str "Texture2D<float4> " res-name " : register(t" reg-val ");")
+        :sampler   (str "SamplerState " res-name " : register(s" reg-val ");")
+        :cbuffer
+        (let [members-node (second args)
+              member-kvs   (:kvs members-node)
+              member-pairs (partition 2 member-kvs)
+              member-strs  (for [[key-node val-node] member-pairs
+                                 :let [member-name (name (:val key-node))  ;; 此处 name 是 clojure.core/name，因为外层参数已改名
+                                       member-val  (e/emit val-node this)
+                                       member-ty   (or (get-in val-node [:attrs :type])
+                                                       (t/->TCon :float4))
+                                       type-str    (sp/shader-type this member-ty)]]
+                             (str "    " type-str " " member-name
+                                  (when member-val (str " = " member-val)) ";"))]
+          (str "cbuffer " res-name " : register(b" reg-val ") {\n"
+               (str/join "\n" member-strs) "\n"
+               "};"))
         (throw (ex-info "Unknown resource type" {:type res-type})))))
 
   (shader-struct-from-params [_ struct-name params]

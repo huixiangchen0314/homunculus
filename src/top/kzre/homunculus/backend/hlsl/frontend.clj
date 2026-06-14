@@ -63,6 +63,9 @@
      'float2 (utils/vector-ctor (t/->TCon :float2) 2)
      'float3 (utils/vector-ctor (t/->TCon :float3) 3)
      'float4 (utils/vector-ctor (t/->TCon :float4) 4)
+
+     ;; 矩阵构造
+     'float4x4 (utils/vector-ctor (t/->TCon :float4x4) 16)
      ;; 类型转换
      'float (utils/fn-> (t/->TCon :int) (t/->TCon :float))
      'int   (utils/fn-> (t/->TCon :float) (t/->TCon :int))
@@ -104,13 +107,17 @@
      ;; 资源与采样
      'texture2D     (utils/fn-> (t/->TCon :int) (t/->TCon :texture2D))
      'sampler-state (utils/fn-> (t/->TCon :int) (t/->TCon :sampler))
-     'sample        (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float4))}))
+     'sample        (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float4))
+
+     'cbuffer (utils/fn-> (t/->TCon :int) (t/->TVar (gensym "m")) (t/->TCon :cbuffer))
+
+     }))
 
 ;; ── HLSL 前端信息实现 ────────────────────
 (deftype HLSLFrontend []
   p/IFrontendInfo
   (frontend-types [_]
-    [:int :float :bool :float2 :float3 :float4 :float4x4 :texture2D :sampler])
+    [:int :float :bool :float2 :float3 :float4 :float4x4 :texture2D :sampler  :cbuffer :keyword])
 
   (literal->type [_ val]
     (cond
@@ -120,6 +127,7 @@
       (instance? Float val) (t/->TCon :float)
       (true? val) (t/->TCon :bool)
       (false? val) (t/->TCon :bool)
+      (keyword? val) (t/->TCon :keyword)    ;; 新增
       (nil? val) (do (println "WARNING: nil literal defaulting to float") (t/->TCon :float))
       :else (throw (ex-info (str "HLSL unsupported literal: " val) {:val val}))))
 

@@ -193,3 +193,15 @@
                                  [{:stage :fragment :fn-name "frag"}])]
       (is (str/includes? hlsl "uniform float4 myColor"))
       (is (str/includes? hlsl "float4(1.0, 0.0, 0.0, 1.0)")))))
+
+(deftest test-cbuffer-basic
+  (testing "cbuffer 声明基本形式"
+    (let [hlsl (compile-and-emit
+                 '(top.kzre.homunculus.backend.shader.dsl/defcbuffer myCB :register 0
+                                                                     [worldMatrix (float4x4 1.0 0.0 0.0 0.0  0.0 1.0 0.0 0.0  0.0 0.0 1.0 0.0  0.0 0.0 0.0 1.0)]
+                                                                     [lightDir    (float3 0.0 0.0 1.0)])
+                 [{:stage :vertex :fn-name "vs-main"}])]
+      (is (str/includes? hlsl "cbuffer myCB : register(b0) {"))
+      (is (str/includes? hlsl "float4x4 worldMatrix = float4x4(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);"))
+      (is (str/includes? hlsl "float3 lightDir = float3(0.0, 0.0, 1.0);"))
+      (is (str/includes? hlsl "};")))))
