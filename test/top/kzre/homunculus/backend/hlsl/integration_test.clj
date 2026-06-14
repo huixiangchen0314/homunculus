@@ -185,3 +185,11 @@
   (let [hlsl (compile-and-emit '(sw-xy (float4 1.0 2.0 3.0 4.0)) [{:stage :fragment :fn-name "frag"}])]
     (is (str/includes? hlsl "float4(1.0, 2.0, 3.0, 4.0).xy"))
     (is (str/includes? hlsl "return"))))
+
+
+(deftest test-global-uniform
+  (testing "全局 uniform 常量"
+    (let [hlsl (compile-and-emit '(def ^:uniform myColor (float4 1.0 0.0 0.0 1.0))
+                                 [{:stage :fragment :fn-name "frag"}])]
+      (is (str/includes? hlsl "uniform float4 myColor"))
+      (is (str/includes? hlsl "float4(1.0, 0.0, 0.0, 1.0)")))))

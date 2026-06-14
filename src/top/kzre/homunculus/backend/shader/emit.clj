@@ -4,7 +4,8 @@
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]
             [clojure.string :as str]
             [top.kzre.homunculus.core.types.model :as t])
-  (:import (top.kzre.homunculus.core.types.model TCon)))
+  (:import [top.kzre.homunculus.core.types.model TCon]
+           [top.kzre.homunculus.core.ir2.model LambdaNode]))
 
 (defmulti emit
           (fn [node backend]
@@ -16,32 +17,39 @@
 (defmethod emit :default [node backend]
   (throw (ex-info (str "Unhandled node: " node) {:node node})))
 
-;; backend/shader/emit.clj 中的 generate 函数
-;; emit.clj
 (defn generate
   "生成完整着色器代码。基于类型检测区分资源与函数，委托给后端协议。
    entries 为入口描述列表，每个元素为 {:stage :vertex/:fragment, :fn-name \"...\"}。"
   [ir2-roots backend entries]
-  (let [;; ═══ 1. 展平顶层 :block 节点 ═══
-        flat-roots    (mapcat (fn [r]
+  (let [flat-roots    (mapcat (fn [r]
                                 (if (= (ir2p/kind r) :block)
                                   (:exprs r)
                                   [r]))
                               ir2-roots)
-        ;; ═══ 2. 分类 ═══
         defines       (filter #(= (ir2p/kind %) :define) flat-roots)
         resource-type? (fn [vty]
                          (and vty (instance? TCon vty)
                               (contains? #{:texture2D :sampler :cbuffer} (:name vty))))
         resource-defs (filter #(resource-type? (get-in % [:val :attrs :type])) defines)
-        function-defs (remove #(resource-type? (get-in % [:val :attrs :type])) defines)
-        ;; ═══ 3. 预先发射所有用户函数 ═══
+        ;; 全局常量：非资源、非LambdaNode、无 shader-stage
+        global-defs   (filter #(and (= (ir2p/kind %) :define)
+                                    (not (resource-type? (get-in % [:val :attrs :type])))
+                                    (not (some? (some-> (ir2p/node-meta %) :shader-stage)))
+                                    (not (instance? LambdaNode (:val %))))
+                              defines)
+        ;; 函数定义：val 为 LambdaNode 且非资源（无论是否有 shader-stage）
+        function-defs (remove #(or (resource-type? (get-in % [:val :attrs :type]))
+                                   (not (instance? LambdaNode (:val %))))
+                              defines)
         fn-def-map    (into {} (map (fn [d] [(name (:name d)) (emit d backend)]) function-defs))
-        ;; 全局资源
         globals       (map #(emit % backend) resource-defs)
-        ;; ═══ 4. 剩余非 define 节点（理论上现在为空） ═══
+        global-decls  (for [d global-defs
+                            :let [val (:val d)
+                                  ir-type (get-in val [:attrs :type])
+                                  init-expr (when (and val (not (instance? LambdaNode val)))
+                                              (emit val backend))]]
+                        (sp/shader-global-decl backend (name (:name d)) ir-type init-expr))
         others        (remove #(= (ir2p/kind %) :define) flat-roots)
-        ;; ═══ 5. 确定入口列表 ═══
         entries'      (if (seq entries)
                         entries
                         (for [d function-defs
@@ -49,13 +57,11 @@
                                     fn-name (:name d)]
                               :when stage]
                           {:stage stage :fn-name (name fn-name)}))
-        ;; ═══ 6. 为每个入口构建 entry-spec ═══
         entry-specs   (for [entry entries'
                             :let [stage   (:stage entry)
                                   fn-name (:fn-name entry)
                                   safe-fn (sp/shader-var-ref backend fn-name)]]
                         (if-let [d (some #(when (= (name (:name %)) fn-name) %) function-defs)]
-                          ;; 函数已定义 → 从参数提取 input/output 信息
                           (let [val          (:val d)
                                 params       (:params val)
                                 raw-inputs   (if params
@@ -72,7 +78,6 @@
                                                                         (keys (ir2p/node-meta p)))})
                                                      params)
                                                [])
-                                ;; 片段着色器仅保留有语义的参数
                                 input-params (if (= stage :fragment)
                                                (filterv (comp some? :semantic) raw-inputs)
                                                raw-inputs)
@@ -88,7 +93,6 @@
                              :fn-name       safe-fn
                              :input-params  input-params
                              :output-params (if output-param [output-param] [])})
-                          ;; 函数未定义 → 临时函数（使用 others 作为函数体）
                           (let [body-code (when (seq others)
                                             (let [emitted   (map #(emit % backend) others)
                                                   last-idx  (dec (count emitted))
@@ -99,15 +103,13 @@
                                                                          emitted)]
                                               (sp/shader-block backend emitted')))
                                 ret-type  (case stage :fragment "float4" "void")
-                                _ (println "WARNING: no def for" fn-name ", generating temp function")]
+                                tmp-fn    (sp/shader-function-decl backend fn-name [] ret-type (or body-code ""))]
                             {:stage         stage
                              :fn-name       safe-fn
                              :input-params  []
                              :output-params []
-                             ;; 返回临时函数定义字符串，同时将其加入最终函数列表
-                             :temp-fn      (sp/shader-function-decl backend fn-name [] ret-type (or body-code ""))})))
-        ;; ═══ 7. 收集最终函数定义 ═══
+                             :temp-fn       tmp-fn})))
         final-fn-defs (concat (vals fn-def-map)
                               (keep :temp-fn entry-specs))
         final-specs   (mapv #(dissoc % :temp-fn) entry-specs)]
-    (sp/shader-program backend final-fn-defs [] globals final-specs)))
+    (sp/shader-program backend final-fn-defs [] (concat globals global-decls) final-specs)))

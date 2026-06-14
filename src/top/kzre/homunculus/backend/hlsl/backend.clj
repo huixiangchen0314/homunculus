@@ -103,6 +103,7 @@
 
    'sample { :sample true}
 
+   ;; Swizzle 支持
    'sw-x    {:swizzle "x"}
    'sw-y    {:swizzle "y"}
    'sw-z    {:swizzle "z"}
@@ -114,9 +115,7 @@
    'sw-xyz  {:swizzle "xyz"}
    'sw-rgb  {:swizzle "rgb"}
    'sw-xyzw {:swizzle "xyzw"}
-   'sw-rgba {:swizzle "rgba"}
-
-   })
+   'sw-rgba {:swizzle "rgba"}})
 
 (defrecord HLSLBackend []
   sp/IShaderBackend
@@ -257,4 +256,10 @@
                  (fmt/indent 1) "return " safe-name "(" call-args ");\n"
                  "}"))
           (str "float4 main() : SV_TARGET { return " safe-name "(); }"))
-        ))))
+        )))
+
+  (shader-global-decl [this name ir-type init-expr]
+    (let [type-str (sp/shader-type this ir-type)
+          var-name (n/safe-name name)]
+      (str "uniform " type-str " " var-name
+           (when init-expr (str " = " init-expr)) ";"))))
