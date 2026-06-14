@@ -205,3 +205,16 @@
       (is (str/includes? hlsl "float4x4 worldMatrix = float4x4(1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0);"))
       (is (str/includes? hlsl "float3 lightDir = float3(0.0, 0.0, 1.0);"))
       (is (str/includes? hlsl "};")))))
+
+
+(deftest test-texture-sample-level
+  (testing "纹理采样 SampleLevel"
+    (let [form '(do
+                  (def tex (texture2D 0))
+                  (def samp (sampler-state 1))
+                  (sample-level tex samp (float2 0.5 0.5) 0.0))
+          hlsl (compile-and-emit form [{:stage :fragment :fn-name "frag"}])]
+      (is (str/includes? hlsl "Texture2D<float4> tex : register(t0);"))
+      (is (str/includes? hlsl "SamplerState samp : register(s1);"))
+      (is (str/includes? hlsl "tex.SampleLevel(samp, float2(0.5, 0.5), 0.0)"))
+      (is (str/includes? hlsl "return")))))

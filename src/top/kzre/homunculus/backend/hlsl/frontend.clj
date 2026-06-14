@@ -108,6 +108,11 @@
      'texture2D     (utils/fn-> (t/->TCon :int) (t/->TCon :texture2D))
      'sampler-state (utils/fn-> (t/->TCon :int) (t/->TCon :sampler))
      'sample        (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float4))
+     'sample-level (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float2) (t/->TCon :float) (t/->TCon :float4))
+     'sample-bias  (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float2) (t/->TCon :float) (t/->TCon :float4))
+     'sample-grad  (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float2) (t/->TCon :float2) (t/->TCon :float2) (t/->TCon :float4))
+     'sample-cmp   (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float2) (t/->TCon :float) (t/->TCon :float4))
+
 
      'cbuffer (utils/fn-> (t/->TCon :int) (t/->TVar (gensym "m")) (t/->TCon :cbuffer))
 

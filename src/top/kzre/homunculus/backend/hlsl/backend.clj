@@ -106,6 +106,10 @@
    'float4x4 {:fn "float4x4"}
 
    'sample { :sample true}
+   'sample-level {:sample "SampleLevel"}
+   'sample-bias  {:sample "SampleBias"}
+   'sample-grad  {:sample "SampleGrad"}
+   'sample-cmp   {:sample "SampleCmp"}
 
    ;; Swizzle 支持
    'sw-x    {:swizzle "x"}
@@ -185,8 +189,9 @@
           (str (first args) "." (:swizzle info))
 
           (:sample info)
-          (let [[tex sam & rest] args]
-            (str tex ".Sample(" sam (when (seq rest) (str ", " (str/join ", " rest))) ")"))
+          (let [method (if (string? (:sample info)) (:sample info) "Sample")
+                [tex sam & rest] args]
+            (str tex "." method "(" sam (when (seq rest) (str ", " (str/join ", " rest))) ")"))
 
           (:fn info)
           (str (:fn info) "(" (str/join ", " args) ")")
