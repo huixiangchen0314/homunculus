@@ -10,35 +10,39 @@
     [top.kzre.homunculus.core.ir2.protocol :as ir2p]
     [top.kzre.homunculus.core.types.model :as t]))
 
-;; ── HLSL 类型映射 ──
+;; ── 类型映射（新增 half/double/uint 等）──
 (def type-map
   {:int     "int"
    :float   "float"
-   :int64   "int"
-   :int32   "int"
-   :int16   "int16_t"
-   :uint64  "uint"
-   :uint32  "uint"
-   :float64 "double"
-   :float32 "float"
-   :float16 "half"
+   :half    "half"
+   :double  "double"
+   :uint    "uint"
+   :int2    "int2"
+   :int3    "int3"
+   :int4    "int4"
+   :uint2   "uint2"
+   :uint3   "uint3"
+   :uint4   "uint4"
    :bool    "bool"
-   :nil     "void"
-   :vector  "float4"
+   :bool2   "bool2"
+   :bool3   "bool3"
+   :bool4   "bool4"
    :float2  "float2"
    :float3  "float3"
    :float4  "float4"
    :float3x3 "float3x3"
    :float4x4 "float4x4"
-   :string  "float"})
+   :nil     "void"
+   :string  "float"
+   :texture2D "Texture2D<float4>"
+   :sampler   "SamplerState"})
 
-;; ── HLSL 内置函数/运算符映射 ──
+;; ── 内置函数/运算符映射（增加新函数）──
 (def builtin-map
   {'+         {:op " + " :infix true}
    '-         {:op " - " :infix true}
    '*         {:op " * " :infix true}
    '/         {:op " / " :infix true}
-
    '<         {:op " < " :infix true}
    '>         {:op " > " :infix true}
    '<=        {:op " <= " :infix true}
@@ -48,17 +52,13 @@
    '!         {:fn "!" :prefix true}
    '&&        {:op " && " :infix true}
    '||        {:op " || " :infix true}
-
    'pow       {:fn "pow"}
    'not       {:fn "!" :prefix true}
-   'inc       {:fn "inc"}
-   'dec       {:fn "dec"}
    'abs       {:fn "abs"}
    'min       {:fn "min"}
    'max       {:fn "max"}
    'clamp     {:fn "clamp"}
    'lerp      {:fn "lerp"}
-   'sqrt      {:fn "sqrt"}
    'saturate  {:fn "saturate"}
    'sin       {:fn "sin"}
    'cos       {:fn "cos"}
@@ -67,6 +67,7 @@
    'acos      {:fn "acos"}
    'atan      {:fn "atan"}
    'atan2     {:fn "atan2"}
+   'sqrt      {:fn "sqrt"}
    'exp       {:fn "exp"}
    'log       {:fn "log"}
    'log2      {:fn "log2"}
@@ -76,10 +77,16 @@
    'round     {:fn "round"}
    'trunc     {:fn "trunc"}
    'frac      {:fn "frac"}
+   'fmod      {:fn "fmod"}
    'ddx       {:fn "ddx"}
    'ddy       {:fn "ddy"}
    'fwidth    {:fn "fwidth"}
-   'fmod      {:fn "fmod"}
+   'degrees   {:fn "degrees"}
+   'radians   {:fn "radians"}
+   'sign      {:fn "sign"}
+   'step      {:fn "step"}
+   'smoothstep {:fn "smoothstep"}
+   'faceforward {:fn "faceforward"}
    'dot       {:fn "dot"}
    'cross     {:fn "cross"}
    'normalize {:fn "normalize"}
@@ -87,31 +94,35 @@
    'distance  {:fn "distance"}
    'reflect   {:fn "reflect"}
    'refract   {:fn "refract"}
-   'transpose {:fn "transpose"}
    'mul       {:fn "mul"}
-   'tex2D     {:fn "tex2D" :sample true}
-   'texCube   {:fn "texCUBE" :sample true}
-
+   'transpose {:fn "transpose"}
    'float     {:fn "float"}
    'int       {:fn "int"}
    'bool      {:fn "bool"}
-
+   'half      {:fn "half"}
+   'double    {:fn "double"}
+   'uint      {:fn "uint"}
    'int2      {:fn "int2"}
    'int3      {:fn "int3"}
    'int4      {:fn "int4"}
+   'uint2     {:fn "uint2"}
+   'uint3     {:fn "uint3"}
+   'uint4     {:fn "uint4"}
    'bool2     {:fn "bool2"}
    'bool3     {:fn "bool3"}
    'bool4     {:fn "bool4"}
-
-   'float4x4 {:fn "float4x4"}
-
-   'sample { :sample true}
-   'sample-level {:sample "SampleLevel"}
-   'sample-bias  {:sample "SampleBias"}
-   'sample-grad  {:sample "SampleGrad"}
-   'sample-cmp   {:sample "SampleCmp"}
-
-   ;; Swizzle 支持
+   'tex2D     {:fn "tex2D" :sample true}
+   'texCube   {:fn "texCUBE" :sample true}
+   'tex1D     {:fn "tex1D" :sample true}
+   'tex3D     {:fn "tex3D" :sample true}
+   'sample        {:sample true}                      ;; 默认 Sample
+   'sample-level  {:sample "SampleLevel"}
+   'sample-bias   {:sample "SampleBias"}
+   'sample-grad   {:sample "SampleGrad"}
+   'sample-cmp    {:sample "SampleCmp"}
+   'sample-cmp-level-zero {:sample "SampleCmpLevelZero"}
+   'gather        {:sample "Gather"}
+   ;; Swizzle
    'sw-x    {:swizzle "x"}
    'sw-y    {:swizzle "y"}
    'sw-z    {:swizzle "z"}
@@ -184,18 +195,14 @@
           (if (= 2 (count args))
             (str (first args) (:op info) (second args))
             (throw (ex-info "Infix op requires 2 args" {:fn fn-name :args args})))
-
           (:swizzle info)
           (str (first args) "." (:swizzle info))
-
           (:sample info)
           (let [method (if (string? (:sample info)) (:sample info) "Sample")
                 [tex sam & rest] args]
             (str tex "." method "(" sam (when (seq rest) (str ", " (str/join ", " rest))) ")"))
-
           (:fn info)
           (str (:fn info) "(" (str/join ", " args) ")")
-
           :else
           (str fn-name "(" (str/join ", " args) ")"))
         (str fn-name "(" (str/join ", " args) ")"))))

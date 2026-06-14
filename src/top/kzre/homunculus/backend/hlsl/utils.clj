@@ -54,3 +54,15 @@
 (defn generic-ternary []
   (let [a (t/->TVar (gensym "a"))]
     (sc/->TScheme [a] (fn-> a a a a))))
+
+
+;; ═══ 新增：向量到标量的泛型函数 ═══
+(defn generic-vector-to-float-unary []
+  "∀ a. a -> float  （如 length）"
+  (let [a (t/->TVar (gensym "a"))]
+    (sc/->TScheme [a] (fn-> a (t/->TCon :float)))))
+
+(defn generic-vector-to-float-binary []
+  "∀ a. a -> a -> float （如 distance）"
+  (let [a (t/->TVar (gensym "a"))]
+    (sc/->TScheme [a] (fn-> a a (t/->TCon :float)))))
