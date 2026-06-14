@@ -7,7 +7,7 @@
             [top.kzre.homunculus.core.types.typed.methods] ;; 注册所有方法
             [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p])
-  (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
+  (:import [top.kzre.homunculus.core.types.model THeteroMap TVar TCon TFun]))
 (defn- vref [name] (m/->VariableNode name nil nil nil))
 
 
@@ -30,14 +30,22 @@
                                (m/->LiteralNode 1 nil nil nil)
                                (m/->LiteralNode :b nil nil nil)
                                (m/->LiteralNode 2 nil nil nil)]
-                              nil nil  nil)]
-    (testing "map type is :map"
+                              nil nil nil)]
+    (testing "map infers as THeteroMap with correct entries"
       (let [[ty result _] (typed/infer map-node {:frontend frontend})]
-        (is (tcon? ty :map))
-        (is (tcon? (get-type result) :map))))
-    (testing "short‑circuit when type already present"
-      (let [pre-typed (assoc-in map-node [:attrs :type] (t/->TCon :map))]
+        (is (instance? THeteroMap ty))
+        (let [entries (:entries ty)]
+          (is (= 2 (count entries)))
+          (is (= :a (first (nth entries 0))))
+          (is (tcon? (second (nth entries 0)) :int64))
+          (is (= :b (first (nth entries 1))))
+          (is (tcon? (second (nth entries 1)) :int64)))))
+    (testing "short‑circuit when THeteroMap type already present"
+      (let [pre-type (t/->THeteroMap [[:a (t/->TCon :int64)] [:b (t/->TCon :int64)]])
+            pre-typed (assoc-in map-node [:attrs :type] pre-type)]
         (is (= pre-typed (second (typed/infer pre-typed {:frontend frontend}))))))))
+
+
 
 (deftest infer-try-test
   (let [frontend (->MockFrontend)

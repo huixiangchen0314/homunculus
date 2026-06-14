@@ -37,6 +37,11 @@
   p/ICollectionShape
   (shape-kind [_] :map))
 
+;; 异构map
+(defrecord THeteroMap [entries]   ;; entries 是 ([:key1 type1] [:key2 type2] ...) 的有序向量
+  p/IType
+  (type-kind [_] :hetero-map))
+
 (defrecord SetShape []
   p/ICollectionShape
   (shape-kind [_] :set))

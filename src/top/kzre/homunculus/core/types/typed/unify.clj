@@ -12,6 +12,7 @@
                  (if (vector? elem-ty)
                    (or (occur? tv (first elem-ty)) (occur? tv (second elem-ty)))
                    (occur? tv elem-ty)))
+    :hetero-map (some #(occur? tv %) (map second (:entries type)))
     false))
 
 (defn substitute [type subst]
@@ -27,6 +28,7 @@
                    (if (vector? elem-ty)
                      (t/->TContainer (:kind type) [(substitute (first elem-ty) subst) (substitute (second elem-ty) subst)] shape)
                      (t/->TContainer (:kind type) (substitute elem-ty subst) shape)))
+      :hetero-map (t/->THeteroMap (mapv (fn [[k v]] [k (substitute v subst)]) (:entries type)))
       type)  ;; 其他 IType 直接返回
     type))  ;; 非 IType（如 TScheme）直接返回
 
@@ -56,5 +58,14 @@
                         (= :variable (p/shape-kind (:shape t2))))
                   sub1
                   (throw (ex-info "Shape mismatch" {:t1 t1 :t2 t2}))))
+              (and (= :hetero-map (p/type-kind t1)) (= :hetero-map (p/type-kind t2)))
+              (let [entries1 (:entries t1)
+                    entries2 (:entries t2)]
+                (when (not= (count entries1) (count entries2))
+                  (throw (ex-info "HeteroMap size mismatch" {:t1 t1 :t2 t2})))
+                (reduce (fn [s [e1 e2]]
+                          (go (second e1) (second e2) s))
+                        subst
+                        (map vector entries1 entries2)))
               :else (throw (ex-info "Cannot unify" {:t1 t1 :t2 t2}))))]
     (go t1 t2 {})))

@@ -2,16 +2,17 @@
   (:require
    [clojure.test :refer :all]
    [top.kzre.homunculus.core.ir2.model :as m]
-   [top.kzre.homunculus.core.types.model :as t]
+   [top.kzre.homunculus.core.types.model :as t ]
    [top.kzre.homunculus.core.types.protocol :as tp]
+   [top.kzre.homunculus.core.types.test-utils :refer [tcon?]]
    [top.kzre.homunculus.core.types.typed.core :as typed]
    [top.kzre.homunculus.core.types.typed.methods] ;; 加载所有 typed 方法
 )
   (:import
    [top.kzre.homunculus.core.types.model
     FixedLength
-    MapShape
     TContainer
+    THeteroMap
     VariableLength]))
 
 ;; 辅助函数
@@ -68,21 +69,19 @@
       (is (= 0 (:size (:shape ty)))))))
 
 (deftest test-map-fixed-shape
-  (testing "字面量映射应推断为 MapShape"
+  (testing "字面量映射应推断为 THeteroMap"
     (let [node (map-node [(lit :a) (lit 1) (lit :b) (lit 2)])
           [ty _ _] (typed/infer node context)]
-      (is (instance? TContainer ty))
-      (is (= :map (:kind ty)))
-      (is (instance? MapShape (:shape ty)))
-      ;; 键类型为 keyword，值类型为 int
-      (let [[kt vt] (:element-type ty)]
-        (is (= :keyword (:name kt)))
-        (is (= :int (:name vt)))))))
+      (is (instance? THeteroMap ty))
+      (let [entries (:entries ty)]
+        (is (= 2 (count entries)))
+        (is (= :a (first (nth entries 0))))
+        (is (tcon? (second (nth entries 0)) :int))
+        (is (= :b (first (nth entries 1))))
+        (is (tcon? (second (nth entries 1)) :int))))))
 
 (deftest test-map-variable-elements
-  (testing "包含变量键的映射形状仍为 MapShape"
-    (let [node (map-node [(vref "k") (lit 1)])
-          [ty _ _] (typed/infer node context)]
-      (is (instance? TContainer ty))
-      (is (= :map (:kind ty)))
-      (is (instance? MapShape (:shape ty))))))
+  (testing "包含变量键的映射应抛出异常（因为键必须为字面量关键字）"
+    (let [node (map-node [(vref "k") (lit 1)])]
+      (is (thrown? clojure.lang.ExceptionInfo
+                   (typed/infer node context))))))

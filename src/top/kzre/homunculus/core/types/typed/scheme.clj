@@ -4,7 +4,7 @@
    [top.kzre.homunculus.core.types.model :as t]
    [top.kzre.homunculus.core.types.typed.unify :as u])
   (:import
-    [top.kzre.homunculus.core.types.model TApp TContainer TFun TVar]))
+    [top.kzre.homunculus.core.types.model TApp TContainer TFun THeteroMap TVar]))
 
 (defrecord TScheme [vars type])
 
@@ -18,6 +18,8 @@
       (if (vector? elem)
         (reduce set/union #{} (map ftv elem))
         (ftv elem)))
+    (instance? THeteroMap ty)
+    (reduce set/union #{} (map (fn [[_ val-ty]] (ftv val-ty)) (:entries ty)))
     (instance? TApp ty) (reduce set/union #{} (map ftv (:args ty)))
     :else #{}))
 
