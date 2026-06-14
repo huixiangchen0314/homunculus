@@ -137,6 +137,32 @@
    'sw-xyzw {:swizzle "xyzw"}
    'sw-rgba {:swizzle "rgba"}})
 
+;; ── shader-call 辅助函数 ──
+(defn- emit-infix-call [info fn-name args]
+  "生成中缀表达式，如 (1.0 + 2.0)。"
+  (if (= 2 (count args))
+    (str (first args) (:op info) (second args))
+    (throw (ex-info "Infix op requires 2 args" {:fn fn-name :args args}))))
+
+(defn- emit-swizzle-call [info args]
+  "生成向量分量访问，如 vec.xy。"
+  (str (first args) "." (:swizzle info)))
+
+(defn- emit-sample-call [info args]
+  "生成纹理采样调用，如 tex.Sample(sampler, coord)。"
+  (let [method (if (string? (:sample info)) (:sample info) "Sample")
+        [tex sam & rest] args]
+    (str tex "." method "(" sam (when (seq rest) (str ", " (str/join ", " rest))) ")")))
+
+(defn- emit-builtin-fn-call [info fn-name args]
+  "生成内置函数调用，使用 HLSL 原函数名。"
+  (str (:fn info) "(" (str/join ", " args) ")"))
+
+(defn- emit-default-call [fn-name args]
+  "生成普通函数调用。"
+  (str fn-name "(" (str/join ", " args) ")"))
+
+
 (defrecord HLSLBackend []
   sp/IShaderBackend
 
@@ -192,21 +218,12 @@
           info (get builtin-map sym)]
       (if info
         (cond
-          (:infix info)
-          (if (= 2 (count args))
-            (str (first args) (:op info) (second args))
-            (throw (ex-info "Infix op requires 2 args" {:fn fn-name :args args})))
-          (:swizzle info)
-          (str (first args) "." (:swizzle info))
-          (:sample info)
-          (let [method (if (string? (:sample info)) (:sample info) "Sample")
-                [tex sam & rest] args]
-            (str tex "." method "(" sam (when (seq rest) (str ", " (str/join ", " rest))) ")"))
-          (:fn info)
-          (str (:fn info) "(" (str/join ", " args) ")")
-          :else
-          (str fn-name "(" (str/join ", " args) ")"))
-        (str fn-name "(" (str/join ", " args) ")"))))
+          (:infix info)   (emit-infix-call info fn-name args)
+          (:swizzle info) (emit-swizzle-call info args)
+          (:sample info)  (emit-sample-call info args)
+          (:fn info)      (emit-builtin-fn-call info fn-name args)
+          :else           (emit-default-call fn-name args))
+        (emit-default-call fn-name args))))
 
   (shader-cast [this expr src-ty dst-ty]
     (str "(" (sp/shader-type this dst-ty) ")" expr))
