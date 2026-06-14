@@ -61,55 +61,65 @@
         entry-specs   (for [entry entries'
                             :let [stage   (:stage entry)
                                   fn-name (:fn-name entry)
-                                  safe-fn (sp/shader-var-ref backend fn-name)]]
-                        (if-let [d (some #(when (= (name (:name %)) fn-name) %) function-defs)]
-                          (let [val          (:val d)
-                                params       (:params val)
-                                raw-inputs   (if params
-                                               (mapv (fn [p]
-                                                       {:name     (sp/shader-var-ref backend (:name p))
-                                                        :type     (if-let [ty (get-in p [:attrs :type])]
-                                                                    (sp/shader-type backend ty)
-                                                                    "float")
-                                                        :semantic (some (fn [k]
-                                                                          (when (and (keyword? k)
-                                                                                     (not (namespace k))
-                                                                                     (re-find #"^[A-Z]" (name k)))
-                                                                            (name k)))
-                                                                        (keys (ir2p/node-meta p)))})
-                                                     params)
-                                               [])
-                                input-params (if (= stage :fragment)
-                                               (filterv (comp some? :semantic) raw-inputs)
-                                               raw-inputs)
-                                output-param (when val
-                                               (when-let [ret-ty (get-in (:body val) [:attrs :type])]
-                                                 {:name     "pos"
-                                                  :type     (sp/shader-type backend ret-ty)
-                                                  :semantic (case stage
-                                                              :vertex   "SV_POSITION"
-                                                              :fragment "SV_TARGET"
-                                                              nil)}))]
-                            {:stage         stage
-                             :fn-name       safe-fn
-                             :input-params  input-params
-                             :output-params (if output-param [output-param] [])})
-                          (let [body-code (when (seq others)
-                                            (let [emitted   (map #(emit % backend) others)
-                                                  last-idx  (dec (count emitted))
-                                                  emitted'  (map-indexed (fn [i code]
-                                                                           (if (= i last-idx)
-                                                                             (sp/shader-return backend code)
-                                                                             code))
-                                                                         emitted)]
-                                              (sp/shader-block backend emitted')))
-                                ret-type  (case stage :fragment "float4" "void")
-                                tmp-fn    (sp/shader-function-decl backend fn-name [] ret-type (or body-code ""))]
-                            {:stage         stage
-                             :fn-name       safe-fn
-                             :input-params  []
-                             :output-params []
-                             :temp-fn       tmp-fn})))
+                                  safe-fn (sp/shader-var-ref backend fn-name)
+                                  existing-d (some #(when (= (name (:name %)) fn-name) %) function-defs)]]
+                        ;; 如果手动提供了 input-params 或 output-params，直接使用，不再从函数提取
+                        (if (or (:input-params entry) (:output-params entry))
+                          {:stage         stage
+                           :fn-name       safe-fn
+                           :input-params  (or (:input-params entry) [])
+                           :output-params (or (:output-params entry) [])}
+                          ;; 否则按原有逻辑从函数定义生成
+                          (if existing-d
+                            (let [val          (:val existing-d)
+                                  params       (:params val)
+                                  raw-inputs   (if params
+                                                 (mapv (fn [p]
+                                                         {:name     (sp/shader-var-ref backend (:name p))
+                                                          :type     (if-let [ty (get-in p [:attrs :type])]
+                                                                      (sp/shader-type backend ty)
+                                                                      "float")
+                                                          :semantic (some (fn [k]
+                                                                            (when (and (keyword? k)
+                                                                                       (not (namespace k))
+                                                                                       (re-find #"^[A-Z]" (name k)))
+                                                                              (name k)))
+                                                                          (keys (ir2p/node-meta p)))})
+                                                       params)
+                                                 [])
+                                  input-params (if (= stage :fragment)
+                                                 (filterv (comp some? :semantic) raw-inputs)
+                                                 raw-inputs)
+                                  output-param (when val
+                                                 (when-let [ret-ty (get-in (:body val) [:attrs :type])]
+                                                   {:name     "pos"
+                                                    :type     (sp/shader-type backend ret-ty)
+                                                    :semantic (case stage
+                                                                :vertex   "SV_POSITION"
+                                                                :fragment "SV_TARGET"
+                                                                :geometry "SV_POSITION"
+                                                                nil)}))]
+                              {:stage         stage
+                               :fn-name       safe-fn
+                               :input-params  input-params
+                               :output-params (if output-param [output-param] [])})
+                            ;; 无函数定义且无手动参数 → 临时函数
+                            (let [body-code (when (seq others)
+                                              (let [emitted   (map #(emit % backend) others)
+                                                    last-idx  (dec (count emitted))
+                                                    emitted'  (map-indexed (fn [i code]
+                                                                             (if (= i last-idx)
+                                                                               (sp/shader-return backend code)
+                                                                               code))
+                                                                           emitted)]
+                                                (sp/shader-block backend emitted')))
+                                  ret-type  (case stage :fragment "float4" "void")
+                                  tmp-fn    (sp/shader-function-decl backend fn-name [] ret-type (or body-code ""))]
+                              {:stage         stage
+                               :fn-name       safe-fn
+                               :input-params  []
+                               :output-params []
+                               :temp-fn       tmp-fn}))))
         final-fn-defs (concat (vals fn-def-map)
                               (keep :temp-fn entry-specs))
         final-specs   (mapv #(dissoc % :temp-fn) entry-specs)]

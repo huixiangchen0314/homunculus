@@ -287,6 +287,21 @@
                  (fmt/indent 1) "return " safe-name "(" call-args ");\n"
                  "}"))
           (str "float4 main() : SV_TARGET { return " safe-name "(); }"))
+
+        :geometry
+        (let [safe-name (n/safe-name entry-fn-name)
+              max-count (or (some-> output-params first :maxvertexcount) 3)
+              in-struct-name "GSInput"
+              out-struct-name "GSOutput"
+              in-struct  (sp/shader-struct-from-params this in-struct-name input-params)
+              out-struct (sp/shader-struct-from-params this out-struct-name output-params)]
+          (str (when (seq input-params) (str in-struct "\n"))
+               (when (seq output-params) (str out-struct "\n"))
+               "[maxvertexcount(" max-count ")]\n"
+               "void main(triangle " in-struct-name " input[3], inout TriangleStream<" out-struct-name "> stream) {\n"
+               (fmt/indent 1) safe-name "(input, stream);\n"
+               "}"))
+
         )))
 
   (shader-global-decl [this name ir-type init-expr]
