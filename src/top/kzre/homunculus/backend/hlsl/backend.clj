@@ -280,13 +280,39 @@
                (fmt/indent 1) entry-body "\n"
                "}"))
         :fragment
-        (if (seq input-params)
-          (let [param-strs (map (fn [p] (str (:type p) " " (:name p) " : " (:semantic p))) input-params)
-                call-args  (str/join ", " (map :name input-params))]
-            (str "float4 main(" (str/join ", " param-strs) ") : SV_TARGET {\n"
-                 (fmt/indent 1) "return " safe-name "(" call-args ");\n"
-                 "}"))
-          (str "float4 main() : SV_TARGET { return " safe-name "(); }"))
+        (let [safe-name (n/safe-name entry-fn-name)
+              input-strs (when (seq input-params)
+                           (str/join ", " (map (fn [p] (str (:type p) " " (:name p) " : " (:semantic p))) input-params)))
+              call-args  (if (seq input-params)
+                           (str/join ", " (map :name input-params))
+                           "")
+              num-outputs (count output-params)]
+          (if (> num-outputs 1)
+            ;; 多输出：生成输出结构体，并将 out 参数传递给用户函数
+            (let [output-struct-name "PSOutput"
+                  output-struct (sp/shader-struct-from-params this output-struct-name output-params)
+                  ;; 入口函数签名
+                  entry-signature (str output-struct-name " main("
+                                       (when input-strs (str input-strs)) ")")
+                  ;; 构造 out 参数：output.color0, output.color1, ...
+                  out-args (map (fn [p] (str "output." (:name p))) output-params)
+                  full-call-args (str/join ", " (concat (when (seq call-args) [call-args]) out-args))
+                  ;; 入口体
+                  body (str output-struct-name " output;\n"
+                            "    " safe-name "(" full-call-args ");\n"
+                            "    return output;")]
+              (str output-struct "\n"
+                   entry-signature " {\n"
+                   (fmt/indent 1) body "\n"
+                   "}"))
+            ;; 单输出保持原有逻辑
+            (if (seq input-params)
+              (let [param-strs (map (fn [p] (str (:type p) " " (:name p) " : " (:semantic p))) input-params)
+                    call-args  (str/join ", " (map :name input-params))]
+                (str "float4 main(" (str/join ", " param-strs) ") : SV_TARGET {\n"
+                     (fmt/indent 1) "return " safe-name "(" call-args ");\n"
+                     "}"))
+              (str "float4 main() : SV_TARGET { return " safe-name "(); }"))))
 
         :geometry
         (let [safe-name (n/safe-name entry-fn-name)
