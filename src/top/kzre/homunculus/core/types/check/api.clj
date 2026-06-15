@@ -7,11 +7,11 @@
             [top.kzre.homunculus.core.types.check.methods.block]
             [top.kzre.homunculus.core.types.check.methods.let]
             [top.kzre.homunculus.core.types.check.methods.lambda]
-            [top.kzre.homunculus.core.types.check.methods.loop]      ;; 含 :loop 和 :recur
+            [top.kzre.homunculus.core.types.check.methods.loop]
             [top.kzre.homunculus.core.types.check.methods.define]
             [top.kzre.homunculus.core.types.check.methods.vector]
             [top.kzre.homunculus.core.types.check.methods.map]
             [top.kzre.homunculus.core.types.check.methods.while]
-            [top.kzre.homunculus.core.types.check.methods.try]       ;; 含 :try, :catch, :throw
+            [top.kzre.homunculus.core.types.check.methods.try]
             [top.kzre.homunculus.core.types.check.methods.assign]
             [top.kzre.homunculus.core.types.check.methods.default]))

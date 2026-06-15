@@ -32,7 +32,24 @@
         (t/->TCon tag)
         (t/->TCon (keyword (name tag))))))
   (infer-collection-type [_ form] nil)
-  (collection-type-ctor [_ kind element-type shape] nil))
+  (collection-type-ctor [_ kind element-type shape] nil)
+
+  ;; ── 新增：内置函数类型环境 ──
+  (builtin-functions [_]
+    {'+      (t/->TFun (t/->TCon :int64) (t/->TFun (t/->TCon :int64) (t/->TCon :int64)))
+     '-      (t/->TFun (t/->TCon :int64) (t/->TFun (t/->TCon :int64) (t/->TCon :int64)))
+     '*      (t/->TFun (t/->TCon :int64) (t/->TFun (t/->TCon :int64) (t/->TCon :int64)))
+     '/      (t/->TFun (t/->TCon :int64) (t/->TFun (t/->TCon :int64) (t/->TCon :int64)))
+     'inc    (t/->TFun (t/->TCon :int64) (t/->TCon :int64))
+     'dec    (t/->TFun (t/->TCon :int64) (t/->TCon :int64))
+     'zero?  (t/->TFun (t/->TCon :int64) (t/->TCon :bool))
+     '=      (t/->TFun (t/->TCon :int64) (t/->TFun (t/->TCon :int64) (t/->TCon :bool)))
+     '<      (t/->TFun (t/->TCon :int64) (t/->TFun (t/->TCon :int64) (t/->TCon :bool)))
+     '>      (t/->TFun (t/->TCon :int64) (t/->TFun (t/->TCon :int64) (t/->TCon :bool)))
+     'not    (t/->TFun (t/->TCon :bool) (t/->TCon :bool))
+     'and    (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TCon :bool)))
+     'or     (t/->TFun (t/->TCon :bool) (t/->TFun (t/->TCon :bool) (t/->TCon :bool)))
+     'str    (t/->TFun (t/->TCon :int64) (t/->TCon :string))}))
 
 ;; ── HLSL 测试用前端 ──
 (defrecord MockHLSLFrontend []
@@ -54,7 +71,8 @@
         (t/->TCon tag)
         (t/->TCon (keyword (name tag))))))
   (infer-collection-type [_ form] nil)
-  (collection-type-ctor [_ kind element-type shape] nil))
+  (collection-type-ctor [_ kind element-type shape] nil)
+  (builtin-functions [_] {}))    ;; HLSL 测试无需内置函数
 
 ;; ── Mock 后端 ──
 (defrecord MockBackend []
@@ -63,6 +81,7 @@
   (builtin-type? [_ ty-name] true)
   (strictness [_] {:type false})
   (type-conversion [_ src dst]
+    ;; 允许 int64 -> float32 转换，代价为 1
     (when (and (instance? TCon src) (instance? TCon dst)
                (= (:name src) :int64)
                (= (:name dst) :float32))
@@ -107,3 +126,11 @@
 
 (defn macroexpand-deep [form]
   (w/postwalk (fn [f] (if (seq? f) (macroexpand f) f)) form))
+
+;; ── 便捷环境构建 ──
+(defn builtin-env
+  "返回一个包含 MockFrontend 内置函数类型的本地环境 map。"
+  ([]
+   (builtin-env (->MockFrontend)))
+  ([frontend]
+   (into {} (map (fn [[sym ty]] [sym ty]) (tp/builtin-functions frontend)))))

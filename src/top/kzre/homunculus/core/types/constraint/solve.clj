@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.core.types.constraint.solve
   "求解约束集合并将类型替换应用到 IR2 树。
    支持重载消解（含歧义检测）、TScheme 实例化与泛型化，以及隐式转换。
+   求解完成后，对根节点中仍未绑定的类型变量进行泛型化（TScheme）。
    重载匹配过程中若严格统一失败，会尝试借助隐式转换放宽参数类型差异。"
   (:require
     [clojure.walk :as walk]
@@ -76,12 +77,13 @@
 
 (defn- try-match-overload-candidate
   "尝试将单个候选与期望类型匹配。
-   subst       当前替换
-   conversion-fn 隐式转换函数
-   cand        候选类型
-   arg-tys'    替换后的实参类型
-   ret-tvar'   替换后的返回类型变量
-   返回 [new-subst cand] 或 nil。"
+   subst          当前替换
+   conversion-fn  隐式转换函数
+   cand           候选类型
+   arg-tys'       替换后的实参类型
+   ret-tvar'      替换后的返回类型变量
+   返回 [new-subst cand] 或 nil。
+   当借助隐式转换匹配时，若 ret-tvar' 仍为 TVar，则将其绑定为候选的返回类型。"
   [subst conversion-fn cand arg-tys' ret-tvar']
   (let [cand (instantiate-candidate cand subst)]
     ;; 1. 严格统一
@@ -96,8 +98,12 @@
             (when (= (count cand-args) (count arg-tys'))
               (when (candidate-matches-args? conversion-fn cand-args arg-tys')
                 (when (candidate-matches-ret? conversion-fn cand-ret ret-tvar')
-                  [subst cand]  ;; 不修改替换，视为匹配成功
-                  )))))))))
+                  ;; 匹配成功，若 ret-tvar' 仍是 TVar 且未绑定，则绑定为 cand-ret
+                  (let [new-subst (if (and (ty/var-type? ret-tvar')
+                                           (not (contains? subst ret-tvar')))
+                                    (assoc subst ret-tvar' cand-ret)
+                                    subst)]
+                    [new-subst cand]))))))))))
 
 (defn- resolve-overload
   "处理重载约束，返回新的替换。
@@ -187,6 +193,30 @@
      (let [final-subst @subst]
        (into {} (map (fn [[k v]] [k (u/substitute v final-subst)]) final-subst))))))
 
+;; ── 泛化未绑定的类型变量 ────────────────
+
+(defn- generalize-node-type
+  "若节点类型中存在未被替换的 TVar，将其泛化为 TScheme，否则保持原样。
+   泛型环境为空（顶层），因此所有自由 TVar 都会被量化。"
+  [node]
+  (if-let [ty (ty/get-type node)]
+    (let [ftvs (scheme/ftv ty)]
+      (if (seq ftvs)
+        (let [scheme (scheme/generalize ty {})]  ;; 环境为空：所有 ftv 都泛化
+          (ty/set-type! node scheme))
+        node))
+    node))
+
+(defn- generalize-tree
+  "递归遍历节点树，对每个节点应用 generalize-node-type。"
+  [root]
+  (walk/prewalk
+    (fn [n]
+      (if (satisfies? ir2p/INode n)
+        (generalize-node-type n)
+        n))
+    root))
+
 ;; ── 应用替换 ─────────────────────────────
 
 (defn apply-subst
@@ -206,7 +236,7 @@
 ;; ── 对外入口 ─────────────────────────────
 
 (defn process
-  "对 IR2 节点树进行约束求解。
+  "对 IR2 节点树进行约束求解，随后对仍未绑定的类型变量进行泛型化。
    ir2-roots 待求解的 IR2 节点树。
    context   全局编译上下文，可包含 :frontend / :backend 以提供隐式转换支持。"
   [ir2-roots context]
@@ -218,5 +248,7 @@
                             (fn [s d] (tp/type-conversion be s d)))
                           (when-let [fe (:frontend context)]
                             (fn [s d] (tp/type-conversion fe s d))))
-        subst (solve-constraints constraints conversion-fn)]
-    (mapv #(apply-subst % subst) roots)))
+        subst (solve-constraints constraints conversion-fn)
+        typed-roots (mapv #(apply-subst % subst) roots)]
+    ;; 泛化未绑定的 TVar
+    (mapv generalize-tree typed-roots)))

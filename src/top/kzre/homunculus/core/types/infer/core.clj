@@ -13,7 +13,7 @@
 
 (defn frontend
   "辅助函数，从上下文获取前端协议对象"
-  [contex] (:front contex))
+  [contex] (:frontend contex))
 
 (defn env
   "辅助函数，从上下文获取环境map"

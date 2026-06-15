@@ -1,11 +1,11 @@
 (ns top.kzre.homunculus.core.types.check.core
   "类型检查 pass：利用 typed-pass 的结果和后端信息进行双向检查，插入类型转换。"
-  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.model :as t]
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+            [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.type :as type])
-  (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
+  (:import (top.kzre.homunculus.core.types.model TVar)))
 
 (defmulti check
           "对节点进行双向检查。expected 为期望类型（可为 nil）。
@@ -30,12 +30,15 @@
 ;; ── 通用类型检查 ──
 (defn check-type
   "若 expected 非 nil 且实际类型不兼容，则尝试转换或报错。
-   返回可能被转换包裹的节点。"
+   如果实际类型是 TScheme，则先实例化再比较（不改变节点本身类型）。"
   [node expected context]
-  (let [actual (type/get-type node)]
-    (if (or (nil? expected) (= actual expected) (instance? TVar actual))
+  (let [actual (type/get-type node)
+        actual* (if (scheme/tscheme? actual)
+                  (scheme/instantiate actual)
+                  actual)]
+    (if (or (nil? expected) (= actual* expected) (instance? TVar actual*))
       node
-      (try-convert node actual expected context))))
+      (try-convert node actual* expected context))))
 
 ;; ── 入口 ──
 (defn check-program

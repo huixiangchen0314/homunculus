@@ -20,8 +20,9 @@
 
 (defn type-sym
   "获取 TCon 的类型名称关键字，若非 TCon 返回 nil。"
-  [type]
-  (some-> type (con-type?) (:name type)))
+  [ty]
+  (when (con-type? ty)
+    (:name ty)))
 
 (defn bool-type?
   "判断 type 是否为 TCon 且类型名为 :bool。"

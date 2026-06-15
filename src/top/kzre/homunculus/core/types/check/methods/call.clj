@@ -1,15 +1,18 @@
 (ns top.kzre.homunculus.core.types.check.methods.call
-  (:require [top.kzre.homunculus.core.types.check.core :as check]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.core.types.type :as type]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p])
-  (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.check.core :as check]
+            [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
+            [top.kzre.homunculus.core.types.type :as type])
+  (:import (top.kzre.homunculus.core.types.model TFun)))
 
 (defmethod check/check :call [node expected context]
   (let [fn-node (check/check (n/call-fn node) nil context)
         builtin-ty (get-in fn-node [:attrs :builtin-fn])
         fn-ty (or builtin-ty (type/get-type fn-node))
+        ;; 若函数类型是多态 Scheme，实例化
+        fn-ty (if (scheme/tscheme? fn-ty)
+                (scheme/instantiate fn-ty)
+                fn-ty)
         args (n/call-args node)]
     (if (and fn-ty (instance? TFun fn-ty))
       (let [arg-types (take-while some? (map :arg (take (count args) (iterate :ret fn-ty))))

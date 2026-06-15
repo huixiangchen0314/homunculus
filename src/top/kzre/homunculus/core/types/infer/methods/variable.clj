@@ -1,18 +1,25 @@
-;; top.kzre.homunculus.core.types.infer.methods.variable.clj
+;; top.kzre.homunculus.core.types.infer.methods.variable
 (ns top.kzre.homunculus.core.types.infer.methods.variable
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.env :as e]
-            [top.kzre.homunculus.core.types.infer.core :as c]
-            [top.kzre.homunculus.core.types.type :as t]))
+  (:require
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.types.env :as e]
+   [top.kzre.homunculus.core.types.infer.core :as infer]
+   [top.kzre.homunculus.core.types.protocol :as tp]
+   [top.kzre.homunculus.core.types.type :as t]))
 
-;; 提取节点标注类型，转换为内部类型表示
-(defmethod c/local-infer :variable [node context]
-  (let [frontend (c/frontend context)
-        env (c/env context)
-        var-name (n/var-name node)
-        type (or (when frontend (t/frontend-type node frontend))
-               (e/lookup-env env var-name)
-               (e/lookup-env env (symbol var-name)))]
-    (if type
-      (c/success type (t/ensure-type node type))
-      (c/nothing node))))
+(defmethod infer/local-infer :variable [node context]
+  (let [env (infer/env context)
+        name (n/var-name node)
+        ;; 1. 节点已有类型（例如通过 ty/set-type! 预先设置）
+        existing (t/get-type node)]
+    (if existing
+      (infer/success existing node)
+      (let [binding (e/lookup-env env name)]
+        (if binding
+          (infer/success binding (t/ensure-type node binding))
+          ;; 2. 检查前端内置函数
+          (if-let [frontend (infer/frontend context)]
+            (if-let [builtin-ty (get (tp/builtin-functions frontend) name)]
+              (infer/success builtin-ty (t/ensure-type node builtin-ty))
+              (infer/nothing node))
+            (infer/nothing node)))))))
