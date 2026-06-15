@@ -1,17 +1,18 @@
 (ns top.kzre.homunculus.core.types.constraint.solve
-  "求解约束集合并将类型替换应用到 IR2 树。"
+  "求解约束集合并将类型替换应用到 IR2 树。
+   支持重载消解、TScheme 实例化与泛型化。"
   (:require
-    [clojure.walk :as walk]
-    [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-    [top.kzre.homunculus.core.types.constraint.gen :as gen]
-    [top.kzre.homunculus.core.types.constraint.model :as cm]
-    [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
-    [top.kzre.homunculus.core.types.constraint.unify :as u]
-    [top.kzre.homunculus.core.types.model :as t]
-    [top.kzre.homunculus.core.types.protocol :as tp]
-    [top.kzre.homunculus.core.types.type :as ty])
+   [clojure.walk :as walk]
+   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+   [top.kzre.homunculus.core.types.constraint.gen :as gen]
+   [top.kzre.homunculus.core.types.constraint.model :as cm]
+   [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
+   [top.kzre.homunculus.core.types.constraint.unify :as u]
+   [top.kzre.homunculus.core.types.model :as t]
+   [top.kzre.homunculus.core.types.protocol :as tp]
+   [top.kzre.homunculus.core.types.type :as ty])
   (:import
-    (top.kzre.homunculus.core.types.constraint.model CConvert CEqual COverload)))
+   (top.kzre.homunculus.core.types.constraint.model CConvert CEqual COverload)))
 
 (defn solve-constraints [constraints]
   (let [subst (atom {})
@@ -20,17 +21,27 @@
                       (cond
                         (instance? CEqual c)
                         (swap! subst #(u/unify (:tvar c) (:type c) %))
+
                         (instance? COverload c)
                         (let [{:keys [fn-ty-list arg-tys ret-tvar]} c
                               desired (reduce (fn [ret arg] (t/->TFun arg ret)) ret-tvar (reverse arg-tys))
+                              ;; 先替换参数类型
+                              arg-tys' (mapv #(u/substitute % @subst) arg-tys)
+                              ret-tvar' (u/substitute ret-tvar @subst)
+                              desired' (reduce (fn [ret arg] (t/->TFun arg ret)) ret-tvar' (reverse arg-tys'))
                               result (some (fn [cand]
-                                             (try (let [new-subst (u/unify cand desired @subst)]
-                                                    [new-subst cand])
-                                                  (catch Exception _ nil)))
+                                             (let [cand (u/substitute cand @subst)
+                                                   cand (if (scheme/tscheme? cand)
+                                                          (scheme/instantiate cand)
+                                                          cand)]
+                                               (try (let [new-subst (u/unify cand desired' @subst)]
+                                                      [new-subst cand])
+                                                    (catch Exception _ nil))))
                                            fn-ty-list)]
                           (if result
                             (reset! subst (first result))
-                            (throw (ex-info "Overload resolution failed" {:arg-tys arg-tys}))))
+                            (throw (ex-info "Overload resolution failed" {:arg-tys arg-tys'}))))
+
                         (instance? CConvert c)
                         (swap! subst #(u/unify (:src-ty c) (:dst-ty c) %)))))
         ;; 迭代直到收敛
@@ -56,9 +67,9 @@
     node))
 
 (defn process [ir2-roots env]
-  (let [frontend (:frontend env)
-        known-types (when frontend (set (tp/frontend-types frontend)))
-        full-env (assoc env :known-types known-types)
-        {:keys [roots constraints]} (gen/generate-constraints ir2-roots full-env)
+  (let [type-env (get env :env {})
+        frontend (get env :frontend)
+        context {:env type-env :frontend frontend}
+        {:keys [roots constraints]} (gen/generate-constraints ir2-roots context)
         subst (solve-constraints constraints)]
     (mapv #(apply-subst % subst) roots)))
