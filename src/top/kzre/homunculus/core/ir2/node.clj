@@ -195,8 +195,18 @@
 (defn ->call [fn args attrs meta parent]
   (m/->CallNode fn args attrs meta parent))
 
+;; ══════════════════════════════════════════════
+;; ConvertNode
+;; ══════════════════════════════════════════════
+(defn convert-expr [node] (:expr node))
+(defn convert-src-ty [node] (:src-ty node))
+(defn convert-dst-ty [node] (:dst-ty node))
+(defn convert-cost [node] (:cost node))
 
+(defn convert-with-expr [node expr] (assoc node :expr expr))
 
+(defn ->convert [expr src-ty dst-ty cost attrs meta parent]
+  (m/->ConvertNode expr src-ty dst-ty cost attrs meta parent))
 
 
 (defn ->let [bindings body attrs meta parent]

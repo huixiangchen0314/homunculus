@@ -172,3 +172,12 @@
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
+
+(defrecord ConvertNode [expr src-ty dst-ty cost attrs meta parent]
+  p/INode
+  (kind [_] :convert)
+  (children [_] [expr])
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
+  (set-parent [this p] (assoc this :parent p)))
