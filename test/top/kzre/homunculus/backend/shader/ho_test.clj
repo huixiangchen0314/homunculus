@@ -50,7 +50,7 @@
         no-recur   (mapv recur-elim/eliminate ir2-roots)
         elaborated (elaborate/elaborate no-recur elab-config)
         ;; 1. 类型推断
-        inferred   (infer/run elaborated :frontend hlsl-frontend)
+        inferred   (infer/infer elaborated :frontend hlsl-frontend)
         typed      (typed/type-check inferred :frontend hlsl-frontend :builtins full-builtins)
         ;; 2. 高阶消除
         ho-elimed  (ho-elim/process typed ho-elim-config)

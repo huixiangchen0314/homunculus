@@ -44,7 +44,7 @@
         ir2-roots  (ir2/lower [ir1-root])
         config     (->TestConfig)
         elaborated (elaborate/elaborate ir2-roots config)
-        inferred   (infer/run elaborated :frontend (->MockFrontend))
+        inferred   (infer/infer elaborated :frontend (->MockFrontend))
         typed      (cs/process inferred {:frontend (->MockFrontend) :env builtins})
         checked    (if expected-type
                      (mapv #(check/check % expected-type {:backend backend}) typed)

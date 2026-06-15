@@ -17,7 +17,8 @@
             [top.kzre.homunculus.core.types.constraint.solve :as cs]
             [top.kzre.homunculus.core.types.elaborate.core :as elaborate]
             [top.kzre.homunculus.core.types.mutability.core :as mut]
-            [top.kzre.homunculus.core.types.recur-elim.core :as recur-elim]))
+            [top.kzre.homunculus.core.types.recur-elim.core :as recur-elim]
+            [top.kzre.homunculus.core.types.infer.core :as infer]))
 
 (defn compile-and-emit-cs
   "使用约束求解系统替换 typed pass，并跳过 infer 局部推断。"
@@ -29,7 +30,7 @@
         elaborated (elaborate/elaborate no-recur elab-config)
         mutable    (mut/analyze elaborated)
         checked-fn (builtin/check mutable full-builtins)       ;; 为内置函数添加候选/类型
-        ;; 移除 infer 步骤，直接使用 checked-fn 作为约束生成输入
+        ;inferred   (infer/infer checked-fn :frontend hlsl-frontend)
         typed      (cs/process checked-fn
                                {:frontend hlsl-frontend
                                 :env (merge {} hlsl-front/builtins)})

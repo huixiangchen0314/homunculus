@@ -1,26 +1,25 @@
 (ns top.kzre.homunculus.core.types.infer.methods.if
-  (:require [top.kzre.homunculus.core.types.infer.core :as infer]
-            [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.core.types.type :as type]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p])
-  (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
+  (:require [top.kzre.homunculus.core.types.infer.core :as c]
+            [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.type :as t]))
 
-(defn- infer-branch [branch context]
+(defn- infer-optional-branch [branch context]
   (if branch
-    (infer/local-infer branch context)
+    (c/local-infer branch context)
     [nil nil]))
 
-(defmethod infer/local-infer :if [node context]
-  (let [[test-ty test-node] (infer/local-infer (:test node) context)
-        [then-ty then-node] (infer/local-infer (:then node) context)
-        [else-ty else-node] (infer-branch (:else node) context)]
-    (if (and test-ty (instance? TCon test-ty) (= (:name test-ty) :bool))
-      (if (and else-ty (= then-ty else-ty))
-        (infer/success then-ty
-                       (-> node
-                           (assoc :test test-node :then then-node :else else-node)
-                           (type/set-type! then-ty)))
-        (infer/nothing (-> node
-                           (assoc :test test-node :then then-node :else else-node))))
-      (infer/nothing (-> node
-                         (assoc :test test-node :then then-node :else else-node))))))
+(defmethod c/local-infer :if [node context]
+  (let [[test-ty test-node] (c/local-infer (n/if-test node) context)
+        [then-ty then-node] (c/local-infer (n/if-then node) context)
+        [else-ty else-node] (infer-optional-branch (n/if-else node) context)]
+    (if (t/bool-type? test-ty)
+      ;; 必须 then-ty 有效，且 (没有 else 分支 或 else-ty 有效且类型一致)
+      (if (and then-ty
+               (or (not (n/if-else node))
+                   (t/type=? then-ty else-ty)))
+        (c/success then-ty
+                   (-> node
+                       (n/if-with-children test-node then-node else-node)
+                       (t/set-type! then-ty)))
+        (c/nothing (n/if-with-children node test-node then-node else-node)))
+      (c/nothing (n/if-with-children node test-node then-node else-node)))))

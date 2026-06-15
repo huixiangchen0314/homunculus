@@ -20,7 +20,7 @@
         body-node (m/->VariableNode "x" nil nil nil)
         let-node (m/->LetNode [[var-node val-node]] body-node nil nil nil)
 
-        infer-result (first (infer/run [let-node] :frontend frontend))
+        infer-result (first (infer/infer [let-node] :frontend frontend))
         typed-result (first (cs/process [infer-result] {:frontend frontend :env {}}))
         checked (check/check typed-result (t/->TCon :float32) {:backend backend})]
 
@@ -34,7 +34,7 @@
         backend  (->MockBackend)
 
         lit-node (m/->LiteralNode 42 nil nil nil)
-        infer-result (first (infer/run [lit-node] :frontend frontend))
+        infer-result (first (infer/infer [lit-node] :frontend frontend))
         typed-result (first (cs/process [infer-result] {:frontend frontend :env {}}))
         checked (check/check typed-result (t/->TCon :float32) {:backend backend})]
 

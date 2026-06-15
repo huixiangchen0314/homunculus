@@ -18,6 +18,24 @@
 (defn app-type?   [ty] (= :app       (type-kind ty)))
 (defn container-type? [ty] (= :container (type-kind ty)))
 
+(defn type-sym
+  "获取 TCon 的类型名称关键字，若非 TCon 返回 nil。"
+  [type]
+  (some-> type (con-type?) (:name type)))
+
+(defn bool-type?
+  "判断 type 是否为 TCon 且类型名为 :bool。"
+  [type]
+  (= (type-sym type) :bool))
+
+(defn type=?
+  "比较两个类型是否具有相同的类型名称 (type-sym)。
+   当两个 type-sym 都为 nil 时，视为不相等。"
+  [t1 t2]
+  (let [s1 (type-sym t1)
+        s2 (type-sym t2)]
+    (and s1 s2 (= s1 s2))))
+
 ;; ── 函数类型访问器（TFun 字段，非协议）──
 
 (defn fun-arg [fn-ty]
@@ -53,7 +71,7 @@
 
 
 
-(defn type-from-meta
+(defn meta->type
   "从节点的 node-meta 中查找第一个匹配 known-types 的关键字，返回 TCon 实例或 nil。"
   [node known-types]
   (when-let [meta (ir2p/node-meta node)]
@@ -67,15 +85,20 @@
    known-types 是一个关键字集合（例如 #{:float4 :int ...}）。"
   ([node known-types]
    (or (get-in node [:attrs :type])
-       (type-from-meta node known-types)))
+       (meta->type node known-types)))
   ([node]
    (get-in node [:attrs :type])))
+
+(defn frontend-type
+  "获取节点中标注的前端类型."
+  [node frontend]
+  (get-type node (p/frontend-types frontend)))
 
 (defn has-type?
   "判断节点是否已有明确类型（在 attrs 或 node-meta 中）。"
   ([node known-types]
    (boolean (or (get-in node [:attrs :type])
-                (type-from-meta node known-types))))
+                (meta->type node known-types))))
   ([node]
    (boolean (get-in node [:attrs :type]))))
 
@@ -94,10 +117,3 @@
   "强制覆盖节点的类型。用于推断或用户明确指定的场景。"
   [node ty]
   (assoc-in node [:attrs :type] ty))
-
-(defn type-or-default
-  "获取节点的类型，若未找到则返回一个默认的 TCon。"
-  ([node known-types default-key]
-   (or (get-type node known-types) (t/->TCon default-key)))
-  ([node default-key]
-   (or (get-type node) (t/->TCon default-key))))

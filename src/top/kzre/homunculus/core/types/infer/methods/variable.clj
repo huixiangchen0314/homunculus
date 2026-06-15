@@ -1,19 +1,18 @@
 ;; top.kzre.homunculus.core.types.infer.methods.variable.clj
 (ns top.kzre.homunculus.core.types.infer.methods.variable
-  (:require [top.kzre.homunculus.core.types.infer.core :as infer]
-            [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.core.types.protocol :as tp]
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.types.env :as e]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [top.kzre.homunculus.core.types.type :as type]))
+            [top.kzre.homunculus.core.types.infer.core :as c]
+            [top.kzre.homunculus.core.types.type :as t]))
 
-(defmethod infer/local-infer :variable [node context]
-  (let [frontend (:frontend context)
-        env (:env context)
-        var-name (:name node)
-        ty (or (when frontend (tp/meta->type frontend node))
+;; 提取节点标注类型，转换为内部类型表示
+(defmethod c/local-infer :variable [node context]
+  (let [frontend (c/frontend context)
+        env (c/env context)
+        var-name (n/var-name node)
+        type (or (when frontend (t/frontend-type node frontend))
                (e/lookup-env env var-name)
                (e/lookup-env env (symbol var-name)))]
-    (if ty
-      (infer/success ty (type/ensure-type node ty))
-      (infer/nothing node))))
+    (if type
+      (c/success type (t/ensure-type node type))
+      (c/nothing node))))

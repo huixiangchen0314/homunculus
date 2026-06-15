@@ -39,7 +39,7 @@
         ir2-roots (ir2/lower [ir1-root])
         elab-config (->TestElabConfig)
         elaborated-roots (elaborate/elaborate ir2-roots elab-config)
-        infer-roots (infer/run elaborated-roots :frontend (->MockFrontend))
+        infer-roots (infer/infer elaborated-roots :frontend (->MockFrontend))
         typed-roots (cs/process infer-roots {:frontend (->MockFrontend) :env builtins})
         check-roots (if expected-type
                       (mapv #(check/check % expected-type {:backend backend}) typed-roots)

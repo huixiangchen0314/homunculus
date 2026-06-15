@@ -152,7 +152,9 @@
   (meta->type [_ node]
     (when-let [tag (get-in node [:meta :tag])]
       (if (keyword? tag)
-        (t/->TCon (-> tag name keyword))
+        (t/->TCon
+          (-> tag name keyword)                             ;; 确保为普通关键字
+          )
         (throw (ex-info "Meta tag must be keyword" {:tag tag})))))
   (infer-collection-type [_ form]
     (throw (ex-info "HLSL does not support collection literals" {:form form})))

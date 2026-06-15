@@ -15,8 +15,12 @@
 
 (declare cg-node)
 
-(defn generate-constraints [ir2-roots context]
-  (let [state (atom {:constraints [] :env (:env context)})
+(defn generate-constraints
+  "给定 IR2 节点树，为其生成 约束.
+  返回新的节点树和约束域."
+  [ir2-roots context]
+  (let [state (atom {:constraints []
+                     :env (:env context)})
         new-roots
         (mapv (fn [root]
                 (let [[tv node constrs] (cg-node root (assoc context :env (:env @state)))]
@@ -25,12 +29,11 @@
                     (swap! state update :env e/extend-env (:name node) tv))
                   node))
               ir2-roots)]
-    {:roots new-roots :constraints (:constraints @state)}))
+    {:roots new-roots
+     :constraints (:constraints @state)}))
 
 (defmulti cg-node
-          (fn [node context]
-            ;; ★ 关键修改：如果节点已有具体类型（非 TVar），直接短路
-            ;; 包括 infer 设置的 TVar 也保持原样，不再重新生成约束
+          (fn [node _context]
             (if-let [existing (ty/get-type node)]
               (if (and (satisfies? tp/IType existing)
                        (not (ty/var-type? existing)))

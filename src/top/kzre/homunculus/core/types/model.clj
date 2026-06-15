@@ -38,6 +38,11 @@
   p/ICollectionShape
   (shape-kind [_] :map))
 
+;; 异构向量
+(defrecord THeteroVec [types]  ;; types 为元素类型向量，顺序与元素对应
+  p/IType
+  (type-kind [_] :hetero-vec))
+
 ;; 异构map
 (defrecord THeteroMap [entries]   ;; entries 是 ([:key1 type1] [:key2 type2] ...) 的有序向量
   p/IType

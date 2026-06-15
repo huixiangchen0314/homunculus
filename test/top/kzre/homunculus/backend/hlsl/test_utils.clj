@@ -46,7 +46,7 @@
          elaborated (elaborate/elaborate no-recur elab-config)
          mutable (mut/analyze elaborated)
          checked-fn (builtin/check mutable full-builtins)
-         inferred (infer/run checked-fn :frontend hlsl-frontend)
+         inferred (infer/infer checked-fn :frontend hlsl-frontend)
          typed (cs/process inferred
                            {:frontend hlsl-frontend
                             :env (merge {} hlsl-front/builtins)})

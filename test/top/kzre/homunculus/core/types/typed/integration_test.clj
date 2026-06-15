@@ -23,7 +23,7 @@
         let-node (m/->LetNode [[var-node val-node]] body-node nil nil nil)
 
         ;; infer
-        infer-result (first (infer/run [let-node] :frontend frontend))
+        infer-result (first (infer/infer [let-node] :frontend frontend))
         ;; typed
         typed-result (first (typed/type-check [infer-result] :frontend frontend))
         ;; check with expected float32 on the whole let
@@ -43,7 +43,7 @@
         lit-node (m/->LiteralNode 42 nil nil nil)
 
         ;; infer
-        infer-result (first (infer/run [lit-node] :frontend frontend))
+        infer-result (first (infer/infer [lit-node] :frontend frontend))
         ;; typed
         typed-result (first (typed/type-check [infer-result] :frontend frontend))
         ;; check with expected float32

@@ -58,7 +58,7 @@
         mutable    (mut/analyze elaborated)
         checked-fn (builtin/check mutable full-builtins)
         ;; 恢复 infer 步骤：只用于传播前端类型标注，不参与最终类型推导
-        inferred   (infer/run checked-fn :frontend hlsl-frontend)
+        inferred   (infer/infer checked-fn :frontend hlsl-frontend)
         ;; 约束系统作为主类型推导
         typed      (cs/process inferred
                                {:frontend hlsl-frontend

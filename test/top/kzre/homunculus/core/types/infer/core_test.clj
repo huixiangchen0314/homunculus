@@ -17,22 +17,22 @@
   (let [frontend (->MockFrontend)]
     (testing "integer"
       (let [root (m/->LiteralNode 42 nil nil nil)
-            results (infer/run [root] :frontend frontend)
+            results (infer/infer [root] :frontend frontend)
             node (first results)]
         (is (tcon? (get-type node) :int64))))
     (testing "float"
       (let [root (m/->LiteralNode 3.14 nil nil nil)
-            results (infer/run [root] :frontend frontend)
+            results (infer/infer [root] :frontend frontend)
             node (first results)]
         (is (tcon? (get-type node) :float64))))
     (testing "string"
       (let [root (m/->LiteralNode "hi" nil nil nil)
-            results (infer/run [root] :frontend frontend)
+            results (infer/infer [root] :frontend frontend)
             node (first results)]
         (is (tcon? (get-type node) :string))))
     (testing "boolean"
       (let [root (m/->LiteralNode true nil nil nil)
-            results (infer/run [root] :frontend frontend)
+            results (infer/infer [root] :frontend frontend)
             node (first results)]
         (is (tcon? (get-type node) :bool))))))
 

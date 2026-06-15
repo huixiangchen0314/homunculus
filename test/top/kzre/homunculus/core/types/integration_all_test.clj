@@ -36,7 +36,7 @@
         ir2-roots (ir2/lower [ir1-root])
         config (->IntegrationLiftConfig)
         lifted-roots (lift/eliminate-closures ir2-roots config)
-        infer-roots (infer/run lifted-roots :frontend (->MockFrontend))
+        infer-roots (infer/infer lifted-roots :frontend (->MockFrontend))
         typed-roots (cs/process infer-roots {:frontend (->MockFrontend) :env builtins})
         check-roots (if expected-type
                       (mapv #(check/check % expected-type {:backend backend}) typed-roots)

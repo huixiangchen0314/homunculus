@@ -4,6 +4,8 @@
             [clojure.walk :as walk]
             [top.kzre.homunculus.core.ir1.core :as ir1]
             [top.kzre.homunculus.core.ir2.core :as ir2]
+            [top.kzre.homunculus.core.types.infer.methods]
+            [top.kzre.homunculus.core.types.constraint.solve :as cs]
             [top.kzre.homunculus.core.types.recur-elim.core :as recur-elim]
             [top.kzre.homunculus.core.types.elaborate.core :as elaborate]
             [top.kzre.homunculus.core.types.mutability.core :as mut]
@@ -27,8 +29,10 @@
         elaborated (elaborate/elaborate no-recur elab-config)
         mutable    (mut/analyze elaborated)
         checked-fn (builtin/check mutable full-builtins)
-        inferred   (infer/run checked-fn :frontend hlsl-frontend)
-        typed      (typed/type-check inferred :frontend hlsl-frontend :builtins full-builtins)
+        inferred   (infer/infer checked-fn :frontend hlsl-frontend)
+        typed      (cs/process inferred
+                               {:frontend hlsl-frontend
+                                :env (merge {} hlsl-front/builtins)})
         checked    (check/check-program typed {:backend hlsl-backend-real})]
     (emit/generate checked hlsl-backend-real
                    [{:stage :fragment :fn-name "ps-main"

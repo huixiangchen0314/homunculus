@@ -36,7 +36,7 @@
           elaborated (elaborate/elaborate no-recur elab-config)
           mutable    (mut/analyze elaborated)
           checked-fn (builtin/check mutable (merge {} (hlsl-front/builtins)))
-          inferred   (infer/run checked-fn :frontend frontend)
+          inferred   (infer/infer checked-fn :frontend frontend)
           typed      (typed/type-check inferred :frontend frontend :builtins (merge {} (hlsl-front/builtins)))
           checked    (check/check-program typed {:backend this})]
       (emit/generate checked this []))))

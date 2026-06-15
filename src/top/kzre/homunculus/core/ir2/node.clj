@@ -41,24 +41,61 @@
 (defn call-fn   [node] (:fn node))
 (defn call-args [node] (:args node))
 
+(defn call-with-fn [node fn-node]
+  (assoc node :fn fn-node))
+
+(defn call-with-args [node args]
+  (assoc node :args args))
+
+(defn call-with-children [node fn-node args]
+  (-> node
+      (assoc :fn fn-node)
+      (assoc :args args)))
+
 ;; ══════════════════════════════════════════════
 ;; IfNode
 ;; ══════════════════════════════════════════════
+;; ctor
+(defn ->if [test then else attrs meta parent]
+  (m/->IfNode test then else attrs meta parent))
+
+;; accessor
 (defn if-test [node] (:test node))
 (defn if-then [node] (:then node))
 (defn if-else [node] (:else node))
 
+(defn if-with-test [node test] (assoc node :test test))
+(defn if-with-then [node then] (assoc node :then then))
+(defn if-with-else [node else] (assoc node :else else))
+(defn if-with-children [node test then else]
+  (assoc node :test test :then then :else else))
+
+
 ;; ══════════════════════════════════════════════
 ;; BlockNode
 ;; ══════════════════════════════════════════════
+(defn ->block [exprs attrs meta parent]
+  (m/->BlockNode exprs attrs meta parent))
+
 (defn block-exprs [node] (:exprs node))
+(defn block-with-exprs [node exprs]
+  (assoc node :exprs exprs))
 
 ;; ══════════════════════════════════════════════
 ;; LetNode
 ;; ══════════════════════════════════════════════
 (defn let-bindings [node] (:bindings node))
 (defn let-body     [node] (:body node))
+(defn let-with-bindings [node bindings]
+  (assoc node :bindings bindings))
 
+(defn let-with-body [node body]
+  (assoc node :body body))
+
+(defn let-with-children [node bindings body]
+  (-> node
+      (assoc :bindings bindings)
+      (assoc :body body)))
 ;; ══════════════════════════════════════════════
 ;; LambdaNode
 ;; ══════════════════════════════════════════════
@@ -73,13 +110,23 @@
 (defn define-name [node] (:name node))
 (defn define-val  [node] (:val node))
 (defn define-doc  [node] (:doc node))
-
+(defn define-with-val [node val-node]
+  (assoc node :val val-node))
 ;; ══════════════════════════════════════════════
 ;; LoopNode
 ;; ══════════════════════════════════════════════
 (defn loop-bindings [node] (:bindings node))
 (defn loop-body     [node] (:body node))
+(defn loop-with-bindings [node bindings]
+  (assoc node :bindings bindings))
 
+(defn loop-with-body [node body]
+  (assoc node :body body))
+
+(defn loop-with-children [node bindings body]
+  (-> node
+      (assoc :bindings bindings)
+      (assoc :body body)))
 ;; ══════════════════════════════════════════════
 ;; RecurNode
 ;; ══════════════════════════════════════════════
@@ -90,7 +137,16 @@
 ;; ══════════════════════════════════════════════
 (defn while-test [node] (:test node))
 (defn while-body [node] (:body node))
+(defn while-with-test [node test-node]
+  (assoc node :test test-node))
 
+(defn while-with-body [node body-node]
+  (assoc node :body body-node))
+
+(defn while-with-children [node test-node body-node]
+  (-> node
+      (assoc :test test-node)
+      (assoc :body body-node)))
 ;; ══════════════════════════════════════════════
 ;; AssignNode
 ;; ══════════════════════════════════════════════
@@ -120,12 +176,13 @@
 ;; VectorNode
 ;; ══════════════════════════════════════════════
 (defn vec-items [node] (:items node))
-
+(defn vector-items [node] (:items node))
+(defn vector-with-items [node items] (assoc node :items (vec items)))
 ;; ══════════════════════════════════════════════
 ;; MapNode
 ;; ══════════════════════════════════════════════
 (defn map-kvs [node] (:kvs node))
-
+(defn map-with-kvs [node kvs] (assoc node :kvs (vec kvs)))
 ;; ══════════════════════════════════════════════
 ;; 构造函数（调用现有 model 函数，统一入口）
 ;; ══════════════════════════════════════════════
@@ -138,11 +195,9 @@
 (defn ->call [fn args attrs meta parent]
   (m/->CallNode fn args attrs meta parent))
 
-(defn ->if [test then else attrs meta parent]
-  (m/->IfNode test then else attrs meta parent))
 
-(defn ->block [exprs attrs meta parent]
-  (m/->BlockNode exprs attrs meta parent))
+
+
 
 (defn ->let [bindings body attrs meta parent]
   (m/->LetNode bindings body attrs meta parent))
@@ -179,3 +234,6 @@
 
 (defn ->map [kvs attrs meta parent]
   (m/->MapNode kvs attrs meta parent))
+
+(defn define-node? [node]
+  (= (some-> node ir2p/kind) :define))
