@@ -1,6 +1,8 @@
 (ns top.kzre.homunculus.core.types.loading.pass
-  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [top.kzre.homunculus.internal.protocol :as ip]))
+  (:require
+   [clojure.walk :as w]
+   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+   [top.kzre.homunculus.internal.protocol :as ip]))
 
 (defn- qualify-aliases
   "将 IR2 树中所有通过 :as 别名引用的变量替换为完全限定名。
@@ -8,7 +10,7 @@
   [ir2-roots aliases]
   ;; 实现：遍历 IR2 树，将 VariableNode 的 name 如果匹配别名则替换为 full/name
   ;; 此处简化，实际需递归处理所有节点
-  (clojure.walk/postwalk
+  (w/postwalk
     (fn [node]
       (if (and (satisfies? ir2p/INode node)
                (= (ir2p/kind node) :variable))

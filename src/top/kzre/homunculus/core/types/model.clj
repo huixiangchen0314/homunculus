@@ -19,6 +19,7 @@
   p/IType
   (type-kind [_] :app))
 
+
 ;; ── 容器类型 ──────────────────────────────
 (defrecord TContainer [kind element-type shape]
   p/IType
