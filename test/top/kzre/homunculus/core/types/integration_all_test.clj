@@ -5,19 +5,17 @@
             [top.kzre.homunculus.core.ir1.forms]
             [top.kzre.homunculus.core.ir2.core :as ir2]
             [top.kzre.homunculus.core.ir2.forms]
-            [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.core.types.inline-lift.core :as lift]
-            [top.kzre.homunculus.core.types.inline-lift.methods]   ;; ★ 加载多方法
-            [top.kzre.homunculus.core.types.protocol :as p]
+            [top.kzre.homunculus.core.types.check.core :as check] ;; ★ 加载多方法
+            [top.kzre.homunculus.core.types.check.methods]
+            [top.kzre.homunculus.core.types.constraint.solve :as cs]
             [top.kzre.homunculus.core.types.infer.core :as infer]
             [top.kzre.homunculus.core.types.infer.methods]
-            [top.kzre.homunculus.core.types.typed.core :as typed]
-            [top.kzre.homunculus.core.types.typed.methods]
-            [top.kzre.homunculus.core.types.check.core :as check]
-            [top.kzre.homunculus.core.types.check.methods]
+            [top.kzre.homunculus.core.types.inline-lift.core :as lift]
+            [top.kzre.homunculus.core.types.inline-lift.methods]
+            [top.kzre.homunculus.core.types.model :as t]
+            [top.kzre.homunculus.core.types.protocol :as p]
             [top.kzre.homunculus.core.types.test-utils :refer :all]
-            [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
+            [top.kzre.homunculus.core.types.typed.methods]))
 
 (defrecord IntegrationLiftConfig []
   p/IInlineLiftConfig
@@ -39,12 +37,11 @@
         config (->IntegrationLiftConfig)
         lifted-roots (lift/eliminate-closures ir2-roots config)
         infer-roots (infer/run lifted-roots :frontend (->MockFrontend))
-        typed-roots (typed/type-check infer-roots :frontend (->MockFrontend) :builtins builtins)
+        typed-roots (cs/process infer-roots {:frontend (->MockFrontend) :env builtins})
         check-roots (if expected-type
                       (mapv #(check/check % expected-type {:backend backend}) typed-roots)
                       typed-roots)]
     check-roots))
-
 (deftest integration-literal-test
   (let [result (compile-and-check 42)
         node (first result)]

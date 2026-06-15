@@ -1,18 +1,15 @@
 (ns top.kzre.homunculus.core.types.test-utils
   "公共测试工具，提供模拟前端、后端、类型断言以及高阶消除配置等。"
   (:require
-   [clojure.walk :as w]
-   [top.kzre.homunculus.core.ir2.model :as m]
-   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-   [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]
-   [top.kzre.homunculus.core.types.model :as t]
-   [top.kzre.homunculus.core.types.protocol :as tp])
+    [clojure.walk :as w]
+    [top.kzre.homunculus.core.ir2.model :as m]
+    [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+    [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]
+    [top.kzre.homunculus.core.types.model :as t]
+    [top.kzre.homunculus.core.types.protocol :as tp])
   (:import
-   [top.kzre.homunculus.core.types.model
-    TCon
-    TContainer
-    TFun
-    TVar]))
+    [top.kzre.homunculus.core.types.model
+     TCon TContainer TFun TVar]))
 
 ;; ── 通用 Mock 前端 ──
 (defrecord MockFrontend []
@@ -107,7 +104,6 @@
 ;; ── 快速构造辅助 ──
 (defn with-meta-var [name meta]
   (m/->VariableNode name nil meta nil))
-
 
 (defn macroexpand-deep [form]
   (w/postwalk (fn [f] (if (seq? f) (macroexpand f) f)) form))

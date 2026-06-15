@@ -1,8 +1,9 @@
 (ns top.kzre.homunculus.core.types.integration-compiler-test
-  "全编译器集成测试：IR1 → IR2 → elaborate → infer → typed → check。"
+  "全编译器集成测试：IR1 → IR2 → elaborate → infer → constraint-solve → check。"
   (:require [clojure.test :refer :all]
             [top.kzre.homunculus.core.ir1.core :as ir1]
             [top.kzre.homunculus.core.ir1.forms]
+
             [top.kzre.homunculus.core.ir2.core :as ir2]
             [top.kzre.homunculus.core.ir2.forms]
             [top.kzre.homunculus.core.types.elaborate.core :as elaborate]
@@ -10,8 +11,7 @@
             [top.kzre.homunculus.core.types.elaborate.protocol :as elab-cfg]
             [top.kzre.homunculus.core.types.infer.core :as infer]
             [top.kzre.homunculus.core.types.infer.methods]
-            [top.kzre.homunculus.core.types.typed.core :as typed]
-            [top.kzre.homunculus.core.types.typed.methods]
+            [top.kzre.homunculus.core.types.constraint.solve :as cs]
             [top.kzre.homunculus.core.types.check.core :as check]
             [top.kzre.homunculus.core.types.check.methods]
             [top.kzre.homunculus.core.types.model :as t]
@@ -25,7 +25,7 @@
   (strict-mode? [_] true)
   (allow-return-closure? [_] false)
   (on-unresolved [_ lambda] (throw (ex-info "Unresolved closure" {:lambda lambda})))
-  (should-inline? [_ _ _] true))   ;; 总是内联，简化测试
+  (should-inline? [_ _ _] true))
 
 (def builtins
   {'+    (t/->TFun (t/->TCon :int64) (t/->TFun (t/->TCon :int64) (t/->TCon :int64)))
@@ -45,16 +45,13 @@
         config     (->TestConfig)
         elaborated (elaborate/elaborate ir2-roots config)
         inferred   (infer/run elaborated :frontend (->MockFrontend))
-        typed      (typed/type-check inferred :frontend (->MockFrontend) :builtins builtins)
+        typed      (cs/process inferred {:frontend (->MockFrontend) :env builtins})
         checked    (if expected-type
                      (mapv #(check/check % expected-type {:backend backend}) typed)
                      typed)]
     (first checked)))
 
-;; ══════════════════════════════════════════
-;; 测试用例
-;; ══════════════════════════════════════════
-
+;; 测试用例不变
 (deftest test-literal
   (let [node (compile-form 42)]
     (is (tcon? (get-type node) :int64))))
@@ -108,7 +105,3 @@
   (let [node (compile-form '(let* [apply (fn* [f x] (f x))]
                               (apply (fn* [y] (+ y 1)) 10)))]
     (is (tcon? (get-type node) :int64))))
-
-;; 运行全部测试可通过
-(comment
-  (run-tests 'top.kzre.homunculus.core.types.integration-compiler-test))
