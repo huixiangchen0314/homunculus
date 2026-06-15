@@ -1,7 +1,8 @@
 (ns top.kzre.homunculus.backend.hlsl.utils
   "HLSL 专用工具：保留字、类型构造快捷函数。"
   (:require [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.core.types.typed.scheme :as sc]))
+            [top.kzre.homunculus.core.types.typed.scheme :as sc]
+            [top.kzre.homunculus.core.types.constraint.scheme :as scheme]))
 
 (def reserved-words
   "HLSL 保留字集合，用于自动转义冲突的变量名。"
@@ -45,15 +46,15 @@
 
 (defn generic-unary []
   (let [a (t/->TVar (gensym "a"))]
-    (sc/->TScheme [a] (fn-> a a))))
+    (scheme/->TScheme [a] (fn-> a a))))
 
 (defn generic-binary []
   (let [a (t/->TVar (gensym "a"))]
-    (sc/->TScheme [a] (fn-> a a a))))
+    (scheme/->TScheme [a] (fn-> a a a))))
 
 (defn generic-ternary []
   (let [a (t/->TVar (gensym "a"))]
-    (sc/->TScheme [a] (fn-> a a a a))))
+    (scheme/->TScheme [a] (fn-> a a a a))))
 
 
 ;; ═══ 新增：向量到标量的泛型函数 ═══

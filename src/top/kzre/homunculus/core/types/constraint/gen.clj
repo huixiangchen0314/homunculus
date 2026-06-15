@@ -42,15 +42,17 @@
         new-node (assoc-in node [:attrs :type] tv)]
     [tv new-node constraint]))
 
-;; ── 变量（修复：已知绑定直接返回类型，未知绑定创建新变量）──
 (defmethod cg-node :variable [node context]
   (let [env (:env context)
         name (:name node)
         binding (or (e/lookup-env env name) (e/lookup-env env (symbol name)))]
     (if binding
-      [binding (assoc-in node [:attrs :type] binding) nil]  ;; 已知绑定，无需约束
+      (let [ty (if (scheme/tscheme? binding)
+                 (scheme/instantiate binding)
+                 binding)]
+        [ty (assoc-in node [:attrs :type] ty) nil])
       (let [tv (fresh-tvar)]
-        [tv (assoc-in node [:attrs :type] tv) nil]))))       ;; 未知变量，分配新变量
+        [tv (assoc-in node [:attrs :type] tv) nil]))))
 
 ;; ── 调用（核心）──
 (defmethod cg-node :call [node context]
