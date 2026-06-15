@@ -34,25 +34,38 @@
       (first result)
       (throw (ex-info "Overload resolution failed" {:arg-tys arg-tys' :candidates candidates})))))
 
-(defn solve-constraints
-  "求解约束列表，返回一个从 TVar 到具体类型的替换映射。
-   先求解所有等式约束，再处理重载约束，确保参数类型已知。"
-  [constraints]
+(defn solve-constraints [constraints]
   (let [subst (atom {})
-        eq-constraints (filter #(instance? CEqual %) constraints)
-        other-constraints (remove #(instance? CEqual %) constraints)]
-    ;; 第一阶段：求解所有等式
-    (doseq [c eq-constraints]
-      (swap! subst #(u/unify (:tvar c) (:type c) %)))
-    ;; 第二阶段：处理重载和转换
-    (doseq [c other-constraints]
-      (cond
-        (instance? COverload c)
-        (reset! subst (solve-overload c @subst))
-        (instance? CConvert c)
-        (swap! subst #(u/unify (:src-ty c) (:dst-ty c) %))))
-    ;; 规范化：将所有间接引用（TVar -> TVar）解析为最终类型
-    (into {} (map (fn [[k v]] [k (u/substitute v @subst)]) @subst))))
+        apply-all (fn []
+                    (doseq [c constraints]
+                      (cond
+                        (instance? CEqual c)
+                        (swap! subst #(u/unify (:tvar c) (:type c) %))
+
+                        (instance? COverload c)
+                        (let [{:keys [fn-ty-list arg-tys ret-tvar]} c
+                              desired (reduce (fn [ret arg] (t/->TFun arg ret)) ret-tvar (reverse arg-tys))
+                              result (some (fn [cand]
+                                             (try (let [new-subst (u/unify cand desired @subst)]
+                                                    [new-subst cand])
+                                                  (catch Exception _ nil)))
+                                           fn-ty-list)]
+                          (if result
+                            (reset! subst (first result))
+                            (throw (ex-info "Overload resolution failed" {:arg-tys arg-tys}))))
+
+                        (instance? CConvert c)
+                        (swap! subst #(u/unify (:src-ty c) (:dst-ty c) %)))))
+        ;; 迭代直到收敛
+        loop (fn []
+               (let [old @subst]
+                 (apply-all)
+                 (if (= old @subst)
+                   @subst
+                   (recur))))]
+    ;; 最后规范化
+    (let [final-subst (loop)]
+      (into {} (map (fn [[k v]] [k (u/substitute v final-subst)]) final-subst)))))
 
 (defn apply-subst
   "将类型替换应用到 IR2 节点树中，更新所有 :attrs :type 的值。"

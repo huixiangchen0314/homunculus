@@ -97,7 +97,7 @@
          (concat (list (cm/->CEqual fn-tv desired))
                  fn-constraints arg-constraints)]))))
 
-;; ── let 绑定（修复：为 var 创建独立 TVar 并添加等式）──
+;; let 绑定
 (defmethod cg-node :let [node context]
   (let [bindings (:bindings node)
         [bind-nodes new-env bind-constraints]
@@ -105,12 +105,10 @@
           (fn [[bnds env constrs] [var val]]
             (let [[val-tv val-node val-constr] (cg-node val (assoc context :env env))
                   var-name (:name var)
-                  var-tv (fresh-tvar)                               ;; 为 var 分配新变量
-                  var-node (assoc-in var [:attrs :type] var-tv)
-                  var-eq (cm/->CEqual var-tv val-tv)]               ;; 约束 var = val
+                  var-node (assoc-in var [:attrs :type] val-tv)]
               [(conj bnds [var-node val-node])
-               (e/extend-env env var-name var-tv)                   ;; 将 var-tv 加入环境
-               (concat constrs val-constr (list var-eq))]))
+               (e/extend-env env var-name val-tv)
+               (concat constrs val-constr)]))
           [[] (:env context) []]
           bindings)
         [body-tv body-node body-constraints] (cg-node (:body node) (assoc context :env new-env))]
@@ -118,6 +116,38 @@
      (assoc-in (m/->LetNode (vec bind-nodes) body-node (:attrs node) (:meta node) (:parent node))
                [:attrs :type] body-tv)
      (concat bind-constraints body-constraints)]))
+
+;; loop 同理
+(defmethod cg-node :loop [node context]
+  (let [bindings (:bindings node)
+        [bind-nodes new-env bind-constraints]
+        (reduce
+          (fn [[bnds env constrs] [var val]]
+            (let [[val-tv val-node val-constr] (cg-node val (assoc context :env env))
+                  var-name (:name var)
+                  var-node (assoc-in var [:attrs :type] val-tv)]
+              [(conj bnds [var-node val-node])
+               (e/extend-env env var-name val-tv)
+               (concat constrs val-constr)]))
+          [[] (:env context) []]
+          bindings)
+        loop-var-names (mapv (fn [[v _]] (:name v)) bind-nodes)
+        env-loop (assoc new-env :ir2/loop-vars loop-var-names)
+        [body-tv body-node body-constr] (cg-node (:body node) (assoc context :env env-loop))
+        new-node (m/->LoopNode (vec bind-nodes) body-node (:attrs node) (:meta node) (:parent node))]
+    [body-tv (assoc-in new-node [:attrs :type] body-tv)
+     (concat bind-constraints body-constr)]))
+
+;; ── block（确保最后表达式的类型正确传递）──
+(defmethod cg-node :block [node context]
+  (let [exprs (:exprs node)
+        results (map #(cg-node % context) exprs)
+        types (map first results)
+        new-exprs (mapv second results)
+        constrs (mapcat #(nth % 2) results)
+        last-tv (if (seq types) (last types) (t/->TCon :nil))
+        new-node (m/->BlockNode new-exprs (:attrs node) (:meta node) (:parent node))]
+    [last-tv (assoc-in new-node [:attrs :type] last-tv) constrs]))
 
 ;; ── if ──
 (defmethod cg-node :if [node context]
@@ -135,16 +165,6 @@
     [tv (assoc-in new-node [:attrs :type] tv)
      (concat test-constr then-constr else-constr test-eq branch-eq)]))
 
-;; ── block ──
-(defmethod cg-node :block [node context]
-  (let [exprs (:exprs node)
-        results (map #(cg-node % context) exprs)
-        types (map first results)
-        new-exprs (mapv second results)
-        constrs (mapcat #(nth % 2) results)
-        last-tv (last types)
-        new-node (m/->BlockNode new-exprs (:attrs node) (:meta node) (:parent node))]
-    [last-tv (assoc-in new-node [:attrs :type] last-tv) constrs]))
 
 ;; ── assign ──
 (defmethod cg-node :assign [node context]
@@ -186,29 +206,6 @@
         new-node (m/->LambdaNode param-nodes body-node (:captures node) (:fn-name node)
                                  (:attrs node) (:meta node) (:parent node))]
     [fn-ty (assoc-in new-node [:attrs :type] fn-ty) body-constr]))
-
-;; ── loop ──
-(defmethod cg-node :loop [node context]
-  (let [bindings (:bindings node)
-        [bind-nodes new-env bind-constraints]
-        (reduce
-          (fn [[bnds env constrs] [var val]]
-            (let [[val-tv val-node val-constr] (cg-node val (assoc context :env env))
-                  var-name (:name var)
-                  var-tv (fresh-tvar)
-                  var-node (assoc-in var [:attrs :type] var-tv)
-                  var-eq (cm/->CEqual var-tv val-tv)]
-              [(conj bnds [var-node val-node])
-               (e/extend-env env var-name var-tv)
-               (concat constrs val-constr (list var-eq))]))
-          [[] (:env context) []]
-          bindings)
-        loop-var-names (mapv (fn [[v _]] (:name v)) bind-nodes)
-        env-loop (assoc new-env :ir2/loop-vars loop-var-names)
-        [body-tv body-node body-constr] (cg-node (:body node) (assoc context :env env-loop))
-        new-node (m/->LoopNode (vec bind-nodes) body-node (:attrs node) (:meta node) (:parent node))]
-    [body-tv (assoc-in new-node [:attrs :type] body-tv)
-     (concat bind-constraints body-constr)]))
 
 ;; ── recur ──
 (defmethod cg-node :recur [node context]
