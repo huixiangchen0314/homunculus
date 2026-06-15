@@ -4,7 +4,7 @@
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]
             [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
             [top.kzre.homunculus.core.types.protocol :as tp]
-            [top.kzre.homunculus.core.types.type :as type])
+            [top.kzre.homunculus.core.types.type :as t])
   (:import (top.kzre.homunculus.core.types.model TVar)))
 
 (defmulti check
@@ -32,8 +32,8 @@
   "若 expected 非 nil 且实际类型不兼容，则尝试转换或报错。
    如果实际类型是 TScheme，则先实例化再比较（不改变节点本身类型）。"
   [node expected context]
-  (let [actual (type/get-type node)
-        actual* (if (scheme/tscheme? actual)
+  (let [actual (t/get-type node)
+        actual* (if (t/scheme-type? actual)
                   (scheme/instantiate actual)
                   actual)]
     (if (or (nil? expected) (= actual* expected) (instance? TVar actual*))

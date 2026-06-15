@@ -247,3 +247,6 @@
 
 (defn define-node? [node]
   (= (some-> node ir2p/kind) :define))
+
+(defn convert-node? [node]
+  (= (some-> node ir2p/kind) :convert))
