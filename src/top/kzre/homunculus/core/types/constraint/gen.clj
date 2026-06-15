@@ -28,15 +28,16 @@
     {:roots new-roots :constraints (:constraints @state)}))
 
 (defmulti cg-node
-          "为单个 IR2 节点生成 [type-var, updated-node, constraints]"
           (fn [node context]
-            ;; 只在类型为非 TVar 的具体类型时短路
+            ;; ★ 关键修改：如果节点已有具体类型（非 TVar），直接短路
+            ;; 包括 infer 设置的 TVar 也保持原样，不再重新生成约束
             (if-let [existing (ty/get-type node)]
               (if (and (satisfies? tp/IType existing)
                        (not (ty/var-type? existing)))
                 :already-typed
                 (ir2p/kind node))
               (ir2p/kind node))))
+
 
 (defmethod cg-node :already-typed [node context]
   [(ty/get-type node) node nil])
@@ -135,6 +136,7 @@
         env-loop (assoc new-env :ir2/loop-vars loop-var-names)
         [body-tv body-node body-constr] (cg-node (:body node) (assoc context :env env-loop))
         new-node (m/->LoopNode (vec bind-nodes) body-node (:attrs node) (:meta node) (:parent node))]
+    ;; loop 整体类型为 body 的类型，不额外添加约束
     [body-tv (ty/set-type! new-node body-tv)
      (concat bind-constraints body-constr)]))
 
@@ -200,6 +202,7 @@
                                  (:attrs node) (:meta node) (:parent node))]
     [fn-ty (ty/set-type! new-node fn-ty) body-constr]))
 
+;; ★ 修复 recur：避免在环境查找失败时生成等式
 (defmethod cg-node :recur [node context]
   (let [loop-var-names (get (:env context) :ir2/loop-vars)]
     (when-not loop-var-names
@@ -211,10 +214,11 @@
           arg-tys (mapv first results)
           arg-nodes (mapv second results)
           arg-constraints (mapcat #(nth % 2) results)
-          loop-eqs (map (fn [arg-ty var-name]
-                          (let [var-ty (e/lookup-env (:env context) var-name)]
-                            (cm/->CEqual arg-ty var-ty)))
-                        arg-tys loop-var-names)
+          ;; 只对环境存在的变量生成等式
+          loop-eqs (->> (map vector arg-tys loop-var-names)
+                        (keep (fn [[arg-ty var-name]]
+                                (when-let [vty (e/lookup-env (:env context) var-name)]
+                                  (cm/->CEqual arg-ty vty)))))
           tv (t/->TCon :nil)
           new-node (m/->RecurNode (vec arg-nodes) (:attrs node) (:meta node) (:parent node))]
       [tv (ty/set-type! new-node tv)

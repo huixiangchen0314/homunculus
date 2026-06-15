@@ -27,43 +27,61 @@
     (collection-type-ctor [_ _ _ _] nil)))
 
 (deftest test-let-poly-simple
-  (let [;; id = (fn [x] x)
-        id-param (m/->VariableNode "x" nil nil nil)
+  (let [id-param (m/->VariableNode "x" nil nil nil)
         id-body  (m/->VariableNode "x" nil nil nil)
         id-lambda (m/->LambdaNode [id-param] id-body [] nil nil nil nil)
+        ;; 模拟 infer 已为 lambda 设置函数类型
+        id-lambda-typed (assoc-in id-lambda [:attrs :type]
+                                  (t/->TFun (t/->TVar 'a) (t/->TVar 'a)))
         id-var   (m/->VariableNode "id" nil nil nil)
-        ;; 应用
         call1 (m/->CallNode (m/->VariableNode "id" nil nil nil)
                             [(m/->LiteralNode 1 nil nil nil)] nil nil nil)
         call2 (m/->CallNode (m/->VariableNode "id" nil nil nil)
                             [(m/->LiteralNode 3.0 nil nil nil)] nil nil nil)
         body   (m/->BlockNode [call1 call2] nil nil nil)
-        let-node (m/->LetNode [[id-var id-lambda]] body nil nil nil)
+        let-node (m/->LetNode [[id-var id-lambda-typed]] body nil nil nil)
         result (cs/process [let-node] {:frontend mock-frontend :env {}})
-        processed (first result)]
-    (let [id-type (ty/get-type id-var)]
-      (is (scheme/tscheme? id-type) "id 应被泛型化为 TScheme")
-      (let [call1-type (ty/get-type call1)]
-        (is (tcon? call1-type :int) "call1 应返回 int"))
-      (let [call2-type (ty/get-type call2)]
-        (is (tcon? call2-type :float) "call2 应返回 float")))))
+        processed (first result)
+        ;; 从处理后的节点中提取绑定变量
+        bindings (:bindings processed)
+        [id-var-new _] (first bindings)
+        id-type (ty/get-type id-var-new)
+        ;; 从 block 中提取两次调用
+        block (:body processed)
+        [call1-new call2-new] (:exprs block)]
+    (is (scheme/tscheme? id-type) "id 应被泛型化为 TScheme")
+    (let [call1-type (ty/get-type call1-new)]
+      (is (tcon? call1-type :int) "call1 应返回 int"))
+    (let [call2-type (ty/get-type call2-new)]
+      (is (tcon? call2-type :float) "call2 应返回 float"))))
 
 (deftest test-let-poly-nested
   (let [id-param (m/->VariableNode "x" nil nil nil)
         id-body  (m/->VariableNode "x" nil nil nil)
         id-lambda (m/->LambdaNode [id-param] id-body [] nil nil nil nil)
+        id-lambda-typed (assoc-in id-lambda [:attrs :type]
+                                  (t/->TFun (t/->TVar 'a) (t/->TVar 'a)))
         id-var   (m/->VariableNode "id" nil nil nil)
         y-val    (m/->CallNode (m/->VariableNode "id" nil nil nil)
                                [(m/->LiteralNode 1 nil nil nil)] nil nil nil)
         y-var    (m/->VariableNode "y" nil nil nil)
         inner-body (m/->VariableNode "y" nil nil nil)
         inner-let (m/->LetNode [[y-var y-val]] inner-body nil nil nil)
-        let-node (m/->LetNode [[id-var id-lambda]] inner-let nil nil nil)
+        let-node (m/->LetNode [[id-var id-lambda-typed]] inner-let nil nil nil)
         result (cs/process [let-node] {:frontend mock-frontend :env {}})
-        processed (first result)]
-    (let [id-type (ty/get-type id-var)]
-      (is (scheme/tscheme? id-type) "id 应被泛型化")
-      (let [y-type (ty/get-type y-var)]
-        (is (tcon? y-type :int) "y 应为 int"))
-      (let [inner-type (ty/get-type inner-body)]
-        (is (tcon? inner-type :int) "内层 body 应返回 int")))))
+        processed (first result)
+        ;; 外层绑定
+        bindings (:bindings processed)
+        [id-var-new _] (first bindings)
+        id-type (ty/get-type id-var-new)
+        ;; 内层 let
+        inner-let-new (:body processed)
+        inner-bindings (:bindings inner-let-new)
+        [y-var-new _] (first inner-bindings)
+        y-type (ty/get-type y-var-new)
+        inner-type (ty/get-type (:body inner-let-new))]
+    (is (scheme/tscheme? id-type) "id 应被泛型化")
+    (let [y-type (ty/get-type y-var-new)]
+      (is (tcon? y-type :int) "y 应为 int"))
+    (let [inner-type (ty/get-type (:body inner-let-new))]
+      (is (tcon? inner-type :int) "内层 body 应返回 int"))))
