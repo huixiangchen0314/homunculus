@@ -8,9 +8,13 @@
     [top.kzre.homunculus.core.types.constraint.unify :as u]
     [top.kzre.homunculus.core.types.model :as t])
   (:import
-   (top.kzre.homunculus.core.types.constraint.model CConvert CEqual COverload)))
+    (top.kzre.homunculus.core.types.constraint.model CConvert CEqual COverload)))
 
-(defn solve-constraints [constraints]
+(defn solve-constraints
+  "求解约束列表，返回一个从 TVar 到具体类型的替换映射。
+   对等式约束执行统一，对重载约束进行候选消解，
+   最后对替换映射进行规范化（传递性闭合）。"
+  [constraints]
   (let [subst (atom {})]
     (doseq [c constraints]
       (cond
@@ -31,9 +35,12 @@
 
         (instance? CConvert c)
         (swap! subst #(u/unify (:src-ty c) (:dst-ty c) %))))
-    @subst))
+    ;; 规范化：将所有间接引用（TVar -> TVar）解析为最终类型
+    (into {} (map (fn [[k v]] [k (u/substitute v @subst)]) @subst))))
 
-(defn apply-subst [node subst]
+(defn apply-subst
+  "将类型替换应用到 IR2 节点树中，更新所有 :attrs :type 的值。"
+  [node subst]
   (walk/prewalk
     (fn [n]
       (if (satisfies? ir2p/INode n)
@@ -44,7 +51,9 @@
         n))
     node))
 
-(defn process [ir2-roots env]
+(defn process
+  "完整的约束处理流程：生成约束 → 求解 → 应用替换，返回最终的 IR2 根节点序列。"
+  [ir2-roots env]
   (let [{:keys [roots constraints]} (gen/generate-constraints ir2-roots env)
         subst (solve-constraints constraints)]
     (mapv #(apply-subst % subst) roots)))
