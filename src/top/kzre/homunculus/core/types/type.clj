@@ -8,15 +8,17 @@
 ;; ── 类型 kind 查询（基于 IType 协议）──
 
 (defn type-kind
-  "返回类型的 kind 关键字，如 :var, :con, :fun, :app, :container。"
+  "返回类型的 kind 关键字，若 ty 不满足 IType 协议则返回 nil。"
   [ty]
-  (p/type-kind ty))
+  (when (satisfies? p/IType ty)
+    (p/type-kind ty)))
 
 (defn var-type?   [ty] (= :var       (type-kind ty)))
 (defn con-type?   [ty] (= :con       (type-kind ty)))
 (defn fun-type?   [ty] (= :fun       (type-kind ty)))
 (defn app-type?   [ty] (= :app       (type-kind ty)))
 (defn container-type? [ty] (= :container (type-kind ty)))
+(defn scheme-type? [ty] (= :scheme        (type-kind ty)))
 
 (defn type-sym
   "获取 TCon 的类型名称关键字，若非 TCon 返回 nil。"

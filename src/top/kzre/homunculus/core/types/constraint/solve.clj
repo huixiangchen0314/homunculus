@@ -131,33 +131,27 @@
 
 ;; ── 单约束处理 ──────────────────────────
 
-(defn- process-cequal
-  "处理相等约束，返回新的替换映射。
-   若统一失败但双方可隐式转换，则忽略此约束。"
-  [subst conversion-fn {:keys [tvar type]}]
+(defn- process-cequal [subst conversion-fn {:keys [tvar type]}]
   (try
     (u/unify tvar type subst)
-    (catch Exception e
+    (catch Exception _
       (let [t1 (u/substitute tvar subst)
             t2 (u/substitute type subst)]
         (if (and (both-concrete? t1 t2)
                  (try-convert conversion-fn t1 t2))
-          subst   ;; 存在转换，保留原替换
-          (throw e))))))
+          subst
+          subst)))))                                        ;; 统一失败，放弃求解，由check-pass处理
 
-(defn- process-cconvert
-  "处理显式转换约束，返回新的替换映射。
-   若统一失败但双方可隐式转换，则忽略此约束。"
-  [subst conversion-fn {:keys [src-ty dst-ty]}]
+(defn- process-cconvert [subst conversion-fn {:keys [src-ty dst-ty]}]
   (try
     (u/unify src-ty dst-ty subst)
-    (catch Exception e
+    (catch Exception _
       (let [s (u/substitute src-ty subst)
             d (u/substitute dst-ty subst)]
         (if (and (both-concrete? s d)
                  (try-convert conversion-fn s d))
           subst
-          (throw e))))))
+          subst)))))                                        ;; 统一失败，放弃求解，由check-pass 处理
 
 (defn- apply-constraint
   "根据约束类型分派处理，返回更新后的替换映射。"

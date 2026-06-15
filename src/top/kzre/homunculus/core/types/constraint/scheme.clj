@@ -16,6 +16,8 @@
   [x]
   (= :scheme (p/type-kind x)))
 
+
+
 ;; ── 自由类型变量收集 ──
 (defn ftv [ty]
   (case (p/type-kind ty)
