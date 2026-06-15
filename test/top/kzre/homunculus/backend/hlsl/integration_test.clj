@@ -1,5 +1,6 @@
 (ns top.kzre.homunculus.backend.hlsl.integration-test
-  "全管线集成测试：Clojure 形式 → IR1 → IR2 → Passes → HLSL 代码。"
+  "全管线集成测试：Clojure 形式 → IR1 → IR2 → Passes → HLSL 代码。
+   使用新的约束求解系统替换 typed pass。"
   (:require [clojure.test :refer :all]
             [clojure.string :as str]
             [clojure.walk :as walk]
@@ -19,16 +20,17 @@
             [top.kzre.homunculus.core.types.elaborate.protocol :as elab-cfg]
             [top.kzre.homunculus.core.types.mutability.core :as mut]
             [top.kzre.homunculus.core.types.builtin-check.core :as builtin]
-            [top.kzre.homunculus.core.types.infer.core :as infer]
-            [top.kzre.homunculus.core.types.infer.methods]
-            [top.kzre.homunculus.core.types.typed.core :as typed]
-            [top.kzre.homunculus.core.types.typed.methods]
+
+
+            [top.kzre.homunculus.core.types.constraint.solve :as cs]
             [top.kzre.homunculus.core.types.check.core :as check]
             [top.kzre.homunculus.core.types.check.methods]
             [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.backend.hlsl.frontend :as hlsl-front]
             [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
             [top.kzre.homunculus.backend.shader.emit :as emit]
+            [top.kzre.homunculus.core.types.infer.core :as infer]
+            [top.kzre.homunculus.core.types.infer.methods]
             [top.kzre.homunculus.core.types.test-utils :refer :all]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p])
   (:import (top.kzre.homunculus.backend.unity.backend UnityBackend)))
@@ -47,9 +49,7 @@
 
 (def full-builtins (merge {} hlsl-front/builtins))
 
-(defn compile-and-emit
-  "编译 Clojure 形式并生成着色器代码。entries 为入口列表，每项 {:stage :vertex/:fragment, :fn-name \"...\"}"
-  [form entries]
+(defn compile-and-emit [form entries]
   (let [expanded   (walk/macroexpand-all form)
         ir1-root   (ir1/->ir1 expanded)
         ir2-roots  (ir2/lower [ir1-root])
@@ -57,14 +57,19 @@
         elaborated (elaborate/elaborate no-recur elab-config)
         mutable    (mut/analyze elaborated)
         checked-fn (builtin/check mutable full-builtins)
+        ;; 恢复 infer 步骤：只用于传播前端类型标注，不参与最终类型推导
         inferred   (infer/run checked-fn :frontend hlsl-frontend)
-        typed      (typed/type-check inferred :frontend hlsl-frontend :builtins full-builtins)
+        ;; 约束系统作为主类型推导
+        typed      (cs/process inferred
+                               {:frontend hlsl-frontend
+                                :env (merge {} hlsl-front/builtins)})
         checked    (check/check-program typed {:backend mock-backend})]
     (emit/generate checked hlsl-backend-inst entries)))
 
 (defn hlsl-contains? [hlsl substr]
   (str/includes? hlsl substr))
 
+;; ── 以下所有测试不变 ──
 (deftest test-simple-literal
   (testing "数字字面量"
     (let [hlsl (compile-and-emit 42.0 [{:stage :fragment :fn-name "frag"}])]
@@ -156,8 +161,7 @@
                           elaborated (elaborate/elaborate no-recur elab-config)
                           mutable    (mut/analyze elaborated)
                           checked-fn (builtin/check mutable full-builtins)
-                          inferred   (infer/run checked-fn :frontend hlsl-frontend)
-                          typed      (typed/type-check inferred :frontend hlsl-frontend :builtins full-builtins)
+                          typed      (cs/process checked-fn {:frontend hlsl-frontend :env (merge {} hlsl-front/builtins)})
                           checked    (check/check-program typed {:backend mock-backend})]
                       (emit/generate checked unity-backend entries)))
           hlsl (compile 42.0 [{:stage :fragment :fn-name "frag"}])]

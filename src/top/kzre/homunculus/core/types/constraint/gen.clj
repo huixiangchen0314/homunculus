@@ -16,16 +16,14 @@
 (declare cg-node)
 
 (defn generate-constraints
-  "顺序处理 IR2 根节点，动态维护类型环境。
-   输入：ir2-roots（IR2 节点列表），env（初始类型环境 map）
-   输出：{:roots updated-roots :constraints list}"
+  "顺序处理 IR2 根节点，动态维护类型环境。"
   [ir2-roots env]
-  (let [state (atom {:constraints [] :env env})
+  (let [known-types (:known-types env)
+        state (atom {:constraints [] :env (:type-env env)})
         new-roots
         (mapv (fn [root]
-                (let [[tv node constrs] (cg-node root {:env (:env @state)})]
+                (let [[tv node constrs] (cg-node root {:env (:env @state) :known-types known-types :frontend (:frontend env)})]
                   (swap! state update :constraints into (or constrs []))
-                  ;; 如果是 define 节点，将其类型加入环境
                   (when (= (ir2p/kind node) :define)
                     (swap! state update :env e/extend-env (:name node) tv))
                   node))
@@ -36,15 +34,15 @@
           "为单个 IR2 节点生成 [type-var, updated-node, constraints]"
           (fn [node context]
             ;; 短路：如果节点已有具体类型（非 TVar），直接返回
-            (if-let [existing (get-in node [:attrs :type])]
-              (if (and (satisfies? tp/IType existing)
-                       (not (= :var (tp/type-kind existing))))
+            (let [existing (ty/get-type node (:known-types context))]
+              (if (and existing
+                       (satisfies? tp/IType existing)
+                       (not (ty/var-type? existing)))
                 :already-typed
-                (ir2p/kind node))
-              (ir2p/kind node))))
+                (ir2p/kind node)))))
 
 (defmethod cg-node :already-typed [node context]
-  [(get-in node [:attrs :type]) node nil])
+  [(ty/get-type node (:known-types context)) node nil])
 
 ;; ── 字面量 ──
 (defmethod cg-node :literal [node context]
@@ -52,21 +50,23 @@
         ty (when frontend (tp/literal->type frontend (:val node)))
         tv (or ty (fresh-tvar))
         constraint (when ty (list (cm/->CEqual tv ty)))
-        new-node (assoc-in node [:attrs :type] tv)]
+        new-node (ty/set-type! node tv)]
     [tv new-node constraint]))
 
 ;; ── 变量 ──
 (defmethod cg-node :variable [node context]
   (let [env (:env context)
         name (:name node)
-        binding (or (e/lookup-env env name) (e/lookup-env env (symbol name)))]
+        binding (or (e/lookup-env env name) (e/lookup-env env (symbol name)))
+        frontend (:frontend context)]
     (if binding
-      (let [ty (if (scheme/tscheme? binding)
-                 (scheme/instantiate binding)
-                 binding)]
-        [ty (assoc-in node [:attrs :type] ty) nil])
-      (let [tv (fresh-tvar)]
-        [tv (assoc-in node [:attrs :type] tv) nil]))))
+      (let [ty (if (scheme/tscheme? binding) (scheme/instantiate binding) binding)]
+        [ty (ty/set-type! node ty) nil])
+      ;; 如果前端能从元数据提取类型（如 ^:float4），使用它
+      (if-let [meta-ty (and frontend (tp/meta->type frontend node))]
+        [meta-ty (ty/set-type! node meta-ty) nil]
+        (let [tv (fresh-tvar)]
+          [tv (ty/set-type! node tv) nil])))))
 
 ;; ── 调用（核心）──
 (defmethod cg-node :call [node context]
@@ -86,18 +86,18 @@
              (not (scheme/tscheme? (first candidates))))
       ;; 候选列表 → 重载约束
       [ret-tv
-       (assoc-in node [:attrs :type] ret-tv)
+       (ty/set-type! node ret-tv)
        (concat (list (cm/->COverload candidates arg-tys ret-tv node))
                fn-constraints arg-constraints)]
       ;; 单一类型 → 等式约束
-      (let [desired (reduce (fn [ret arg] (t/->TFun arg ret)) ret-tv (reverse arg-tys))]
+      (let [desired (reduce (fn [ret arg] (t/->TFun arg ret)) ret-tv (reverse arg-tys))
+            new-node (m/->CallNode fn-node (vec arg-nodes) (:attrs node) (:meta node) (:parent node))]
         [ret-tv
-         (assoc-in (m/->CallNode fn-node (vec arg-nodes) (:attrs node) (:meta node) (:parent node))
-                   [:attrs :type] ret-tv)
+         (ty/set-type! new-node ret-tv)
          (concat (list (cm/->CEqual fn-tv desired))
                  fn-constraints arg-constraints)]))))
 
-;; let 绑定
+;; ── let 绑定 ──
 (defmethod cg-node :let [node context]
   (let [bindings (:bindings node)
         [bind-nodes new-env bind-constraints]
@@ -105,7 +105,7 @@
           (fn [[bnds env constrs] [var val]]
             (let [[val-tv val-node val-constr] (cg-node val (assoc context :env env))
                   var-name (:name var)
-                  var-node (assoc-in var [:attrs :type] val-tv)]
+                  var-node (ty/set-type! var val-tv)]
               [(conj bnds [var-node val-node])
                (e/extend-env env var-name val-tv)
                (concat constrs val-constr)]))
@@ -113,11 +113,11 @@
           bindings)
         [body-tv body-node body-constraints] (cg-node (:body node) (assoc context :env new-env))]
     [body-tv
-     (assoc-in (m/->LetNode (vec bind-nodes) body-node (:attrs node) (:meta node) (:parent node))
-               [:attrs :type] body-tv)
+     (ty/set-type! (m/->LetNode (vec bind-nodes) body-node (:attrs node) (:meta node) (:parent node))
+                   body-tv)
      (concat bind-constraints body-constraints)]))
 
-;; loop 同理
+;; ── loop ──
 (defmethod cg-node :loop [node context]
   (let [bindings (:bindings node)
         [bind-nodes new-env bind-constraints]
@@ -125,7 +125,7 @@
           (fn [[bnds env constrs] [var val]]
             (let [[val-tv val-node val-constr] (cg-node val (assoc context :env env))
                   var-name (:name var)
-                  var-node (assoc-in var [:attrs :type] val-tv)]
+                  var-node (ty/set-type! var val-tv)]
               [(conj bnds [var-node val-node])
                (e/extend-env env var-name val-tv)
                (concat constrs val-constr)]))
@@ -135,10 +135,10 @@
         env-loop (assoc new-env :ir2/loop-vars loop-var-names)
         [body-tv body-node body-constr] (cg-node (:body node) (assoc context :env env-loop))
         new-node (m/->LoopNode (vec bind-nodes) body-node (:attrs node) (:meta node) (:parent node))]
-    [body-tv (assoc-in new-node [:attrs :type] body-tv)
+    [body-tv (ty/set-type! new-node body-tv)
      (concat bind-constraints body-constr)]))
 
-;; ── block（确保最后表达式的类型正确传递）──
+;; ── block ──
 (defmethod cg-node :block [node context]
   (let [exprs (:exprs node)
         results (map #(cg-node % context) exprs)
@@ -147,7 +147,7 @@
         constrs (mapcat #(nth % 2) results)
         last-tv (if (seq types) (last types) (t/->TCon :nil))
         new-node (m/->BlockNode new-exprs (:attrs node) (:meta node) (:parent node))]
-    [last-tv (assoc-in new-node [:attrs :type] last-tv) constrs]))
+    [last-tv (ty/set-type! new-node last-tv) constrs]))
 
 ;; ── if ──
 (defmethod cg-node :if [node context]
@@ -162,9 +162,8 @@
                     [(cm/->CEqual then-tv tv) (cm/->CEqual else-tv tv)]
                     [(cm/->CEqual then-tv tv)])
         new-node (m/->IfNode test-node then-node else-node (:attrs node) (:meta node) (:parent node))]
-    [tv (assoc-in new-node [:attrs :type] tv)
+    [tv (ty/set-type! new-node tv)
      (concat test-constr then-constr else-constr test-eq branch-eq)]))
-
 
 ;; ── assign ──
 (defmethod cg-node :assign [node context]
@@ -172,7 +171,7 @@
         [val-tv val-node val-constr] (cg-node (:val node) context)
         tv (t/->TCon :nil)
         new-node (m/->AssignNode var-node val-node (:attrs node) (:meta node) (:parent node))]
-    [tv (assoc-in new-node [:attrs :type] tv)
+    [tv (ty/set-type! new-node tv)
      (concat var-constr val-constr (list (cm/->CEqual var-tv val-tv)))]))
 
 ;; ── while ──
@@ -182,30 +181,30 @@
         tv (t/->TCon :nil)
         test-eq (list (cm/->CEqual test-tv (t/->TCon :bool)))
         new-node (m/->WhileNode test-node body-node (:attrs node) (:meta node) (:parent node))]
-    [tv (assoc-in new-node [:attrs :type] tv)
+    [tv (ty/set-type! new-node tv)
      (concat test-constr body-constr test-eq)]))
 
 ;; ── define ──
 (defmethod cg-node :define [node context]
   (let [[val-tv val-node val-constr] (cg-node (:val node) context)
         new-node (m/->DefineNode (:name node) val-node (:doc node) (:attrs node) (:meta node) (:parent node))]
-    [val-tv (assoc-in new-node [:attrs :type] val-tv) val-constr]))
+    [val-tv (ty/set-type! new-node val-tv) val-constr]))
 
 ;; ── lambda ──
 (defmethod cg-node :lambda [node context]
   (let [params (:params node)
         env (:env context)
-        param-tys (mapv (fn [p] (or (get-in p [:attrs :type]) (fresh-tvar))) params)
+        param-tys (mapv (fn [p] (or (ty/get-type p (:known-types context)) (fresh-tvar))) params)
         param-names (map :name params)
         new-env (reduce (fn [env [name ty]] (e/extend-env env name ty))
                         env
                         (map vector param-names param-tys))
         [body-tv body-node body-constr] (cg-node (:body node) (assoc context :env new-env))
         fn-ty (reduce (fn [ret arg] (t/->TFun arg ret)) body-tv (reverse param-tys))
-        param-nodes (mapv (fn [p ty] (assoc-in p [:attrs :type] ty)) params param-tys)
+        param-nodes (mapv (fn [p ty] (ty/set-type! p ty)) params param-tys)
         new-node (m/->LambdaNode param-nodes body-node (:captures node) (:fn-name node)
                                  (:attrs node) (:meta node) (:parent node))]
-    [fn-ty (assoc-in new-node [:attrs :type] fn-ty) body-constr]))
+    [fn-ty (ty/set-type! new-node fn-ty) body-constr]))
 
 ;; ── recur ──
 (defmethod cg-node :recur [node context]
@@ -225,7 +224,7 @@
                         arg-tys loop-var-names)
           tv (t/->TCon :nil)
           new-node (m/->RecurNode (vec arg-nodes) (:attrs node) (:meta node) (:parent node))]
-      [tv (assoc-in new-node [:attrs :type] tv)
+      [tv (ty/set-type! new-node tv)
        (concat arg-constraints loop-eqs)])))
 
 ;; ── vector ──
@@ -239,14 +238,19 @@
         shape (if (every? #(= :literal (ir2p/kind %)) item-nodes)
                 (t/->FixedLength (count items))
                 (t/->VariableLength))
-        ty (t/->TContainer :vector elem-ty shape)
+        ty-container (t/->TContainer :vector elem-ty shape)
         new-node (m/->VectorNode (vec item-nodes) (:attrs node) (:meta node) (:parent node))]
-    [ty (assoc-in new-node [:attrs :type] ty) constrs]))
+    [ty-container (ty/set-type! new-node ty-container) constrs]))
 
-;; ── map ── (暂时跳过)
+;; ── map ── (保留原有具体类型，若无则分配 TVar)
 (defmethod cg-node :map [node context]
-  (let [tv (fresh-tvar)]
-    [tv (assoc-in node [:attrs :type] tv) nil]))
+  (if-let [existing (ty/get-type node (:known-types context))]
+    (if (ty/var-type? existing)
+      (let [tv (fresh-tvar)]
+        [tv (ty/set-type! node tv) nil])
+      [existing node nil])
+    (let [tv (fresh-tvar)]
+      [tv (ty/set-type! node tv) nil])))
 
 ;; ── try / catch / throw ──
 (defmethod cg-node :try [node context] [(t/->TCon :nil) node nil])
@@ -256,4 +260,4 @@
 ;; ── 默认 ──
 (defmethod cg-node :default [node context]
   (let [tv (fresh-tvar)]
-    [tv (assoc-in node [:attrs :type] tv) nil]))
+    [tv (ty/set-type! node tv) nil]))
