@@ -13,20 +13,35 @@
 (defmethod check-node :variable [node _] node)
 
 ;; ── 调用 ──
+;(defmethod check-node :call [node builtins]
+;  (let [fn-node (:fn node)
+;        new-fn (check-node fn-node builtins)
+;        new-args (mapv #(check-node % builtins) (:args node))]
+;    ;; 仅当被调用函数为变量时才进行内建检查
+;    (when (and (= (ir2p/kind new-fn) :variable)
+;               (not (contains? builtins (symbol (:name new-fn)))))
+;      (throw (ex-info (str "Undefined function: " (:name new-fn))
+;                      {:fn-name (:name new-fn) :node node})))
+;    (if (and (= (ir2p/kind new-fn) :variable)
+;             (contains? builtins (symbol (:name new-fn))))
+;      (m/->CallNode new-fn new-args
+;                    (assoc (:attrs node) :builtin-fn (get builtins (symbol (:name new-fn))))
+;                    (:meta node) (:parent node))
+;      (m/->CallNode new-fn new-args (:attrs node) (:meta node) (:parent node)))))
+
+;; core/types/builtin_check/core.clj
 (defmethod check-node :call [node builtins]
   (let [fn-node (:fn node)
         new-fn (check-node fn-node builtins)
         new-args (mapv #(check-node % builtins) (:args node))]
-    ;; 仅当被调用函数为变量时才进行内建检查
-    (when (and (= (ir2p/kind new-fn) :variable)
-               (not (contains? builtins (symbol (:name new-fn)))))
-      (throw (ex-info (str "Undefined function: " (:name new-fn))
-                      {:fn-name (:name new-fn) :node node})))
+    ;; 仅当被调用函数为变量且不在内建表中时，不添加内建属性，也不报错
     (if (and (= (ir2p/kind new-fn) :variable)
              (contains? builtins (symbol (:name new-fn))))
+      ;; 内置函数：添加 :builtin-fn 属性
       (m/->CallNode new-fn new-args
                     (assoc (:attrs node) :builtin-fn (get builtins (symbol (:name new-fn))))
                     (:meta node) (:parent node))
+      ;; 非内置函数：原样返回，不添加属性
       (m/->CallNode new-fn new-args (:attrs node) (:meta node) (:parent node)))))
 
 ;; ── 复合节点递归 ──

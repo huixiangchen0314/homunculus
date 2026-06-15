@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.backend.hlsl.constraint-test
   "HLSL 后端集成测试：使用新的约束系统替换 typed pass。
-   目前支持基本表达式、函数定义、let、if、向量、泛型实例化。
+   目前支持基本表达式、函数定义、let、if、向量、泛型实例化、重载消解。
    while 循环和复杂 let 仍待完善。"
   (:require [clojure.string :as str]
             [clojure.test :refer :all]
@@ -38,34 +38,39 @@
         checked    (check/check-program typed {:backend (hlsl-backend/->HLSLBackend)})]
     (emit/generate checked (hlsl-backend/->HLSLBackend) entries)))
 
+;; ── 1. 简单字面量 ──
 (deftest test-simple-literal-cs
   (let [hlsl (compile-and-emit-cs 42.0 [{:stage :fragment :fn-name "frag"}])]
     (is (str/includes? hlsl "return 42.0;"))
     (is (str/includes? hlsl "float4 main() : SV_TARGET { return frag(); }"))))
 
+;; ── 2. 内置函数调用 ──
 (deftest test-builtin-call-cs
   (let [hlsl (compile-and-emit-cs '(+ 1.0 2.0) [{:stage :fragment :fn-name "frag"}])]
     (is (str/includes? hlsl "1.0 + 2.0"))
     (is (str/includes? hlsl "return"))))
 
+;; ── 3. let 绑定 ──
 (deftest test-let-binding-cs
   (let [hlsl (compile-and-emit-cs '(let* [x 42.0] x) [{:stage :fragment :fn-name "frag"}])]
     (is (str/includes? hlsl "const float x = 42.0"))
     (is (str/includes? hlsl "return x;"))))
 
+;; ── 4. if 语句 ──
 (deftest test-if-statement-cs
   (let [hlsl (compile-and-emit-cs '(if true 1.0 0.0) [{:stage :fragment :fn-name "frag"}])]
     (is (str/includes? hlsl "if (true)"))
     (is (str/includes? hlsl "return 1.0"))
     (is (str/includes? hlsl "else"))))
 
+;; ── 5. 泛型函数：abs 在向量上 ──
 (deftest test-abs-float2-cs
   (let [hlsl (compile-and-emit-cs '(abs (float2 -1.0 2.0))
                                   [{:stage :fragment :fn-name "frag"}])]
     (is (str/includes? hlsl "abs(float2(-1.0, 2.0))"))
     (is (str/includes? hlsl "return"))))
 
-;; ── 8. 函数定义与调用 ──
+;; ── 6. 函数定义与调用（顺序环境）──
 (deftest test-function-def-and-call-cs
   (let [hlsl (compile-and-emit-cs
                '(do
@@ -73,9 +78,36 @@
                   (double 3.0))
                [{:stage :fragment :fn-name "frag"}])]
     (is (str/includes? hlsl "float double(float x)"))
-    (is (str/includes? hlsl "return x + x;"))))
+    (is (str/includes? hlsl "return x + x;"))
+    (is (str/includes? hlsl "double(3.0)"))))
 
-;; ── 9. while 循环（暂时跳过）──
+;; ── 7. 向量构造 ──
+(deftest test-vector-float4-cs
+  (let [hlsl (compile-and-emit-cs '(float4 1.0 2.0 3.0 4.0)
+                                  [{:stage :fragment :fn-name "frag"}])]
+    (is (str/includes? hlsl "float4(1.0, 2.0, 3.0, 4.0)"))
+    (is (str/includes? hlsl "return"))))
+
+;; ── 8. 重载调用：float3 构造器（候选列表）──
+(deftest test-overload-float3-cs
+  (let [hlsl (compile-and-emit-cs '(float3 (float2 1.0 2.0) 3.0)
+                                  [{:stage :fragment :fn-name "frag"}])]
+    (is (str/includes? hlsl "float3(float2(1.0, 2.0), 3.0)"))
+    (is (str/includes? hlsl "return"))))
+
+;; ── 9. 用户函数调用（需 builtin-check 放宽）──
+
+(deftest test-user-function-call-cs
+  (let [hlsl (compile-and-emit-cs
+               '(do
+                  (def square (fn* [^:float x] (* x x)))
+                  (square 3.0))
+               [{:stage :fragment :fn-name "frag"}])]
+    (is (str/includes? hlsl "float square(float x)"))
+    (is (str/includes? hlsl "return x * x;"))      ;; 不带括号
+    (is (str/includes? hlsl "square(3.0)"))))
+
+;; ── 10. while 循环（暂时跳过）──
 #_(deftest test-while-loop-cs
     (let [hlsl (compile-and-emit-cs
                  '(loop* [i 0.0] (if (< i 10.0) (recur (+ i 1.0)) i))
@@ -84,14 +116,7 @@
       (is (str/includes? hlsl "i = "))
       (is (str/includes? hlsl "return i;"))))
 
-;; ── 10. vector 构造 ──
-(deftest test-vector-float4-cs
-  (let [hlsl (compile-and-emit-cs '(float4 1.0 2.0 3.0 4.0)
-                                  [{:stage :fragment :fn-name "frag"}])]
-    (is (str/includes? hlsl "float4(1.0, 2.0, 3.0, 4.0)"))
-    (is (str/includes? hlsl "return"))))
-
-;; ── 11. 复杂 let（暂时跳过）──
+;; ── 11. 复杂 let：泛型 + 内置调用（暂时跳过）──
 #_(deftest test-let-generic-builtin-cs
     (let [hlsl (compile-and-emit-cs
                  '(let* [x (float2 1.0 2.0)

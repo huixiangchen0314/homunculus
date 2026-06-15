@@ -67,7 +67,9 @@
      'faceforward (utils/generic-ternary)  ;; n, i, ng
      ;; 向量/矩阵构造
      'float2 (utils/vector-ctor (t/->TCon :float2) 2)
-     'float3 (utils/vector-ctor (t/->TCon :float3) 3)
+     'float3 [(utils/vector-ctor (t/->TCon :float3) 3)
+              (utils/fn-> (t/->TCon :float2) (t/->TCon :float) (t/->TCon :float3))
+              (utils/fn-> (t/->TCon :float) (t/->TCon :float2) (t/->TCon :float3))]
      'float4 (utils/vector-ctor (t/->TCon :float4) 4)
      'float4x4 (utils/vector-ctor (t/->TCon :float4x4) 16)
      ;; 类型转换
@@ -124,6 +126,7 @@
      'sample-cmp   (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float2) (t/->TCon :float) (t/->TCon :float))
      'sample-cmp-level-zero (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float2) (t/->TCon :float) (t/->TCon :float))
      'gather        (utils/fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float2) (t/->TCon :float4))
+
 
      ;; 其他
      'cbuffer (utils/fn-> (t/->TCon :int) (t/->TVar (gensym "m")) (t/->TCon :cbuffer))
