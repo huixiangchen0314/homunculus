@@ -1,8 +1,8 @@
 (ns top.kzre.homunculus.core.types.recur-elim.methods.assign
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.recur-elim.core :refer :all]))
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.recur-elim.core :as rec]))
 
-(defmethod eliminate :assign [node]
-  (m/->AssignNode (eliminate (:var node))
-                  (eliminate (:val node))
-                  (:attrs node) (:meta node) (:parent node)))
+(defmethod rec/eliminate :assign [node]
+  (n/make-assign (rec/eliminate (n/assign-var node))
+                 (rec/eliminate (n/assign-val node))
+                 (n/attrs node) (n/node-meta node) (n/parent node)))

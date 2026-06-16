@@ -1,8 +1,8 @@
 (ns top.kzre.homunculus.core.types.recur-elim.methods.let
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.recur-elim.core :refer :all]))
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.recur-elim.core :as rec]))
 
-(defmethod eliminate :let [node]
-  (m/->LetNode (mapv (fn [[v e]] [(eliminate v) (eliminate e)]) (:bindings node))
-               (eliminate (:body node))
-               (:attrs node) (:meta node) (:parent node)))
+(defmethod rec/eliminate :let [node]
+  (n/make-let (mapv (fn [[v e]] [(rec/eliminate v) (rec/eliminate e)]) (n/let-bindings node))
+              (rec/eliminate (n/let-body node))
+              (n/attrs node) (n/node-meta node) (n/parent node)))

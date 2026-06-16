@@ -1,5 +1,5 @@
 (ns top.kzre.homunculus.core.types.recur-elim.api
-  (:require [top.kzre.homunculus.core.types.recur-elim.core]
+  (:require [top.kzre.homunculus.core.types.recur-elim.core :as core]
             [top.kzre.homunculus.core.types.recur-elim.methods.loop]
             [top.kzre.homunculus.core.types.recur-elim.methods.let]
             [top.kzre.homunculus.core.types.recur-elim.methods.lambda]
@@ -16,6 +16,12 @@
             [top.kzre.homunculus.core.types.recur-elim.methods.define]
             [top.kzre.homunculus.core.types.recur-elim.methods.literal]
             [top.kzre.homunculus.core.types.recur-elim.methods.variable]
+            [top.kzre.homunculus.core.types.recur-elim.methods.convert]
             [top.kzre.homunculus.core.types.recur-elim.methods.recur]
+            [top.kzre.homunculus.core.types.recur-elim.methods.protocol]
+            [top.kzre.homunculus.core.types.recur-elim.methods.record]
+            [top.kzre.homunculus.core.types.recur-elim.methods.ns]
+            [top.kzre.homunculus.core.types.recur-elim.methods.member-access]
             [top.kzre.homunculus.core.types.recur-elim.methods.default]))
 
+(def eliminate core/eliminate)

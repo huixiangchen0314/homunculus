@@ -1,24 +1,21 @@
 (ns top.kzre.homunculus.backend.hlsl.config
   "HLSL 后端的 ICompiler 实现，复用现有 Pass 管线。"
   (:require
-   [top.kzre.homunculus.backend.hlsl.frontend :as hlsl-front]
-   [top.kzre.homunculus.backend.shader.emit :as emit]
-   [top.kzre.homunculus.backend.shader.api :as shader]
-   [top.kzre.homunculus.core.ir1.api :as ir1]
-   [top.kzre.homunculus.core.ir2.api :as ir2]
-   [top.kzre.homunculus.core.types.builtin-check.core :as builtin]
-   [top.kzre.homunculus.core.types.check.api :as check]
-   [top.kzre.homunculus.core.types.elaborate.core :as elaborate]
-   [top.kzre.homunculus.core.types.elaborate.protocol :as cfg]
-   [top.kzre.homunculus.core.types.elaborate.api]
-   [top.kzre.homunculus.core.types.infer.api :as infer]
-   [top.kzre.homunculus.core.types.module.api :as module]
-   [top.kzre.homunculus.core.types.mutability.core :as mut]
-   [top.kzre.homunculus.core.types.recur-elim.core :as recur-elim]
-   [top.kzre.homunculus.core.types.recur-elim.api]
-   [top.kzre.homunculus.core.types.constraint.api :as solve]
-   [top.kzre.homunculus.internal.protocol :as p]
-   [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]))
+    [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
+    [top.kzre.homunculus.backend.hlsl.frontend :as hlsl-front]
+    [top.kzre.homunculus.backend.shader.api :as shader]
+    [top.kzre.homunculus.core.ir1.api :as ir1]
+    [top.kzre.homunculus.core.ir2.api :as ir2]
+    [top.kzre.homunculus.core.types.check.api :as check]
+    [top.kzre.homunculus.core.types.constraint.api :as solve]
+    [top.kzre.homunculus.core.types.elaborate.api]
+    [top.kzre.homunculus.core.types.elaborate.core :as elaborate]
+    [top.kzre.homunculus.core.types.elaborate.protocol :as cfg]
+    [top.kzre.homunculus.core.types.infer.api :as infer]
+    [top.kzre.homunculus.core.types.module.api :as module]
+    [top.kzre.homunculus.core.types.mutability.core :as mut]
+    [top.kzre.homunculus.core.types.recur-elim.api :as recur]
+    [top.kzre.homunculus.internal.protocol :as p]))
 
 (defn- default-elab-config []
   (reify cfg/IElaborateConfig
@@ -39,7 +36,7 @@
           ;; 执行 namespace-pass 处理 ns 声明
           ir2-roots' (module/resolve-ns ir2-roots context)
           _         (module/collect-symbols ir2-roots' context) ;; 收集符号表.
-          no-recur   (mapv recur-elim/eliminate ir2-roots') ;; 递归消除
+          no-recur   (mapv recur/eliminate ir2-roots') ;; 递归消除
           elaborated (elaborate/elaborate no-recur elab-config) ;; 闭包消除
           mutable    (mut/analyze elaborated)               ;; 可变性分析. 用于生成 const 修饰
           inferred   (infer/infer mutable (infer/make-context frontend)) ;; 局部推断

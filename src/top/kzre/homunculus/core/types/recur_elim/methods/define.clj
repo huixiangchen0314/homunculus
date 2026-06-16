@@ -1,8 +1,9 @@
 (ns top.kzre.homunculus.core.types.recur-elim.methods.define
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.recur-elim.core :refer :all]))
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.recur-elim.core :as rec]))
 
-(defmethod eliminate :define [node]
-  (m/->DefineNode (:name node)
-                  (eliminate (:val node))
-                  (:doc node) (:attrs node) (:meta node) (:parent node)))
+(defmethod rec/eliminate :define [node]
+  (n/make-define (n/define-name node)
+                 (rec/eliminate (n/define-val node))
+                 (n/define-doc node)
+                 (n/attrs node) (n/node-meta node) (n/parent node)))

@@ -1,9 +1,10 @@
 (ns top.kzre.homunculus.core.types.recur-elim.methods.if
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.recur-elim.core :refer :all]))
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.recur-elim.core :as rec]))
 
-(defmethod eliminate :if [node]
-  (m/->IfNode (eliminate (:test node))
-              (eliminate (:then node))
-              (when (:else node) (eliminate (:else node)))
-              (:attrs node) (:meta node) (:parent node)))
+(defmethod rec/eliminate :if [node]
+  (n/make-if (rec/eliminate (n/if-test node))
+             (rec/eliminate (n/if-then node))
+             (when-let [else (n/if-else node)]
+               (rec/eliminate else))
+             (n/attrs node) (n/node-meta node) (n/parent node)))

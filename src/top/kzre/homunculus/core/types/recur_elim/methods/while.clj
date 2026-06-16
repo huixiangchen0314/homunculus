@@ -1,9 +1,8 @@
-;; recur_elim/methods/while.clj
 (ns top.kzre.homunculus.core.types.recur-elim.methods.while
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.recur-elim.core :refer :all]))
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.recur-elim.core :as rec]))
 
-(defmethod eliminate :while [node]
-  (m/->WhileNode (eliminate (:test node))
-                 (eliminate (:body node))
-                 (:attrs node) (:meta node) (:parent node)))
+(defmethod rec/eliminate :while [node]
+  (n/make-while (rec/eliminate (n/while-test node))
+                (rec/eliminate (n/while-body node))
+                (n/attrs node) (n/node-meta node) (n/parent node)))

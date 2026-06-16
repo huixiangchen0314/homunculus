@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.recur-elim.methods.vector
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.recur-elim.core :refer :all]))
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.recur-elim.core :as rec]))
 
-(defmethod eliminate :vector [node]
-  (m/->VectorNode (mapv eliminate (:items node))
-                  (:attrs node) (:meta node) (:parent node)))
+(defmethod rec/eliminate :vector [node]
+  (n/make-vector (mapv rec/eliminate (n/vector-items node))
+                 (n/attrs node) (n/node-meta node) (n/parent node)))
