@@ -1,9 +1,10 @@
-(ns top.kzre.homunculus.core.types.inline-lift.methods.lambda
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.inline-lift.core :refer :all]))
+(ns top.kzre.homunculus.core.types.lambda-inline.methods.lambda
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.lambda-inline.core :as inline]))
 
-(defmethod walk :lambda [node config lifted]
-  (m/->LambdaNode (mapv #(walk % config lifted) (:params node))
-                  (walk (:body node) config lifted)
-                  (:captures node) (:fn-name node)
-                  (:attrs node) (:meta node) (:parent node)))
+(defmethod inline/eliminate-inline :lambda [node config]
+  (n/make-lambda (mapv #(inline/eliminate-inline % config) (n/lambda-params node))
+                 (inline/eliminate-inline (n/lambda-body node) config)
+                 (n/lambda-captures node)
+                 (n/lambda-fn-name node)
+                 (n/attrs node) (n/node-meta node) (n/parent node)))

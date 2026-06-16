@@ -7,14 +7,13 @@
     [clojure.walk :as walk]
     [top.kzre.homunculus.core.ir2.protocol :as ir2p]
     [top.kzre.homunculus.core.types.constraint.gen :as gen]
-    [top.kzre.homunculus.core.types.constraint.model :as cm]
+    [top.kzre.homunculus.core.types.constraint.constraint :as c]
     [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
     [top.kzre.homunculus.core.types.constraint.unify :as u]
-    [top.kzre.homunculus.core.types.model :as t]
     [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.core.types.type :as ty])
   (:import
-    (top.kzre.homunculus.core.types.constraint.model CConvert CEqual COverload)))
+    (top.kzre.homunculus.core.types.constraint.model CEqual COverload CConvert)))
 
 ;; ── 辅助谓词 ──────────────────────────────
 
@@ -57,11 +56,12 @@
 (defn- extract-arg-ret
   "从函数类型展开参数类型列表和最终返回类型。"
   [fun-ty]
-  [(take-while some? (map :arg (iterate :ret fun-ty)))
-   (loop [cur fun-ty]
-     (if (ty/fun-type? cur)
-       (recur (:ret cur))
-       cur))])
+  (let [args (take-while some? (map ty/fun-arg (iterate ty/fun-ret fun-ty)))
+        ret  (loop [cur fun-ty]
+               (if (ty/fun-type? cur)
+                 (recur (ty/fun-ret cur))
+                 cur))]
+    [args ret]))
 
 (defn- candidate-matches-args?
   "检查所有参数位置是否相等或可隐式转换。"
@@ -88,7 +88,7 @@
   (let [cand (instantiate-candidate cand subst)]
     ;; 1. 严格统一
     (try
-      (let [desired' (reduce (fn [ret arg] (t/->TFun arg ret)) ret-tvar' (reverse arg-tys'))
+      (let [desired' (reduce (fn [ret arg] (ty/make-tfun arg ret)) ret-tvar' (reverse arg-tys'))
             new-subst (u/unify cand desired' subst)]
         [new-subst cand])
       (catch Exception _
@@ -108,11 +108,15 @@
 (defn- resolve-overload
   "处理重载约束，返回新的替换。
    若失败抛出异常，若歧义抛出异常。"
-  [subst conversion-fn {:keys [fn-ty-list arg-tys ret-tvar node]}]
-  (let [arg-tys' (mapv #(u/substitute % subst) arg-tys)
-        ret-tvar' (u/substitute ret-tvar subst)
-        successes (keep #(try-match-overload-candidate subst conversion-fn % arg-tys' ret-tvar')
-                        fn-ty-list)]
+  [subst conversion-fn overload]
+  (let [arg-tys   (c/coverload-arg-tys overload)
+        ret-tvar   (c/coverload-ret-tvar overload)
+        fn-ty-list (c/coverload-fn-ty-list overload)
+        node       (c/coverload-node overload)
+        arg-tys'   (mapv #(u/substitute % subst) arg-tys)
+        ret-tvar'  (u/substitute ret-tvar subst)
+        successes  (keep #(try-match-overload-candidate subst conversion-fn % arg-tys' ret-tvar')
+                         fn-ty-list)]
     (cond
       (empty? successes)
       (throw (ex-info "No matching overload"
@@ -131,27 +135,31 @@
 
 ;; ── 单约束处理 ──────────────────────────
 
-(defn- process-cequal [subst conversion-fn {:keys [tvar type]}]
-  (try
-    (u/unify tvar type subst)
-    (catch Exception _
-      (let [t1 (u/substitute tvar subst)
-            t2 (u/substitute type subst)]
-        (if (and (both-concrete? t1 t2)
-                 (try-convert conversion-fn t1 t2))
-          subst
-          subst)))))                                        ;; 统一失败，放弃求解，由check-pass处理
+(defn- process-cequal [subst conversion-fn cequal]
+  (let [tvar (c/cequal-tvar cequal)
+        type (c/cequal-type cequal)]
+    (try
+      (u/unify tvar type subst)
+      (catch Exception _
+        (let [t1 (u/substitute tvar subst)
+              t2 (u/substitute type subst)]
+          (if (and (both-concrete? t1 t2)
+                   (try-convert conversion-fn t1 t2))
+            subst
+            subst))))))   ;; 统一失败，放弃求解，由 check-pass 处理
 
-(defn- process-cconvert [subst conversion-fn {:keys [src-ty dst-ty]}]
-  (try
-    (u/unify src-ty dst-ty subst)
-    (catch Exception _
-      (let [s (u/substitute src-ty subst)
-            d (u/substitute dst-ty subst)]
-        (if (and (both-concrete? s d)
-                 (try-convert conversion-fn s d))
-          subst
-          subst)))))                                        ;; 统一失败，放弃求解，由check-pass 处理
+(defn- process-cconvert [subst conversion-fn cconvert]
+  (let [src-ty (c/cconvert-src-ty cconvert)
+        dst-ty (c/cconvert-dst-ty cconvert)]
+    (try
+      (u/unify src-ty dst-ty subst)
+      (catch Exception _
+        (let [s (u/substitute src-ty subst)
+              d (u/substitute dst-ty subst)]
+          (if (and (both-concrete? s d)
+                   (try-convert conversion-fn s d))
+            subst
+            subst))))))   ;; 统一失败，放弃求解，由 check-pass 处理
 
 (defn- apply-constraint
   "根据约束类型分派处理，返回更新后的替换映射。"

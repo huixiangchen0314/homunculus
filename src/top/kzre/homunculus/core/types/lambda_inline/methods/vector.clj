@@ -1,7 +1,7 @@
-(ns top.kzre.homunculus.core.types.inline-lift.methods.vector
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.inline-lift.core :refer :all]))
+(ns top.kzre.homunculus.core.types.lambda-inline.methods.vector
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.lambda-inline.core :as inline]))
 
-(defmethod walk :vector [node config lifted]
-  (m/->VectorNode (mapv #(walk % config lifted) (:items node))
-                  (:attrs node) (:meta node) (:parent node)))
+(defmethod inline/eliminate-inline :vector [node config]
+  (n/make-vector (mapv #(inline/eliminate-inline % config) (n/vector-items node))
+                 (n/attrs node) (n/node-meta node) (n/parent node)))

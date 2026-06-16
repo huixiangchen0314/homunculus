@@ -1,8 +1,9 @@
-(ns top.kzre.homunculus.core.types.inline-lift.methods.catch
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.inline-lift.core :refer :all]))
+(ns top.kzre.homunculus.core.types.lambda-inline.methods.catch
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.lambda-inline.core :as inline]))
 
-(defmethod walk :catch [node config lifted]
-  (m/->CatchNode (:class node) (:sym node)
-                 (mapv #(walk % config lifted) (:body node))
-                 (:attrs node) (:meta node) (:parent node)))
+(defmethod inline/eliminate-inline :catch [node config]
+  (n/make-catch (inline/eliminate-inline (n/catch-class node) config)
+                (inline/eliminate-inline (n/catch-sym node) config)
+                (mapv #(inline/eliminate-inline % config) (n/catch-body node))
+                (n/attrs node) (n/node-meta node) (n/parent node)))

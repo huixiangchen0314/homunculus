@@ -1,8 +1,8 @@
-(ns top.kzre.homunculus.core.types.inline-lift.methods.assign
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.inline-lift.core :refer :all]))
+(ns top.kzre.homunculus.core.types.lambda-inline.methods.assign
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.lambda-inline.core :as inline]))
 
-(defmethod walk :assign [node config lifted]
-  (m/->AssignNode (walk (:var node) config lifted)
-                  (walk (:val node) config lifted)
-                  (:attrs node) (:meta node) (:parent node)))
+(defmethod inline/eliminate-inline :assign [node config]
+  (n/make-assign (inline/eliminate-inline (n/assign-var node) config)
+                 (inline/eliminate-inline (n/assign-val node) config)
+                 (n/attrs node) (n/node-meta node) (n/parent node)))

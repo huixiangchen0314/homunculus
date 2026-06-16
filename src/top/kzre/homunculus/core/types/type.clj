@@ -20,6 +20,10 @@
 (defn container-type? [ty] (= :container (type-kind ty)))
 (defn scheme-type? [ty] (= :scheme        (type-kind ty)))
 
+;; 新增谓词
+(defn hetero-vec? [ty] (= :hetero-vec (type-kind ty)))
+(defn hetero-map? [ty] (= :hetero-map (type-kind ty)))
+
 (defn type-sym
   "获取 TCon 的类型名称关键字，若非 TCon 返回 nil。"
   [ty]
@@ -70,7 +74,35 @@
 (defn map-shape?        [shape] (= :map      (shape-kind shape)))
 (defn set-shape?        [shape] (= :set      (shape-kind shape)))
 
-;;;
+;; ── 类型构造器 ─────────────────────────────
+
+(defn make-tvar [id] (t/->TVar id))
+(defn make-tcon [name] (t/->TCon name))
+(defn make-tfun [arg ret] (t/->TFun arg ret))
+(defn make-tapp [ctor args] (t/->TApp ctor args))
+(defn make-tcontainer [kind element-type shape] (t/->TContainer kind element-type shape))
+(defn make-hetero-vec [types] (t/->THeteroVec types))
+(defn make-hetero-map [entries] (t/->THeteroMap entries))
+(defn make-fixed-length [size] (t/->FixedLength size))
+(defn make-variable-length [] (t/->VariableLength.))
+
+;; ── 访问器 ─────────────────────────────────
+
+;; TVar
+(defn tvar-id [tv] (:id tv))
+;; TCon 名称已有 type-sym
+;; TFun 已有 fun-arg fun-ret
+;; TApp
+(defn tapp-ctor [ta] (:ctor ta))
+(defn tapp-args [ta] (:args ta))
+;; TContainer 已有 container-kind container-element-type container-shape
+;; THeteroVec
+(defn hetero-vec-types [hv] (:types hv))
+;; THeteroMap
+(defn hetero-map-entries [hm] (:entries hm))
+;; FixedLength
+(defn fixed-length-size [fl] (:size fl))
+;; VariableLength 无字段
 
 
 

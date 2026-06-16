@@ -1,5 +1,6 @@
-(ns top.kzre.homunculus.core.types.inline-lift.methods.literal
-  (:require [top.kzre.homunculus.core.types.inline-lift.core :refer :all]))
+(ns top.kzre.homunculus.core.types.lambda-inline.methods.literal
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.lambda-inline.core :as inline]))
 
-(defmethod walk :literal [node config lifted]
+(defmethod inline/eliminate-inline :literal [node _config]
   node)

@@ -1,8 +1,8 @@
-(ns top.kzre.homunculus.core.types.inline-lift.methods.while
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.inline-lift.core :refer :all]))
+(ns top.kzre.homunculus.core.types.lambda-inline.methods.while
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.lambda-inline.core :as inline]))
 
-(defmethod walk :while [node config lifted]
-  (m/->WhileNode (walk (:test node) config lifted)
-                 (walk (:body node) config lifted)
-                 (:attrs node) (:meta node) (:parent node)))
+(defmethod inline/eliminate-inline :while [node config]
+  (n/make-while (inline/eliminate-inline (n/while-test node) config)
+                (inline/eliminate-inline (n/while-body node) config)
+                (n/attrs node) (n/node-meta node) (n/parent node)))

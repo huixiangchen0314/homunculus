@@ -1,7 +1,7 @@
-(ns top.kzre.homunculus.core.types.inline-lift.methods.default
+(ns top.kzre.homunculus.core.types.lambda-inline.methods.default
   (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [top.kzre.homunculus.core.types.inline-lift.core :refer :all]))
+            [top.kzre.homunculus.core.types.lambda-inline.core :as inline]))
 
-(defmethod walk :default [node config lifted]
-  (throw (ex-info (str "Unknown node kind in inline-lift: " (ir2p/kind node))
+(defmethod inline/eliminate-inline :default [node _config]
+  (throw (ex-info (str "Unknown node kind in inline: " (ir2p/kind node))
                   {:node node})))

@@ -1,7 +1,7 @@
-(ns top.kzre.homunculus.core.types.inline-lift.methods.throw
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.inline-lift.core :refer :all]))
+(ns top.kzre.homunculus.core.types.lambda-inline.methods.throw
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.lambda-inline.core :as inline]))
 
-(defmethod walk :throw [node config lifted]
-  (m/->ThrowNode (walk (:expr node) config lifted)
-                 (:attrs node) (:meta node) (:parent node)))
+(defmethod inline/eliminate-inline :throw [node config]
+  (n/make-throw (inline/eliminate-inline (n/throw-expr node) config)
+                (n/attrs node) (n/node-meta node) (n/parent node)))

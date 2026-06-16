@@ -8,9 +8,8 @@
     [top.kzre.homunculus.core.ir2.api :as ir2]
     [top.kzre.homunculus.core.types.check.api :as check]
     [top.kzre.homunculus.core.types.constraint.api :as solve]
-    [top.kzre.homunculus.core.types.elaborate.api]
-    [top.kzre.homunculus.core.types.elaborate.core :as elaborate]
-    [top.kzre.homunculus.core.types.elaborate.protocol :as cfg]
+    [top.kzre.homunculus.core.types.lambda-elim.api :as lambda-elim]
+    [top.kzre.homunculus.core.types.lambda-elim.protocol :as lambda-elim-p]
     [top.kzre.homunculus.core.types.infer.api :as infer]
     [top.kzre.homunculus.core.types.module.api :as module]
     [top.kzre.homunculus.core.types.mutability.core :as mut]
@@ -18,10 +17,9 @@
     [top.kzre.homunculus.internal.protocol :as p]))
 
 (defn- default-elab-config []
-  (reify cfg/IElaborateConfig
+  (reify lambda-elim-p/ILiftConfig
     (max-iterations [_] 5)
     (strict-mode? [_] true)
-    (allow-return-closure? [_] false)
     (on-unresolved [_ lambda] (throw (ex-info "Unresolved closure" {:lambda lambda})))
     (should-inline? [_ _ _] true)))
 
@@ -37,7 +35,7 @@
           ir2-roots' (module/resolve-ns ir2-roots context)
           _         (module/collect-symbols ir2-roots' context) ;; 收集符号表.
           no-recur   (mapv recur/eliminate ir2-roots') ;; 递归消除
-          elaborated (elaborate/elaborate no-recur elab-config) ;; 闭包消除
+          elaborated (lambda-elim/eliminate no-recur elab-config) ;; 闭包消除
           mutable    (mut/analyze elaborated)               ;; 可变性分析. 用于生成 const 修饰
           inferred   (infer/infer mutable (infer/make-context frontend)) ;; 局部推断
           solved      (solve/process inferred  (solve/make-context frontend context)) ;; 约束求解

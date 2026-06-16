@@ -5,12 +5,12 @@
     [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.core.types.env :as e]
     [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
+    [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.type :as ty]))
 
 (defmethod gen/cg-node-raw :variable [node context]
   (let [env (:env context)
-        name (:name node)
-        ;; 1. 查找环境
+        name (n/var-name node)            ;; 使用 ir2.node 工具
         binding (or (e/lookup-env env name)
                     (e/lookup-env env (symbol name)))]
     (if binding
@@ -18,13 +18,11 @@
                  (scheme/instantiate binding)
                  binding)]
         [ty (ty/set-type! node ty) nil])
-      ;; 2. 查找前端内置函数
+      ;; 查找前端内置函数
       (if-let [frontend (:frontend context)]
         (if-let [builtin-ty (get (tp/builtin-functions frontend) name)]
           [builtin-ty (ty/set-type! node builtin-ty) nil]
-          ;; 3. 完全未知，分配类型变量
           (let [tv (gen/fresh-tvar)]
             [tv (ty/set-type! node tv) nil]))
-        ;; 4. 无前端，分配类型变量
         (let [tv (gen/fresh-tvar)]
           [tv (ty/set-type! node tv) nil])))))
