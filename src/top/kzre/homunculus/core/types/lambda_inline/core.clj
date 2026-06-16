@@ -1,10 +1,6 @@
-(ns top.kzre.homunculus.core.types.inline-lift.core
+(ns top.kzre.homunculus.core.types.lambda-inline.core
   "IR2 inline/lift pass：内联或提升直接调用的 lambda。多方法递归遍历。"
-  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.types.free-vars :as free-vars]
-            [top.kzre.homunculus.core.types.protocol :as p]
-            [top.kzre.homunculus.core.types.subst :as subst]))
+  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
 (defmulti walk
           "递归处理节点，内联/提升 lambda 调用。返回更新后的节点。"

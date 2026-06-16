@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.core.types.elaborate.methods
+(ns top.kzre.homunculus.core.types.lambda-elim.methods
   (:require [top.kzre.homunculus.core.types.elaborate.methods.call]
             [top.kzre.homunculus.core.types.elaborate.methods.let]
             [top.kzre.homunculus.core.types.elaborate.methods.lambda]
