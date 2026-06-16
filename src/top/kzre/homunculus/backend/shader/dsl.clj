@@ -1,24 +1,41 @@
+;; top.kzre.homunculus.backend.shader.dsl
 (ns top.kzre.homunculus.backend.shader.dsl
-  "着色器 DSL 语法糖。")
+  "着色器 DSL 语法糖。提供统一的资源/入口声明，通过元数据传递给后端。")
 
 (defmacro defshader
   "定义着色器入口函数。stage 为 :vertex, :fragment 等，params 为带类型标注的参数向量。"
   [stage name params & body]
   `(def ~name
-     ~(with-meta (list* 'fn* params body) {:shader-stage stage})))
+     ~(with-meta (list* 'fn* params body)
+                 {:shader-stage stage
+                  :shader/entry? true})))
 
 (defmacro defuniform
-  "定义全局 uniform 常量。展开为带 :uniform 元数据的 def。"
+  "定义全局 uniform 常量。"
   [name val]
-  `(def ~(vary-meta name assoc :uniform true) ~val))
+  `(def ~(vary-meta name assoc :shader/uniform? true) ~val))
 
-;; 资源构造器：普通 Clojure 函数, 类型由 typed 推断（前端 builtins 提供）
+;; 资源构造器（运行时无操作，仅用于元数据标记）
 (defn texture2D  [register] nil)
 (defn sampler-state [register] nil)
 (defn cbuffer [register members] nil)
 
-(defmacro defcbuffer [name register-kw register-idx & members]
-  ;; members 的每个元素都是 [symbol expr] 对，直接处理
-  (let [pairs (map (fn [[k v]] [(keyword k) v]) members)
+(defmacro deftexture
+  "定义纹理资源。"
+  [name register-kw]
+  `(def ~(vary-meta name assoc :shader/resource? true :shader/resource-kind :texture2D)
+     (texture2D ~(name register-kw))))
+
+(defmacro defsampler
+  "定义采样器资源。"
+  [name register-kw]
+  `(def ~(vary-meta name assoc :shader/resource? true :shader/resource-kind :sampler)
+     (sampler-state ~(name register-kw))))
+
+(defmacro defcbuffer
+  "定义 cbuffer 资源。"
+  [name register-kw & members]
+  (let [pairs (map (fn [[sym type]] [(keyword sym) type]) members)
         map-expr (into {} pairs)]
-    `(def ~name (cbuffer ~register-idx ~map-expr))))
+    `(def ~(vary-meta name assoc :shader/resource? true :shader/resource-kind :cbuffer)
+       (cbuffer ~(name register-kw) ~map-expr))))

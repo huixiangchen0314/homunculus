@@ -7,6 +7,14 @@
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.type :as ty]))
 
+(defn frontend
+  [context]
+  (:frontend context))
+
+(defn frontend-types
+  [context]
+  (tp/frontend-types (frontend context)))
+
 ;; ── 工具函数 ────────────────────────────
 (defn fresh-tvar []
   (ty/make-tvar (gensym "cg")))
@@ -29,7 +37,8 @@
    2. 若原始节点已有具体类型标注（非 TVar），生成 (CEqual tv annotated-ty) 验证约束。
    3. 返回合并后的 [tv new-node constraints]。"
   [node context]
-  (let [annotated-ty (ty/get-type node)
+  (let [known-types (frontend-types context)                ;; TODO 从编译上下文获取导入类型(全限定符号)
+        annotated-ty (ty/get-type node known-types)
         [tv new-node inner-constrs] (cg-node-raw node context)]
     (if (and annotated-ty
              (satisfies? tp/IType annotated-ty)

@@ -2,7 +2,8 @@
   "约束生成 Pass：遍历 IR2 节点，为每个子表达式分配类型变量并收集约束。
    不执行任何合一，只生成约束列表。
    支持顺序环境处理、loop/recur、vector、let 多态泛型化、已类型化节点短路。"
-  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
             [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.env :as e]
@@ -11,9 +12,28 @@
             [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
             [top.kzre.homunculus.core.types.type :as ty]))
 
+(defn frontend
+  [context]
+  (:frontend context))
+
+(defn frontend-types
+  [context]
+  (tp/frontend-types (frontend  context)))
+
+(defn- already-typed? [node context]
+  (let [frontend    (:frontend context)
+        known-types (tp/frontend-types frontend)
+        existing    (ty/get-type node known-types)]
+    (and existing (not (ty/var-type? existing)))))
+
 (defn- fresh-tvar [] (t/->TVar (gensym "cg")))
 
-(declare cg-node)
+
+(defmulti cg-node
+          (fn [node context]
+            (if (already-typed? node context)
+              :already-typed
+              (n/kind node))))
 
 (defn generate-constraints
   "给定 IR2 节点树，为其生成 约束.
@@ -32,18 +52,11 @@
     {:roots new-roots
      :constraints (:constraints @state)}))
 
-(defmulti cg-node
-          (fn [node _context]
-            (if-let [existing (ty/get-type node)]
-              (if (and (satisfies? tp/IType existing)
-                       (not (ty/var-type? existing)))
-                :already-typed
-                (ir2p/kind node))
-              (ir2p/kind node))))
+
 
 
 (defmethod cg-node :already-typed [node context]
-  [(ty/get-type node) node nil])
+  [(ty/get-type node (frontend-types context)) node nil])
 
 ;; ── 字面量 ──
 (defmethod cg-node :literal [node context]
@@ -193,7 +206,8 @@
 (defmethod cg-node :lambda [node context]
   (let [params (:params node)
         env (:env context)
-        param-tys (mapv (fn [p] (or (ty/get-type p) (fresh-tvar))) params)
+        known-types (frontend-types context)
+        param-tys (mapv (fn [p] (or (ty/get-type p known-types) (fresh-tvar))) params)
         param-names (map :name params)
         new-env (reduce (fn [env [name ty]] (e/extend-env env name ty))
                         env
@@ -242,7 +256,7 @@
     [ty-container (ty/set-type! new-node ty-container) constrs]))
 
 (defmethod cg-node :map [node context]
-  (if-let [existing (ty/get-type node)]
+  (if-let [existing (ty/get-type node (frontend-types context))]
     (if (ty/var-type? existing)
       (let [tv (fresh-tvar)]
         [tv (ty/set-type! node tv) nil])

@@ -1,18 +1,19 @@
 (ns top.kzre.homunculus.backend.util.format
   "缩进、字符串拼接等排版工具。"
-  (:require
-   [clojure.string :as string]))
+  (:require [clojure.string :as string]))
 
-(defmacro tmpl [template-str]
-  ;; 解析字符串中的 ${...} 部分
-  (let [parts (re-seq #"([^$]*)\$\{([^}]+)\}|(.+)" template-str)]
-    `(str
-       ~@(mapcat
-           (fn [[_ prefix expr suffix]]
-             (cond
-               expr   [(when (seq prefix) prefix) (list 'identity (read-string expr))]
-               suffix [(or suffix "")]))
-           parts))))
+(defmacro T [template-str]
+  (let [re   #"\$\{([^}]+)\}"
+        parts (string/split template-str re -1)        ;; 保留尾部空串，确保静态部分完整
+        exprs (map (comp symbol second) (re-seq re template-str))]
+    `(str ~@(loop [p parts, e exprs, result []]
+              (if (empty? p)
+                result
+                (let [s (first p)
+                      expr (first e)]
+                  (recur (rest p)
+                         (rest e)
+                         (conj result s (when expr expr)))))))))
 
 (defn indent
   "返回 n 级缩进字符串（每级 4 空格）。"

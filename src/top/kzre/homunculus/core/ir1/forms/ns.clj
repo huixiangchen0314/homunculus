@@ -2,7 +2,7 @@
   (:require [top.kzre.homunculus.core.ir1.core :as ir1]
             [top.kzre.homunculus.core.ir1.node :as n]))
 
-(defmethod ir1/form->node 'ns* [form]
+(defmethod ir1/form->node 'ns [form]
   (let [[_ name docstring attr-map references] form]
     (n/make-ns name docstring attr-map references (meta form))))
 

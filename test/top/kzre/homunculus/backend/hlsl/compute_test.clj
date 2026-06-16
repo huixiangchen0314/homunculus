@@ -31,7 +31,7 @@
         checked-fn (builtin/check mutable full-builtins)
         inferred   (infer/infer checked-fn (infer/make-context hlsl-frontend))
         solved      (solve/process inferred (solve/make-context hlsl-frontend nil))
-        checked    (check/check solved (check/make-context hlsl-backend-real))]
+        checked    (check/check solved (check/make-context hlsl-frontend hlsl-backend-real))]
     (emit/generate checked hlsl-backend-real
                    [{:stage :compute :fn-name "cs-main"
                      :output-params [{:numthreads [8 8 1]}]}])))

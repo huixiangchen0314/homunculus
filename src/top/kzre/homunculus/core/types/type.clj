@@ -84,7 +84,7 @@
 (defn make-hetero-vec [types] (t/->THeteroVec types))
 (defn make-hetero-map [entries] (t/->THeteroMap entries))
 (defn make-fixed-length [size] (t/->FixedLength size))
-(defn make-variable-length [] (t/->VariableLength.))
+(defn make-variable-length [] (t/->VariableLength))
 
 ;; ── 访问器 ─────────────────────────────────
 
@@ -109,19 +109,20 @@
 (defn meta->type
   "从节点的 node-meta 中查找第一个匹配 known-types 的关键字，返回 TCon 实例或 nil。"
   [node known-types]
-  (when-let [meta (ir2p/node-meta node)]
+  (when-let [md (ir2p/node-meta node)]
     (some (fn [k]
-            (when (and (keyword? k) (contains? known-types k))
+            (when (and (keyword? k) (contains? (set known-types) k))
               (t/->TCon k)))
-          (keys meta))))
+          (keys md))))
 
 (defn get-type
   "获取节点的类型，优先级：attrs :type > node-meta 类型标注 > nil。
    known-types 是一个关键字集合（例如 #{:float4 :int ...}）。"
-  ([node known-types]
+  ([node known-types]                                       ;; 获取用户标注类型
    (or (get-in node [:attrs :type])
        (meta->type node known-types)))
-  ([node]
+  ([node]                                                   ;; 获取内部标注类型
+   ;(throw (ex-info "known-types is required." {:node node}))
    (get-in node [:attrs :type])))
 
 (defn frontend-type

@@ -6,7 +6,7 @@
   (:require
     [clojure.walk :as walk]
     [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-    [top.kzre.homunculus.core.types.constraint.gen :as gen]
+    [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
     [top.kzre.homunculus.core.types.constraint.constraint :as c]
     [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
     [top.kzre.homunculus.core.types.constraint.unify :as u]
@@ -246,11 +246,9 @@
                  :frontend  (:frontend context)
                  :backend   (:backend context)}
         {:keys [roots constraints]} (gen/generate-constraints ir2-roots context)
-        conversion-fn (or (when-let [be (:backend context)]
-                            (fn [s d] (tp/type-conversion be s d)))
-                          (when-let [fe (:frontend context)]
-                            (fn [s d] (tp/type-conversion fe s d))))
+        ;; 只从后端获取转换函数，前端根本没有 type-conversion 方法
+        conversion-fn (when-let [be (:backend context)]
+                        (fn [s d] (tp/type-conversion be s d)))
         subst (solve-constraints constraints conversion-fn)
         typed-roots (mapv #(apply-subst % subst) roots)]
-    ;; 泛化未绑定的 TVar
     (mapv generalize-tree typed-roots)))

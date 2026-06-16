@@ -9,7 +9,10 @@
 ;; 纯数据工具：将扁平绑定列表划分为 [sym val] 对
 (def binding-pairs  n1/binding-pairs)
 (def make-binding n1/make-binding)
-
+(defn make-pair
+  "创建一个键值对 [k v]。k 和 v 都是 IR2 节点。"
+  [k v]
+  [k v])
 
 ;; ══════════════════════════════════════════════
 ;; 通用字段访问
@@ -319,10 +322,10 @@
 ;; ══════════════════════════════════════════════
 ;; NsNode
 ;; ══════════════════════════════════════════════
-(defn ns-name       [node] (:name node))
-(defn ns-docstring  [node] (:docstring node))
-(defn ns-attr-map   [node] (:attr-map node))
-(defn ns-references [node] (:references node))
+(defn namespace-name       [node] (:name node))
+(defn namespace-docstring  [node] (:docstring node))
+(defn namespace-attr-map   [node] (:attr-map node))
+(defn namespace-references [node] (:references node))
 
 (defn make-ns
   ([name references]                      (m/->NsNode name nil nil references {} nil nil))
@@ -409,6 +412,13 @@
     1 (first exprs)
     (make-block (vec exprs))))
 
+(defn unwrap-body
+  "若节点是 :block，返回其内部的表达式向量；否则返回包含该节点的单元素向量。
+   用于将可能被 DoNode/BlockNode 包裹的代码展平。"
+  [node]
+  (if (= (kind node) :block)
+    (block-exprs node)
+    [node]))
 
 ;; ══════════════════════════════════════════════
 ;; 字段描述（RecordNode 的 fields 条目）

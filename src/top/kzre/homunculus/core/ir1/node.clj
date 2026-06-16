@@ -15,7 +15,7 @@
 (defn children [node] (ir1p/children node))
 (defn parent   [node] (:parent node))
 
-(defn with-meta   [node meta]   (assoc node :meta meta))
+(defn node-with-meta   [node meta]   (assoc node :meta meta))
 (defn with-parent [node parent] (assoc node :parent parent))
 
 ;; ════════════════════════════════════════════════════════════
