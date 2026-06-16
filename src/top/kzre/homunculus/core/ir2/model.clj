@@ -198,9 +198,8 @@
 (defrecord RecordNode [name fields protocols attrs meta parent]
   p/INode
   (kind [_] :record)
-  ;; fields 是字段描述列表（非 INode），protocols 是协议符号列表（非 INode）
-  ;; 因此没有子节点（方法体在 IR2 中已分离为独立的 DefineNode 或 LambdaNode）
-  (children [_] [])
+  ;; 子节点 = 所有字段的初始化表达式（过滤 nil）
+  (children [_] (keep :init fields))                        ;; protocols 方法体被提升为全局函数定义了
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)

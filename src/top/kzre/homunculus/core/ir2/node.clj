@@ -408,3 +408,32 @@
     0 nil
     1 (first exprs)
     (make-block (vec exprs))))
+
+
+;; ══════════════════════════════════════════════
+;; 字段描述（RecordNode 的 fields 条目）
+;; ══════════════════════════════════════════════
+(defn field-name
+  "返回字段的名称符号。"
+  [field]
+  (:name field))
+
+(defn field-meta
+  "返回字段的元数据。"
+  [field]
+  (:meta field))
+
+(defn field-init
+  "返回字段的初始化表达式节点，可能为 nil。"
+  [field]
+  (:init field))
+
+(defn field-with-init
+  "用新的 init 节点替换字段的初始值，返回更新后的字段 map。"
+  [field init-node]
+  (assoc field :init init-node))
+
+(defn make-field
+  "创建一个字段描述 map。"
+  [name init meta]
+  {:name name :init init :meta meta})
