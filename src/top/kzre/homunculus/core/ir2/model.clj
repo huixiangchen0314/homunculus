@@ -125,10 +125,11 @@
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord TryNode [body catches finally attrs meta  parent]
+(defrecord TryNode [body catches finally attrs meta parent]
   p/INode
   (kind [_] :try)
-  (children [_] (into (vec body)
+  ;; children = body + catches + finally（body 是单个节点，可能为 BlockNode）
+  (children [_] (into (if body [body] [])
                       (concat catches
                               (if finally [finally] []))))
   (attrs [_] attrs)
@@ -136,11 +137,11 @@
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord CatchNode [class sym body attrs meta  parent]
+(defrecord CatchNode [class sym body attrs meta parent]
   p/INode
   (kind [_] :catch)
-  ;; sym 是 VariableNode，body 是表达式
-  (children [_] [sym body])
+  ;; body 是向量，直接展开
+  (children [_] (into [class sym] body))
   (attrs [_] attrs)
   (node-meta [_] meta)
   (parent [_] parent)
@@ -206,10 +207,9 @@
   (set-parent [this p] (assoc this :parent p)))
 
 ;; ── 协议定义节点 ──
-(defrecord ProtocolNode [name method-sigs attrs meta parent]
+(defrecord ProtocolNode [name funcs attrs meta parent]   ;; method-sigs → funcs
   p/INode
   (kind [_] :protocol)
-  ;; method-sigs 是方法签名列表（非 INode），无子节点
   (children [_] [])
   (attrs [_] attrs)
   (node-meta [_] meta)
@@ -217,14 +217,11 @@
   (set-parent [this p] (assoc this :parent p)))
 
 ;; ── 成员访问节点 ──
-;; 用于字段访问 (:keyword obj) 和方法调用 (. method obj args...)
-;; mode 为 :field 或 :method
-(defrecord MemberAccessNode [mode name target args attrs meta parent]
+(defrecord MemberAccessNode [target accessor args meta parent]
   p/INode
-  (kind [_] :member-access)
-  ;; children = [target] + args（均为 INode）
-  (children [_] (into [target] (remove nil? args)))
-  (attrs [_] attrs)
-  (node-meta [_] meta)
-  (parent [_] parent)
+  (kind       [this] :member-access)
+  (children   [this] (into [target] args))
+  (attrs      [this] {})          ; 默认空 attrs，保持协议一致性
+  (node-meta  [this] meta)
+  (parent     [this] parent)
   (set-parent [this p] (assoc this :parent p)))

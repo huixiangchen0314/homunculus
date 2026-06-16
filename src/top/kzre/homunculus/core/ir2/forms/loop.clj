@@ -1,23 +1,19 @@
 (ns top.kzre.homunculus.core.ir2.forms.loop
-  (:require [top.kzre.homunculus.core.ir1.protocol :as ir1p]
+  (:require [top.kzre.homunculus.core.ir1.node :as n1]
             [top.kzre.homunculus.core.ir2.core :as ir2]
-            [top.kzre.homunculus.core.ir2.model :as m]))
+            [top.kzre.homunculus.core.ir2.node :as n2]))
 
 (defmethod ir2/lower-ast :loop [node env]
-  (let [meta (ir2/ir1-meta node)
-        bind-count (:bindings-count node)
-        kids (ir1p/children node)
-        bind-kids (take (* 2 bind-count) kids)
-        body-kids (drop (* 2 bind-count) kids)
-        bind-pairs (mapv (fn [[s v]] [(first (ir2/lower-ast s env)) (first (ir2/lower-ast v env))])
-                         (partition 2 bind-kids))
-        body (if (= 1 (count body-kids))
-               (first (ir2/lower-ast (first body-kids) env))
-               (let [body-nodes (mapv #(first (ir2/lower-ast % env)) body-kids)]
-                 (m/->BlockNode body-nodes nil nil  nil)))]
-    [(m/->LoopNode bind-pairs body nil meta  nil)]))
+  (let [bindings   (n1/loop-bindings node)          ;; 扁平绑定列表
+        body       (n1/loop-body node)              ;; 单个 IR1 节点（已包装）
+        bind-pairs (n2/binding-pairs bindings)      ;; 纯数据分组
+        ir-bindings (mapv (fn [[sym val]]
+                            (n2/make-binding (first (ir2/lower-ast sym env))
+                                             (first (ir2/lower-ast val env))))
+                          bind-pairs)
+        ir-body     (first (ir2/lower-ast body env))]
+    [(n2/make-loop ir-bindings ir-body {} (n1/node-meta node) nil)]))
 
 (defmethod ir2/lower-ast :recur [node env]
-  (let [args (mapv #(first (ir2/lower-ast % env)) (ir1p/children node))
-        meta (ir2/ir1-meta node)]
-    [(m/->RecurNode args nil meta nil)]))
+  (let [args (mapv #(first (ir2/lower-ast % env)) (n1/recur-exprs node))]
+    [(n2/make-recur args {} (n1/node-meta node) nil)]))

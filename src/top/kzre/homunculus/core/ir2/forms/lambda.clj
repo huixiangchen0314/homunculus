@@ -1,25 +1,19 @@
 (ns top.kzre.homunculus.core.ir2.forms.lambda
-  (:require [top.kzre.homunculus.core.ir1.model :as ir1m]
-            [top.kzre.homunculus.core.ir1.protocol :as ir1p]
+  "lambda / fn 的 IR2 lowering。"
+  (:require [top.kzre.homunculus.core.ir1.node :as n1]
             [top.kzre.homunculus.core.ir2.core :as ir2]
-            [top.kzre.homunculus.core.ir2.model :as m]))
+            [top.kzre.homunculus.core.ir2.node :as n2]))
 
 (defmethod ir2/lower-ast :fn [node env]
-  (let [name       (:name node)
-        params     (:params node)
-        body       (:body node)
-        ;; 兼容两种参数格式：{:sym :meta} map 或直接是 IR1 节点 ;; TODO 检查这个合理性，这两种形式是否可能同时存在
-        param-nodes (mapv (fn [p]
-                            (if (satisfies? ir1p/INode p)
-                              (first (ir2/lower-ast p env))
-                              (let [sym-node (ir1m/->SymbolNode (:sym p) (:meta p) nil)]
-                                (first (ir2/lower-ast sym-node env)))))
-                          params)
-        body-nodes  (mapv #(first (ir2/lower-ast % env)) body)
+  ;; 参数在 build-tree 后已全部转为 SymbolNode，无需兼容旧格式
+  (let [name        (n1/fn-name node)            ;; SymbolNode 或 nil
+        params      (n1/fn-params node)          ;; SymbolNode 向量
+        body        (n1/fn-body node)            ;; 单个 IR1 节点（可能为 DoNode）
         name-node   (when name (first (ir2/lower-ast name env)))
-        captures    []
-        meta        (ir2/ir1-meta node)
-        ir2-body    (if (= 1 (count body-nodes))
-                      (first body-nodes)
-                      (m/->BlockNode body-nodes nil nil nil))]
-    [(m/->LambdaNode param-nodes ir2-body captures name-node nil meta nil)]))
+        param-nodes (mapv #(first (ir2/lower-ast % env)) params)
+        body-node   (first (ir2/lower-ast body env))
+        captures    []]
+    [(n2/make-lambda param-nodes body-node captures name-node
+                     {}                         ;; attrs 暂空
+                     (n1/node-meta node)
+                     nil)]))

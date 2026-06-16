@@ -1,11 +1,9 @@
 (ns top.kzre.homunculus.core.ir2.forms.assign
-  (:require [top.kzre.homunculus.core.ir1.protocol :as ir1p]
+  (:require [top.kzre.homunculus.core.ir1.node :as n1]
             [top.kzre.homunculus.core.ir2.core :as ir2]
-            [top.kzre.homunculus.core.ir2.model :as m]))
+            [top.kzre.homunculus.core.ir2.node :as n2]))
 
 (defmethod ir2/lower-ast :set! [node env]
-  (let [kids (ir1p/children node)
-        var-node (first (ir2/lower-ast (first kids) env))
-        val-node (first (ir2/lower-ast (second kids) env))
-        meta (ir2/ir1-meta node)]
-    [(m/->AssignNode var-node val-node nil meta nil)]))
+  (let [var-node (first (ir2/lower-ast (n1/set-var node) env))
+        val-node (first (ir2/lower-ast (n1/set-val node) env))]
+    [(n2/make-assign var-node val-node {} (n1/node-meta node) nil)]))

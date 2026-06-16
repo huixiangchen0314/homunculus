@@ -1,33 +1,33 @@
 (ns top.kzre.homunculus.core.ir2.forms.try
-  (:require [top.kzre.homunculus.core.ir1.protocol :as ir1p]
+  "try / catch / throw 的 IR2 lowering。"
+  (:require [top.kzre.homunculus.core.ir1.node :as n1]
             [top.kzre.homunculus.core.ir2.core :as ir2]
-            [top.kzre.homunculus.core.ir2.model :as m]))
+            [top.kzre.homunculus.core.ir2.node :as n2]))
 
+;; ── try ───────────────────────────────────
 (defmethod ir2/lower-ast :try [node env]
-  (let [meta (ir2/ir1-meta node)
-        kids (ir1p/children node)
-        body-irs (take-while #(not= (ir1p/kind %) :catch) kids)
-        rest-after-body (drop (count body-irs) kids)
-        catch-irs (take-while #(= (ir1p/kind %) :catch) rest-after-body)
-        finally-irs (drop (count catch-irs) rest-after-body)
-        body-nodes (mapv #(first (ir2/lower-ast % env)) body-irs)
-        catch-nodes (mapv (fn [c]
-                            (let [catch-kids (ir1p/children c)
-                                  class-ir (first catch-kids)
-                                  sym-ir (second catch-kids)
-                                  body-exprs (drop 2 catch-kids)
-                                  class-node (first (ir2/lower-ast class-ir env))
-                                  sym-node (first (ir2/lower-ast sym-ir env))
-                                  c-body-nodes (mapv #(first (ir2/lower-ast % env)) body-exprs)]
-                              (m/->CatchNode class-node sym-node c-body-nodes nil nil nil)))
-                          catch-irs)
-        finally-nodes (when (seq finally-irs)
-                        (mapv #(first (ir2/lower-ast % env)) finally-irs))
-        ]
-    [(m/->TryNode body-nodes catch-nodes finally-nodes nil meta  nil)]))
+  (let [body-ir1    (n1/try-body node)            ;; 单个 IR1 节点 (已包装)
+        catches-ir1 (n1/try-catches node)         ;; IR1 CatchNode 列表
+        finally-ir1 (n1/try-finally node)         ;; 单个 IR1 节点或 nil
+        ;; lowering 主体
+        ir-body     (first (ir2/lower-ast body-ir1 env))
+        ;; lowering 每个 catch
+        ir-catches  (mapv (fn [c]
+                            (let [class-ir1 (n1/catch-class c)
+                                  sym-ir1   (n1/catch-sym c)
+                                  body-ir1s (n1/catch-body c)   ;; 向量
+                                  class-node (first (ir2/lower-ast class-ir1 env))
+                                  sym-node   (first (ir2/lower-ast sym-ir1 env))
+                                  body-nodes (mapv #(first (ir2/lower-ast % env)) body-ir1s)]
+                              (n2/make-catch class-node sym-node body-nodes
+                                             {} (n1/node-meta c) nil)))
+                          catches-ir1)
+        ;; lowering finally（若存在）
+        ir-finally  (when finally-ir1
+                      (first (ir2/lower-ast finally-ir1 env)))]
+    [(n2/make-try ir-body ir-catches ir-finally {} (n1/node-meta node) nil)]))
 
+;; ── throw ─────────────────────────────────
 (defmethod ir2/lower-ast :throw [node env]
-  (let [kid (first (ir1p/children node))
-        expr (first (ir2/lower-ast kid env))
-        meta (ir2/ir1-meta node)]
-    [(m/->ThrowNode expr nil meta nil)]))
+  (let [expr (first (ir2/lower-ast (n1/throw-expr node) env))]
+    [(n2/make-throw expr {} (n1/node-meta node) nil)]))

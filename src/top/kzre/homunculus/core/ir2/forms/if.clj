@@ -1,15 +1,13 @@
 (ns top.kzre.homunculus.core.ir2.forms.if
-  (:require [top.kzre.homunculus.core.ir1.protocol :as ir1p]
+  (:require [top.kzre.homunculus.core.ir1.node :as n1]
             [top.kzre.homunculus.core.ir2.core :as ir2]
-            [top.kzre.homunculus.core.ir2.model :as m]))
+            [top.kzre.homunculus.core.ir2.node :as n2]))
 
 (defmethod ir2/lower-ast :if [node env]
-  (let [kids (ir1p/children node)
-        test (first kids)
-        then (second kids)
-        else (nth kids 2 nil)                 ;; 可能为 nil
+  (let [test      (n1/if-test node)
+        then      (n1/if-then node)
+        else      (n1/if-else node)
         test-node (first (ir2/lower-ast test env))
         then-node (first (ir2/lower-ast then env))
-        else-node (when else (first (ir2/lower-ast else env)))
-        meta (ir2/ir1-meta node)]
-    [(m/->IfNode test-node then-node else-node nil meta  nil)]))
+        else-node (when else (first (ir2/lower-ast else env)))]
+    [(n2/make-if test-node then-node else-node {} (n1/node-meta node) nil)]))

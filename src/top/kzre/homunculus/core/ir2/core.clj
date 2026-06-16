@@ -1,59 +1,22 @@
-;; ═══════════════════════════════════════════════════════
-;; ir2/core.clj
-;; ═══════════════════════════════════════════════════════
 (ns top.kzre.homunculus.core.ir2.core
-  (:require [top.kzre.homunculus.core.ir1.protocol :as ir1p]
-            [top.kzre.homunculus.core.ir2.model :as m]))
+  "IR2 lowering 核心调度：定义多方法 lower-ast 与入口函数。"
+  (:require [top.kzre.homunculus.core.ir1.protocol :as ir1p]))
 
 (defn ir1-meta [ir1-node] (ir1p/node-meta ir1-node))
 
-(defmulti lower-ast (fn [ir1-node env] (ir1p/kind ir1-node)))
+(defmulti lower-ast
+          "将 IR1 节点降低为 IR2 节点向量。"
+          (fn [ir1-node _env] (ir1p/kind ir1-node)))
 
-;; 基础节点 lowering
-(defmethod lower-ast :literal [node env]
-  [(m/->LiteralNode (:val node) nil (ir1-meta node) nil)])
+(defmethod lower-ast :default [node _env]
+  [])
 
-(defmethod lower-ast :symbol [node env]
-  [(m/->VariableNode (name (:name node)) nil (ir1-meta node) nil)])
-
-(defmethod lower-ast :vector [node env]
-  (let [items (mapv #(first (lower-ast % env)) (ir1p/children node))]
-    [(m/->VectorNode items nil (ir1-meta node) nil)]))
-
-(defmethod lower-ast :map [node env]
-  (let [kids    (ir1p/children node)   ;; 交替的键、值节点
-        lowered (map #(first (lower-ast % env)) kids)
-        kvs     (loop [rem lowered, acc []]
-                  (if (>= (count rem) 2)
-                    (recur (drop 2 rem)
-                           (conj acc (first rem) (second rem)))
-                    acc))]
-    [(m/->MapNode kvs nil (ir1-meta node) nil)]))
-
-(defmethod lower-ast :call [node env]
-  (let [kids (ir1p/children node)
-        op-node (first kids)
-        arg-nodes (rest kids)
-        fn-node (first (lower-ast op-node env))
-        args (mapv #(first (lower-ast % env)) arg-nodes)]
-    [(m/->CallNode fn-node args nil (ir1-meta node) nil)]))
-
-;; 特殊形式占位
-(defmethod lower-ast :if    [node env] nil)
-(defmethod lower-ast :do    [node env] nil)
-(defmethod lower-ast :let  [node env] nil)
-(defmethod lower-ast :fn   [node env] nil)
-(defmethod lower-ast :def   [node env] nil)
-(defmethod lower-ast :loop  [node env] nil)      ;; 原为 :loop*
-(defmethod lower-ast :recur [node env] nil)
-(defmethod lower-ast :quote [node env] nil)
-(defmethod lower-ast :try   [node env] nil)
-(defmethod lower-ast :throw [node env] nil)
-(defmethod lower-ast :set!  [node env] nil)
-(defmethod lower-ast :var   [node env] nil)
-
-(defn lower [ir1-roots]
+(defn lower
+  "对一组 IR1 根节点执行 lowering，返回 IR2 节点向量。"
+  [ir1-roots]
   (mapcat #(lower-ast % {}) ir1-roots))
 
-(defn ->ir2 [ir1-root]
+(defn ->ir2
+  "对单个 IR1 根节点执行 lowering，返回 IR2 节点向量。"
+  [ir1-root]
   (lower-ast ir1-root {}))
