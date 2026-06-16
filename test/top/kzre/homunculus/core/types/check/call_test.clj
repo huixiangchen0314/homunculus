@@ -16,7 +16,7 @@
             arg1 (doto (n/->literal 1 {} {} nil) (ty/set-type! (t/->TCon :int64)))
             arg2 (doto (n/->literal 2 {} {} nil) (ty/set-type! (t/->TCon :int64)))
             call (doto (n/->call fn-node [arg1 arg2] {} {} nil) (ty/set-type! (t/->TCon :int64)))
-            res (check/check call (t/->TCon :int64) ctx)]
+            res (check/check-node call (t/->TCon :int64) ctx)]
         (is (= :int64 (-> res ty/get-type :name)))
         (is (not (tu/convert? res)))))
 
@@ -25,7 +25,7 @@
             arg1 (doto (n/->literal 1 {} {} nil) (ty/set-type! (t/->TCon :int64)))
             arg2 (doto (n/->literal 2 {} {} nil) (ty/set-type! (t/->TCon :int64)))
             call (doto (n/->call fn-node [arg1 arg2] {} {} nil) (ty/set-type! (t/->TCon :int64)))
-            res (check/check call (t/->TCon :float32) ctx)]
+            res (check/check-node call (t/->TCon :float32) ctx)]
         (is (tu/convert? res))
         (is (= :float32 (-> res ty/get-type :name)))))
 

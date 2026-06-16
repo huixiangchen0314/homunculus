@@ -6,6 +6,7 @@
     [top.kzre.homunculus.core.ir2.protocol :as ir2p]
     [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]
     [top.kzre.homunculus.core.types.model :as t]
+    [top.kzre.homunculus.internal.protocol :as ip]
     [top.kzre.homunculus.core.types.protocol :as tp])
   (:import
     [top.kzre.homunculus.core.types.model
@@ -134,3 +135,41 @@
    (builtin-env (->MockFrontend)))
   ([frontend]
    (into {} (map (fn [[sym ty]] [sym ty]) (tp/builtin-functions frontend)))))
+
+
+;; ── Mock 编译配置 ──
+(defrecord MockCompileConfig []
+  ip/ICompileConfig
+  (source-paths [_] ["src"])
+  (lib-paths [_] ["lib"])
+  (output-dir [_] "out"))
+
+(defrecord MockCompileContext [state]
+ip/ICompileContext
+(config [_] (:config @state))
+
+(register-deps [this _dep-syms]
+               ;; 测试中通常不触发真实编译，直接返回自身
+               this)
+
+(lookup-type [_ full-name]
+             (get-in @state [:types full-name]))
+
+(get-export-syms [_ ns-sym]
+                 (get-in @state [:exports ns-sym])))
+
+
+;; ── 工厂函数：创建 Mock 编译上下文 ──
+(defn ->mock-compile-ctx
+  "构建测试用编译上下文。
+   可选参数：
+     :config  - ICompileConfig 实例，默认 MockCompileConfig
+     :exports - {ns-sym {sym export-entry}}  导出表
+     :types   - {fully-qualified-sym type}   类型查找表"
+  [& {:keys [config exports types]
+      :or   {config (->MockCompileConfig)
+             exports {}
+             types   {}}}]
+  (->MockCompileContext (atom {:config  config
+                               :exports exports
+                               :types   types})))

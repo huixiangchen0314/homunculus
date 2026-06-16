@@ -3,9 +3,9 @@
             [top.kzre.homunculus.core.types.check.core :as check]
             [top.kzre.homunculus.core.types.model :as t]))
 
-(defmethod check/check :if [node expected context]
-  (let [test-node (check/check (n/if-test node) (t/->TCon :bool) context)
-        then-node (check/check (n/if-then node) expected context)
+(defmethod check/check-node :if [node expected context]
+  (let [test-node (check/check-node (n/if-test node) (t/->TCon :bool) context)
+        then-node (check/check-node (n/if-then node) expected context)
         else-node (when-let [else (n/if-else node)]
-                    (check/check else expected context))]
+                    (check/check-node else expected context))]
     (n/if-with-children node test-node then-node else-node)))

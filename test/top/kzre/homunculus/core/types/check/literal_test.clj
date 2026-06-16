@@ -15,18 +15,18 @@
     (testing "no expected type, node unchanged"
       (let [node (-> (n/->literal 42 {} {} nil)
                      (ty/set-type! (t/->TCon :int64)))
-            res (check/check node nil ctx)]
+            res (check/check-node node nil ctx)]
         (is (= :int64 (-> res ty/get-type :name)))))
 
     (testing "expected type matches, node unchanged"
       (let [node (-> (n/->literal 42 {} {} nil)
                      (ty/set-type! (t/->TCon :int64)))
-            res (check/check node (t/->TCon :int64) ctx)]
+            res (check/check-node node (t/->TCon :int64) ctx)]
         (is (not (n/convert-node? res)))))
 
     (testing "expected type requires conversion, convert node inserted"
       (let [node (-> (n/->literal 42 {} {} nil)
                      (ty/set-type! (t/->TCon :int64)))
-            res (check/check node (t/->TCon :float32) ctx)]
+            res (check/check-node node (t/->TCon :float32) ctx)]
         (is (n/convert-node? res))
         (is (= :float32 (-> res ty/get-type :name)))))))

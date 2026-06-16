@@ -62,26 +62,27 @@
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-;; ★ 修正：body 是向量，直接展开
+
 (defrecord LetNode [bindings body bindings-count meta parent]
   p/INode
   (kind [_] :let)
-  (children [_] (into (vec bindings) body))
+  (children [_] (into (vec bindings) (if body [body] [])))
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-;; ★ 修正：params 和 body 都是向量，name 可能为 nil
+
 (defrecord FnNode [name params body meta parent]
   p/INode
   (kind [_] :fn)
-  (children [_] (into (if name [name] [])
-                      (concat (vec params) body)))
+  (children [_]
+    (into (if name [name] [])
+          (concat (vec params)
+                  (if body [body] []))))
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-;; ★ 修正：只包含 val（IR 节点），其他字段不是节点
 (defrecord DefNode [name doc attr val meta parent]
   p/INode
   (kind [_] :def)
@@ -93,7 +94,7 @@
 (defrecord LoopNode [bindings body bindings-count meta parent]
   p/INode
   (kind [_] :loop)
-  (children [_] (into (vec bindings) body))
+  (children [_] (into (vec bindings) (if body [body] [])))
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
@@ -122,13 +123,7 @@
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord ThrowNode [expr meta parent]
-  p/INode
-  (kind [_] :throw)
-  (children [_] [expr])
-  (node-meta [_] meta)
-  (parent [_] parent)
-  (set-parent [this p] (assoc this :parent p)))
+
 
 (defrecord SetNode [var val meta parent]
   p/INode
@@ -138,21 +133,31 @@
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-;; ★ 修正：body 和 finally 是向量，catches 是节点列表
+
 (defrecord TryNode [body catches finally meta parent]
   p/INode
   (kind [_] :try)
-  (children [_] (into (vec body)
-                      (concat catches (or finally []))))
+  ;; 直接子节点：body（单个节点，可能为 DoNode）、每个 catch、finally（可选）
+  (children [_] (into (if body [body] [])
+                      (concat catches
+                              (if finally [finally] []))))
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-;; ★ 修正：body 是向量
+
 (defrecord CatchNode [class sym body meta parent]
   p/INode
   (kind [_] :catch)
   (children [_] (into [class sym] body))
+  (node-meta [_] meta)
+  (parent [_] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+(defrecord ThrowNode [expr meta parent]
+  p/INode
+  (kind [_] :throw)
+  (children [_] [expr])
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
@@ -163,4 +168,65 @@
   (children [_] [])
   (node-meta [_] meta)
   (parent [_] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+;; RecordNode: 表示 defrecord 定义
+;; name symbol?
+;; field map?
+;; {
+;; :name :user
+;; :meta nil
+;; :init <expr-node>
+;; }
+;; protocols vector
+;; [ {
+;; :protocol 'top.kzre.homunculus.internal/ICompiler
+;; :methods [{
+;; :name 'emit
+;; :params [{:name 'this, :meta nil} {:name 'context, meta: nil}...]
+;; :body <block-node>
+;; }]
+;; }... ]
+(defrecord RecordNode [name fields protocols meta parent]
+  p/INode
+  (kind     [this] :record)
+  (children [this]
+    (concat
+      ;; 1) 字段默认值表达式（如 (defrecord Foo [x 42]) 中的 42）
+      (keep :init fields)
+      ;; 2) 协议方法体
+      (mapcat (fn [proto]
+                (mapcat (fn [method]
+                          (if-let [body (:body method)]
+                            [body]
+                            []))
+                        (:methods proto)))
+              protocols)))
+  (node-meta  [this] meta)
+  (parent     [this] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+;; ProtocolNode: 表示 defprotocol 定义
+;; funcs 示例: [{:name draw
+;;               :params [ ;; 不包括this
+;;                        {:name x, :meta nil}]
+;;               :ret :void
+;;               :meta nil}]
+(defrecord ProtocolNode [name funcs meta parent]
+  p/INode
+  (kind       [this] :protocol)
+  (children   [this] [])   ;; funcs 是函数签名列表，不是 INode 节点
+  (node-meta  [this] meta)
+  (parent     [this] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+;; :关键字 表示属性访问，不支持设置
+;; .xyz 表示方法调用
+;; 不支持Clojure 风格 assoc 设置
+(defrecord MemberAccessNode [target accessor args meta parent]
+  p/INode
+  (kind       [this] :member-access)
+  (children   [this] (into [target] args))
+  (node-meta  [this] meta)
+  (parent     [this] parent)
   (set-parent [this p] (assoc this :parent p)))

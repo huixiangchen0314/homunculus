@@ -22,7 +22,7 @@
 
         infer-result (first (infer/infer [let-node] :frontend frontend))
         typed-result (first (cs/process [infer-result] {:frontend frontend :env {}}))
-        checked (check/check typed-result (t/->TCon :float32) {:backend backend})]
+        checked (check/check-node typed-result (t/->TCon :float32) {:backend backend})]
 
     (is (tcon? (get-type checked) :int64) "let 整体类型暂时为 int64")
     (let [body (-> checked :body)]
@@ -36,7 +36,7 @@
         lit-node (m/->LiteralNode 42 nil nil nil)
         infer-result (first (infer/infer [lit-node] :frontend frontend))
         typed-result (first (cs/process [infer-result] {:frontend frontend :env {}}))
-        checked (check/check typed-result (t/->TCon :float32) {:backend backend})]
+        checked (check/check-node typed-result (t/->TCon :float32) {:backend backend})]
 
     (is (convert? checked) "字面量应被包装为 convert")
     (is (tcon? (get-type checked) :float32) "转换后类型应为 float32")))

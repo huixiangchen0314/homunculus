@@ -3,6 +3,17 @@
   (:require
    [clojure.string :as string]))
 
+(defmacro tmpl [template-str]
+  ;; 解析字符串中的 ${...} 部分
+  (let [parts (re-seq #"([^$]*)\$\{([^}]+)\}|(.+)" template-str)]
+    `(str
+       ~@(mapcat
+           (fn [[_ prefix expr suffix]]
+             (cond
+               expr   [(when (seq prefix) prefix) (list 'identity (read-string expr))]
+               suffix [(or suffix "")]))
+           parts))))
+
 (defn indent
   "返回 n 级缩进字符串（每级 4 空格）。"
   [level]

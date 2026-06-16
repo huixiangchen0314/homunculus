@@ -18,7 +18,7 @@
             vec (-> (n/->vector [item1 item2] {} {} nil)
                     (ty/set-type! (t/->THeteroVec [(t/->TCon :int64) (t/->TCon :string)])))
             expected (t/->THeteroVec [(t/->TCon :int64) (t/->TCon :string)])
-            res (check/check vec expected ctx)]
+            res (check/check-node vec expected ctx)]
         (is (not (n/convert-node? res)))
         (is (= expected (ty/get-type res)))))
 
@@ -28,7 +28,7 @@
             vec (-> (n/->vector [item1 item2] {} {} nil)
                     (ty/set-type! (t/->THeteroVec [(t/->TCon :int64) (t/->TCon :string)])))
             expected (t/->THeteroVec [(t/->TCon :float32) (t/->TCon :string)])]
-        (let [res (check/check vec expected ctx)
+        (let [res (check/check-node vec expected ctx)
               items (:items res)
               first-item (first items)]
           (is (n/convert-node? first-item))
@@ -37,7 +37,7 @@
     (testing "empty vector matches empty hetero-vec"
       (let [vec (-> (n/->vector [] {} {} nil) (ty/set-type! (t/->THeteroVec [])))
             expected (t/->THeteroVec [])
-            res (check/check vec expected ctx)]
+            res (check/check-node vec expected ctx)]
         (is (= [] (:items res)))))
 
     (testing "unified element type vector (TContainer :vector) forces all elements to convert"
@@ -46,7 +46,7 @@
             vec (-> (n/->vector [item1 item2] {} {} nil)
                     (ty/set-type! (t/->THeteroVec [(t/->TCon :int64) (t/->TCon :int64)])))
             expected (t/->TContainer :vector (t/->TCon :float32) (t/->VariableLength))
-            res (check/check vec expected ctx)
+            res (check/check-node vec expected ctx)
             items (:items res)]
         (is (every? n/convert-node? items))
         (is (every? #(= :float32 (-> % ty/get-type :name)) items))))))

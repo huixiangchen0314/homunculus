@@ -16,7 +16,7 @@
       (let [test (-> (n/->literal true {} {} nil) (ty/set-type! (t/->TCon :bool)))
             body (-> (n/->literal 42 {} {} nil) (ty/set-type! (t/->TCon :int64)))
             while-node (-> (n/->while test body {} {} nil) (ty/set-type! (t/->TCon :nil)))
-            res (check/check while-node (t/->TCon :nil) ctx)]
+            res (check/check-node while-node (t/->TCon :nil) ctx)]
         (is (not (n/convert-node? res)))))
 
     (testing "while with non-nil expected throws"
@@ -24,4 +24,4 @@
             body (-> (n/->literal 42 {} {} nil) (ty/set-type! (t/->TCon :int64)))
             while-node (-> (n/->while test body {} {} nil) (ty/set-type! (t/->TCon :nil)))]
         (is (thrown? Exception
-                     (check/check while-node (t/->TCon :int64) ctx)))))))
+                     (check/check-node while-node (t/->TCon :int64) ctx)))))))

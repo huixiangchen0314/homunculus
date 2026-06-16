@@ -47,7 +47,7 @@
         inferred   (infer/infer elaborated :frontend (->MockFrontend))
         typed      (cs/process inferred {:frontend (->MockFrontend) :env builtins})
         checked    (if expected-type
-                     (mapv #(check/check % expected-type {:backend backend}) typed)
+                     (mapv #(check/check-node % expected-type {:backend backend}) typed)
                      typed)]
     (first checked)))
 

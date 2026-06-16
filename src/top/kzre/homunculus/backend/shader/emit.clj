@@ -14,10 +14,9 @@
      → 构建 entry-specs（自动推导参数或使用手动指定）
      → 装配最终程序并调用后端 shader-program"
   (:require [top.kzre.homunculus.backend.shader.protocol :as sp]
+            [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [clojure.string :as str]
-            [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.core.types.protocol :as tp]))
+            [top.kzre.homunculus.core.types.type :as t]))
 
 ;; ═══════════════════════════════════════════════════════
 ;; emit 多方法 —— 单个 IR2 节点的代码生成
@@ -60,13 +59,10 @@
 
 (defn- resource-type?
   "判断一个 IType 是否为资源类型（:texture2D, :sampler, :cbuffer）。
-
    输入：ty —— 一个 IType 实例（可能为 nil）
    输出：布尔值"
   [ty]
-  (and ty
-       (= (tp/type-kind ty) :con)
-       (contains? #{:texture2D :sampler :cbuffer} (:name ty))))
+  (contains? #{:texture2D :sampler :cbuffer} (t/type-sym ty)))
 
 (defn- classify-defines
   "步骤 2：将 :define 节点分类为资源、全局常量和函数定义。
@@ -82,7 +78,7 @@
    - 全局常量：val 不是 lambda，且元数据中没有 :shader-stage
    - 函数：val 是 lambda"
   [defines]
-  (let [is-resource? (fn [d] (resource-type? (get-in d [:val :attrs :type])))
+  (let [is-resource? (fn [d] (resource-type? (t/get-type (n/define-val d))))
         is-global?   (fn [d]
                        (and (= (ir2p/kind d) :define)
                             (not (is-resource? d))
@@ -223,13 +219,11 @@
    4. 如果既无手动参数也无函数定义，调用 temp-entry-spec 创建临时函数。"
   [entries function-defs others backend]
   (let [fn-def-map (into {} (map (fn [d] [(name (:name d)) (emit d backend)]) function-defs))
-        entries'   (if (seq entries)
-                     entries
-                     (for [d function-defs
-                           :let [stage (some-> (ir2p/node-meta d) :shader-stage)
-                                 fn-name (:name d)]
-                           :when stage]
-                       {:stage stage :fn-name (name fn-name)}))]
+        entries'   (for [d function-defs
+                         :let [stage (some-> (ir2p/node-meta d) :shader-stage)
+                               fn-name (:name d)]
+                         :when stage]
+                     {:stage stage :fn-name (name fn-name)})]
     (for [entry entries'
           :let [stage   (:stage entry)
                 fn-name (:fn-name entry)
@@ -289,8 +283,8 @@
      完整的着色器程序字符串"
   [ir2-roots backend entries]
   (let [flat-roots    (flatten-roots ir2-roots)
-        defines       (filter #(= (ir2p/kind %) :define) flat-roots)
-        {:keys [resources globals functions]} (classify-defines defines)
+        top-defines       (filter #(= (ir2p/kind %) :define) flat-roots)
+        {:keys [resources globals functions]} (classify-defines top-defines)
         fn-def-map    (into {} (map (fn [d] [(name (:name d)) (emit d backend)]) functions))
         globals       (emit-globals resources globals backend)
         others        (remove #(= (ir2p/kind %) :define) flat-roots)

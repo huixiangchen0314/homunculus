@@ -1,6 +1,54 @@
 (ns top.kzre.homunculus.internal.utils
-  "编译器内部工具函数：依赖拓扑排序与循环依赖检测。"
-  (:require [clojure.set :as set]))
+  "编译器内部工具函数"
+  (:require [clojure.string :as str])
+  (:import (java.io FileNotFoundException PushbackReader StringReader)))
+
+
+(defn ns->path
+  "将命名空间符号转换为相对于 base-path 的文件路径（.clj 扩展名）。"
+  [base-path ns-sym]
+  (let [ns-str         (name ns-sym)
+        relative-path  (-> ns-str
+                           (str/replace "." "/")
+                           (str/replace "-" "_"))
+        filename       (str relative-path ".clj")
+        ;; 去掉 base-path 末尾可能存在的多余 /
+        base           (if (str/ends-with? base-path "/")
+                         (subs base-path 0 (dec (count base-path)))
+                         base-path)]
+    (str base "/" filename)))
+
+(defn module-candidates
+  "返回命名空间 ns-sym 在 lib-paths 下的所有候选文件路径（有序）。"
+  [lib-paths ns-sym]
+  (let [paths (if (coll? lib-paths) lib-paths [lib-paths])]
+    (map #(ns->path % ns-sym) paths)))
+
+(defn resolve-file
+  "从 lib-paths 中查找命名空间 ns-sym 对应的第一个可读源文件，读取并返回其内容。
+   找不到文件返回 nil。"
+  [paths]
+  (some (fn [path]
+          (try (slurp path)
+               (catch FileNotFoundException _ nil)))
+        paths))
+
+(defn resolve-module
+  [lib-paths ns-sym]
+  (resolve-file (module-candidates lib-paths ns-sym)))
+
+
+(defn parse-forms
+  "从源文件字符串读取所有顶层表单，返回向量。"
+  [src-str]
+  (let [reader (PushbackReader. (StringReader. src-str))]
+    (binding [*read-eval* false]
+      (loop [forms []]
+        (let [form (read reader false ::eof)]
+          (if (= form ::eof)
+            forms
+            (recur (conj forms form))))))))
+
 
 (defn detect-cycle
   "检测依赖图中是否存在循环依赖。使用深度优先搜索（DFS）。

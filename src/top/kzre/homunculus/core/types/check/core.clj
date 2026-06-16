@@ -7,7 +7,7 @@
             [top.kzre.homunculus.core.types.type :as t])
   (:import (top.kzre.homunculus.core.types.model TVar)))
 
-(defmulti check
+(defmulti check-node
           "对节点进行双向检查。expected 为期望类型（可为 nil）。
            返回更新后的节点（可能被 :convert 包裹）。"
           (fn [node expected context] (ir2p/kind node)))
@@ -44,4 +44,4 @@
 (defn check-program
   "检查 IR2 根节点序列（顶层无期望类型）。"
   [ir2-roots context]
-  (mapv #(check % nil context) ir2-roots))
+  (mapv #(check-node % nil context) ir2-roots))

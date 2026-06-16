@@ -181,3 +181,50 @@
   (node-meta [_] meta)
   (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
+
+
+(defrecord NsNode [name docstring attr-map references attrs meta parent]
+  p/INode
+  (kind [_] :ns)
+  ;; 命名空间声明本身没有子节点
+  (children [_] [])
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+;; ── 记录定义节点 ──
+(defrecord RecordNode [name fields protocols attrs meta parent]
+  p/INode
+  (kind [_] :record)
+  ;; fields 是字段描述列表（非 INode），protocols 是协议符号列表（非 INode）
+  ;; 因此没有子节点（方法体在 IR2 中已分离为独立的 DefineNode 或 LambdaNode）
+  (children [_] [])
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+;; ── 协议定义节点 ──
+(defrecord ProtocolNode [name method-sigs attrs meta parent]
+  p/INode
+  (kind [_] :protocol)
+  ;; method-sigs 是方法签名列表（非 INode），无子节点
+  (children [_] [])
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+;; ── 成员访问节点 ──
+;; 用于字段访问 (:keyword obj) 和方法调用 (. method obj args...)
+;; mode 为 :field 或 :method
+(defrecord MemberAccessNode [mode name target args attrs meta parent]
+  p/INode
+  (kind [_] :member-access)
+  ;; children = [target] + args（均为 INode）
+  (children [_] (into [target] (remove nil? args)))
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
+  (set-parent [this p] (assoc this :parent p)))

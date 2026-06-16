@@ -18,7 +18,7 @@
             recur-arg (-> (n/->literal 1 {} {} nil) (ty/set-type! (t/->TCon :int64)))
             recur-node (n/->recur [recur-arg] {} {} nil)
             loop-node (n/->loop [[loop-var init-val]] recur-node {} {} nil)]
-        (is (some? (check/check loop-node nil ctx)))))
+        (is (some? (check/check-node loop-node nil ctx)))))
 
     (testing "recur argument type mismatch with loop var should throw"
       (let [loop-var (-> (n/->variable 'i {} {} nil) (ty/set-type! (t/->TCon :int64)))
@@ -27,4 +27,4 @@
             recur-node (n/->recur [recur-arg] {} {} nil)
             loop-node (n/->loop [[loop-var init-val]] recur-node {} {} nil)]
         (is (thrown? Exception
-                     (check/check loop-node nil ctx)))))))
+                     (check/check-node loop-node nil ctx)))))))

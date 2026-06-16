@@ -15,5 +15,9 @@
             [top.kzre.homunculus.core.types.infer.methods.map]
             [top.kzre.homunculus.core.types.infer.methods.default]))
 
+(defn make-context
+  [frontend]
+  {:frontend frontend})
+
 ;; re-export
 (def infer c/infer)

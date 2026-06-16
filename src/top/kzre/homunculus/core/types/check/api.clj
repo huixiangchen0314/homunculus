@@ -1,5 +1,5 @@
 (ns top.kzre.homunculus.core.types.check.api
-  (:require [top.kzre.homunculus.core.types.check.core]
+  (:require [top.kzre.homunculus.core.types.check.core :as core]
             [top.kzre.homunculus.core.types.check.methods.literal]
             [top.kzre.homunculus.core.types.check.methods.variable]
             [top.kzre.homunculus.core.types.check.methods.call]
@@ -15,3 +15,9 @@
             [top.kzre.homunculus.core.types.check.methods.try]
             [top.kzre.homunculus.core.types.check.methods.assign]
             [top.kzre.homunculus.core.types.check.methods.default]))
+
+(defn make-context
+  [backend]
+  {:backend backend})
+
+(def check core/check-program)

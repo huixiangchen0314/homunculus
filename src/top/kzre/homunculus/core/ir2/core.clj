@@ -54,3 +54,6 @@
 
 (defn lower [ir1-roots]
   (mapcat #(lower-ast % {}) ir1-roots))
+
+(defn ->ir2 [ir1-root]
+  (lower-ast ir1-root {}))

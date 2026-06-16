@@ -4,6 +4,8 @@
   (:require [top.kzre.homunculus.core.ir1.protocol :as p]
             [top.kzre.homunculus.core.ir1.model :as m]))
 
+
+
 (defn attach-parents
   "递归设置 node 及其子节点的 parent 指针，返回全新的树。
    对于非 INode 子节点（如字面量、nil）保持原样。"
@@ -50,35 +52,22 @@
               (symbol? form) :symbol
               (vector? form) :vector
               (map? form)    :map
-              (or (seq? form) (list? form)) (if (symbol? (first form))
-                                              (first form) :call)
+              (seq? form)  (let [op (first form)]
+                             (cond (symbol? op) op
+                                   (keyword? op) :keyword-access ;; 关键字访问
+                                   :else :call))
               :else (throw (ex-info (str "Unsupported form: " form) {:form form})))))
 
-(defmethod form->node :literal [form]
-  (m/->LiteralNode form nil nil))
-(defmethod form->node :symbol [form]
-  (m/->SymbolNode form (meta form) nil))
-
-(defmethod form->node :call [form]
-  (let [[op & args] form]
-    (m/->CallNode op args nil nil)))
 (defmethod form->node :default [form]
   (if (seq? form)
     (let [[op & args] form]
       (m/->CallNode op args nil nil))
     (throw (ex-info (str "Unsupported form: " form) {:form form}))))
 
+
+
+
 (defmulti build-tree (fn [node] (p/kind node)))
-
-(defmethod build-tree :literal [node] node)
-(defmethod build-tree :symbol  [node] node)
-
-
-(defmethod build-tree :call [node]
-  (m/->CallNode (->ir1 (:op node))
-                (mapv ->ir1 (:args node))
-                (:meta node)
-                (:parent node)))
 
 
 (defn ->ir1 [form]

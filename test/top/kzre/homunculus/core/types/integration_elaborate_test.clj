@@ -42,7 +42,7 @@
         infer-roots (infer/infer elaborated-roots :frontend (->MockFrontend))
         typed-roots (cs/process infer-roots {:frontend (->MockFrontend) :env builtins})
         check-roots (if expected-type
-                      (mapv #(check/check % expected-type {:backend backend}) typed-roots)
+                      (mapv #(check/check-node % expected-type {:backend backend}) typed-roots)
                       typed-roots)]
     check-roots))
 

@@ -1,14 +1,14 @@
 (ns top.kzre.homunculus.core.ir1.forms.if
   (:require [top.kzre.homunculus.core.ir1.core :as ir1]
-            [top.kzre.homunculus.core.ir1.model :as m]))
+            [top.kzre.homunculus.core.ir1.node :as n]))
 
 (defmethod ir1/form->node 'if [form]
   (let [[_ test then else] form]
-    (m/->IfNode test then else (meta form) nil)))
+    (n/make-if test then else (meta form))))
 
 (defmethod ir1/build-tree :if [node]
-  (m/->IfNode (ir1/->ir1 (:test node))
-              (ir1/->ir1 (:then node))
-              (when (:else node) (ir1/->ir1 (:else node)))
-              (:meta node)
-              (:parent node)))
+  (n/make-if (ir1/->ir1 (n/if-test node))
+             (ir1/->ir1 (n/if-then node))
+             (when-let [else (n/if-else node)] (ir1/->ir1 else))
+             (n/node-meta node)
+             (n/parent node)))

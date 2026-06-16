@@ -19,7 +19,7 @@
         context {:backend backend}
         lit (m/->LiteralNode 42 nil nil  nil)
         lit-typed (assoc-in lit [:attrs :type] (t/->TCon :int64))
-        result (check/check lit-typed nil context)]
+        result (check/check-node lit-typed nil context)]
     (is (not (convert? result)))
     (is (= result lit-typed))))
 
@@ -28,7 +28,7 @@
         context {:backend backend}
         lit (m/->LiteralNode 42 nil nil  nil)
         lit-typed (assoc-in lit [:attrs :type] (t/->TCon :int64))
-        result (check/check lit-typed (t/->TCon :int64) context)]
+        result (check/check-node lit-typed (t/->TCon :int64) context)]
     (is (not (convert? result)))
     (is (= result lit-typed))))
 
@@ -39,7 +39,7 @@
         lit (m/->LiteralNode "hello" nil nil  nil)
         lit-typed (assoc-in lit [:attrs :type] (t/->TCon :string))]
     (is (thrown? clojure.lang.ExceptionInfo
-                 (check/check lit-typed (t/->TCon :float32) context)))))
+                 (check/check-node lit-typed (t/->TCon :float32) context)))))
 
 ;; ── 复合节点测试 ──────────────────────────
 
@@ -67,7 +67,7 @@
         body-node (m/->LiteralNode 42 nil nil nil)
         body-typed (assoc-in body-node [:attrs :type] (t/->TCon :int64))
         while-node (m/->WhileNode test-typed body-typed nil nil nil)
-        result (check/check while-node nil context)]
+        result (check/check-node while-node nil context)]
     ;; 检查后 test 和 body 应保持原样，无转换（因为类型匹配）
     (is (not (convert? result)))
     (is (= (:test result) test-typed))
@@ -83,7 +83,7 @@
         body-typed (assoc-in body-node [:attrs :type] (t/->TCon :int64))
         while-node (m/->WhileNode test-typed body-typed nil nil nil)
         ;; 检查时没有期望类型，但 test 会检查为 bool
-        result (check/check while-node nil context)]
+        result (check/check-node while-node nil context)]
     (is (not (convert? result)))
     ;; test 没有被转换，body 也没有被转换（因为无期望）
     (is (= (get-in result [:test :attrs :type]) (t/->TCon :bool)))

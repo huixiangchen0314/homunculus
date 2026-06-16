@@ -3,7 +3,7 @@
             [top.kzre.homunculus.core.types.check.core :as check])
   (:import (top.kzre.homunculus.core.types.model TContainer THeteroVec)))
 
-(defmethod check/check :vector [node expected context]
+(defmethod check/check-node :vector [node expected context]
   (let [items (n/vector-items node)]
     (cond
       ;; 异构向量期望：按位置逐元素检查
@@ -11,7 +11,7 @@
       (let [exp-types (:types expected)]
         (if (= (count items) (count exp-types))
           (let [checked-items (mapv (fn [item exp-ty]
-                                      (check/check item exp-ty context))
+                                      (check/check-node item exp-ty context))
                                     items exp-types)]
             (n/vector-with-items node checked-items))
           (throw (ex-info "Vector length mismatch"
@@ -20,10 +20,10 @@
       ;; 统一元素类型向量期望 (TContainer :vector)
       (and expected (instance? TContainer expected) (= (:kind expected) :vector))
       (let [elem-ty (:element-type expected)
-            checked-items (mapv #(check/check % elem-ty context) items)]
+            checked-items (mapv #(check/check-node % elem-ty context) items)]
         (n/vector-with-items node checked-items))
 
       ;; 无期望或未知类型
       :else
-      (let [checked-items (mapv #(check/check % nil context) items)]
+      (let [checked-items (mapv #(check/check-node % nil context) items)]
         (n/vector-with-items node checked-items)))))

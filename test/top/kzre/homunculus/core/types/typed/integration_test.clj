@@ -27,7 +27,7 @@
         ;; typed
         typed-result (first (typed/type-check [infer-result] :frontend frontend))
         ;; check with expected float32 on the whole let
-        checked (check/check typed-result (t/->TCon :float32) {:backend backend})]
+        checked (check/check-node typed-result (t/->TCon :float32) {:backend backend})]
 
     ;; 目前 let 节点的整体类型尚未被 check 转换为期望类型，仍为 int64
     (is (tcon? (get-type checked) :int64) "let 整体类型暂时为 int64")
@@ -47,7 +47,7 @@
         ;; typed
         typed-result (first (typed/type-check [infer-result] :frontend frontend))
         ;; check with expected float32
-        checked (check/check typed-result (t/->TCon :float32) {:backend backend})]
+        checked (check/check-node typed-result (t/->TCon :float32) {:backend backend})]
 
     (is (convert? checked) "字面量应被包装为 convert")
     (is (tcon? (get-type checked) :float32) "转换后类型应为 float32")))
