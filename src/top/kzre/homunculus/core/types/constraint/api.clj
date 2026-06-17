@@ -19,14 +19,18 @@
     [top.kzre.homunculus.core.types.constraint.solve :as solve]
     [top.kzre.homunculus.core.types.constraint.solvers.equal]
     [top.kzre.homunculus.core.types.constraint.solvers.overload]
-    [top.kzre.homunculus.core.types.constraint.solvers.convert]))
+    [top.kzre.homunculus.core.types.constraint.solvers.convert]
+    [top.kzre.homunculus.core.types.protocol :as tp]
+    [top.kzre.homunculus.internal.protocol :as ip]))
 
-(defn make-context
-  [compile-ctx frontend backend]
-  {:env {}
-   :frontend frontend
-   :ctx compile-ctx
-   :backend backend})
+(defn make-context [compile-ctx frontend backend]
+  (let [builtin-table (tp/builtin-symbols frontend)
+        user-table    (ip/symbol-table compile-ctx)]
+    {:env {}
+     :frontend frontend
+     :ctx compile-ctx
+     :backend backend
+     :symbol-table (merge builtin-table user-table)}))   ;; 内置优先，用户补充
 
 ;; re-export 关键函数，外部只需依赖此 api 即可
 (def process solve/process)
