@@ -1,91 +1,99 @@
 (ns top.kzre.homunculus.internal.symbol
-  "符号表条目构建、访问和判断工具"
+  "符号表条目构建、访问和判断工具。提供类似 Hiccup 的 DSL 来构建符号表。"
   (:require [clojure.spec.alpha :as s]
-            [top.kzre.homunculus.internal.spec :as spec]
-            [top.kzre.homunculus.core.types.protocol :as tp]))
+            [top.kzre.homunculus.core.types.type :as ty]
+            [top.kzre.homunculus.internal.spec :as spec]))
 
-;; ── 内部辅助 ──
-(defn- validate!
-  "验证条目符合 spec，失败则抛出异常"
-  [entry]
+;; ========== 构建与验证（前部分保持不变） ==========
+
+
+(defn- validate! [entry]
   (when-not (s/valid? ::spec/symbol-entry entry)
-    (throw (ex-info "Invalid symbol entry"
-                    {:explain (s/explain-str ::spec/symbol-entry entry)
-                     :entry entry})))
+    (let [explain  (s/explain-str ::spec/symbol-entry entry)]
+      (throw (ex-info "Invalid symbol entry"
+                      {:explain explain
+                       :entry entry}))))
   entry)
+
+(defn- unquote-name [x]
+  (if (and (seq? x) (= (first x) 'quote) (= (count x) 2))
+    (second x)
+    x))
+
+(defn- parse-type [type-spec]
+  (cond
+    (keyword? type-spec) (ty/make-tcon type-spec)
+    (vector? type-spec)
+    (let [parts (partition-by #{'->} type-spec)
+          types (remove #{['->]} parts)]
+      (reduce (fn [ret arg]
+                (ty/make-tfun (parse-type (first arg)) ret))
+              (parse-type (last (last types)))
+              (reverse (butlast types))))
+    :else type-spec))
 
 ;; ── 构建函数 ──
 
 (defn make-func
   "构建函数符号条目。
-  参数:
-  - sym        : 全限定符号 (如 'my.ns/my-func)
-  - params     : 参数列表 [{:param-name sym, :type IType?, :meta map?} ...]
-  - ret        : 单返回值 {:type IType, :meta map?} 或 nil
-  - rets       : 多返回值 [{:ret-name sym, :type IType, :meta map?} ...] 或 nil
-  - type       : 函数类型 (IType)，可选
-  - meta       : 符号元数据"
-  [sym & {:keys [params ret rets type meta]
-          :or {params []}}]
-  (let [entry {:kind :function
-               :sym sym
-               :type type
-               :meta meta
-               :params params
-               :ret ret
-               :rets rets}]
+   支持两种模式：
+   1. 重载模式（优先）：通过 :arities 提供多重重载列表
+      :arities 为向量，每个元素为 {:params [...] :ret {...}?}
+   2. 简单模式：通过 :params / :ret / :rets 提供单一签名
+   其他可选参数：:type, :meta"
+  [sym & {:keys [arities params ret rets type meta] :or {arities []}}]
+  (let [entry (cond-> {:kind :function :sym sym}
+                      type (assoc :type type)
+                      meta (assoc :meta meta)
+                      (seq arities) (assoc :arities (vec arities))
+                      (and (empty? arities) (some? params))
+                      (assoc :params params :ret ret :rets rets))]
     (validate! entry)
     entry))
 
 (defn make-record
   "构建记录符号条目。
-  参数:
-  - sym        : 全限定符号
-  - fields     : 字段列表 [{:field-name sym, :type IType?, :meta map?} ...]
-  - protocols  : 实现的协议列表 [sym ...] (协议的全限定符号)
-  - type       : 记录类型 (IType)，可选
-  - meta       : 符号元数据"
-  [sym & {:keys [fields protocols type meta]
-          :or {fields [] protocols []}}]
-  (let [entry {:kind :record
-               :sym sym
-               :type type
-               :meta meta
-               :fields fields
-               :protocols protocols}]
+   参数:
+   - sym        : 全限定符号
+   - fields     : 字段列表 [{:field-name sym, :type IType?, :meta map?} ...]
+   - protocols  : 实现的协议列表 [sym ...]
+   - type       : 记录类型 (IType)，可选
+   - meta       : 符号元数据"
+  [sym & {:keys [fields protocols type meta] :or {fields [] protocols []}}]
+  (let [entry (cond-> {:kind :record :sym sym}
+                      type (assoc :type type)
+                      meta (assoc :meta meta)
+                      fields (assoc :fields fields)
+                      protocols (assoc :protocols protocols))]
     (validate! entry)
     entry))
 
 (defn make-protocol
   "构建协议符号条目。
-  参数:
-  - sym         : 全限定符号
-  - methods     : 方法列表 [{:method-name sym
+   参数:
+   - sym         : 全限定符号
+   - methods     : 方法列表 [{:method-name sym
                               :arities [{:params [...]
-                                         :ret {...}? :rets [...]?} ...]} ...]
-  - type        : 协议类型 (IType)，可选
-  - meta        : 符号元数据"
-  [sym & {:keys [methods type meta]
-          :or {methods []}}]
-  (let [entry {:kind :protocol
-               :sym sym
-               :type type
-               :meta meta
-               :methods methods}]
+                                         :ret {...}?} ...]} ...]
+   - type        : 协议类型 (IType)，可选
+   - meta        : 符号元数据"
+  [sym & {:keys [methods type meta] :or {methods []}}]
+  (let [entry (cond-> {:kind :protocol :sym sym}
+                      type (assoc :type type)
+                      meta (assoc :meta meta)
+                      methods (assoc :methods methods))]
     (validate! entry)
     entry))
-
 (defn make-variable
   "构建变量符号条目。
-  参数:
-  - sym        : 全限定符号
-  - type       : 变量类型 (IType)，可选
-  - meta       : 符号元数据"
+   参数:
+   - sym        : 全限定符号
+   - type       : 变量类型 (IType)，可选
+   - meta       : 符号元数据"
   [sym & {:keys [type meta]}]
-  (let [entry {:kind :variable
-               :sym sym
-               :type type
-               :meta meta}]
+  (let [entry (cond-> {:kind :variable :sym sym}
+                      type (assoc :type type)
+                      meta (assoc :meta meta))]
     (validate! entry)
     entry))
 
@@ -117,83 +125,181 @@
   (cond-> {:ret-name name :type type}
           meta (assoc :meta meta)))
 
-(defn make-method-arity
-  "构建方法的一个 arity 签名"
-  [params & {:keys [ret rets]}]
+(defn make-func-arity
+  "构建一个函数/方法签名（参数列表 + 可选返回类型）"
+  [params & {:keys [ret]}]
   (cond-> {:params params}
-          ret (assoc :ret ret)
-          rets (assoc :rets rets)))
+          ret (assoc :ret ret)))
 
 (defn make-method
-  "构建一个方法（可能包含多个 arity）"
+  "构建一个协议方法（包含多个 arity）"
   [name arities]
   {:method-name name :arities (vec arities)})
 
+;; 向后兼容别名
+(def make-method-arity make-func-arity)
+
 ;; ── 访问函数 ──
 
-(defn get-kind
-  "获取条目种类"
-  [entry]
-  (:kind entry))
+(defn get-kind   [entry] (:kind entry))
+(defn get-type   [entry] (:type entry))
+(defn get-meta   [entry] (:meta entry))
+(defn get-fields [entry] (:fields entry))
+(defn get-protocols [entry] (:protocols entry))
+(defn get-methods [entry] (:methods entry))
+(defn get-params [entry] (:params entry))
+(defn get-ret    [entry] (:ret entry))
+(defn get-rets   [entry] (:rets entry))
 
-(defn get-type
-  "获取条目的类型（可能为 nil）"
+(defn get-arities
+  "获取函数条目的重载列表（vec of func-arity）"
   [entry]
-  (:type entry))
+  (:arities entry))
 
-(defn get-meta
-  "获取条目的元数据"
-  [entry]
-  (:meta entry))
 
-(defn get-fields
-  "获取记录的字段列表（仅 record 有效）"
-  [entry]
-  (:fields entry))
+;; ── 类似 Hiccup 的 DSL ──
 
-(defn get-protocols
-  "获取记录实现的协议列表（仅 record 有效）"
-  [entry]
-  (:protocols entry))
+(defn build-symbol-table [& entries]
+  (into {}
+        (map (fn [entry]
+               (let [[kind sym & rest] entry
+                     sym (unquote-name sym)]
+                 (case kind
+                   :func
+                   ;; 判断是多重载还是单重载
+                   (if (and (vector? (first rest))
+                            (vector? (ffirst rest)))
+                     ;; 多重载：每个元素为 ([params] ret)
+                     (let [arities (mapv (fn [arity]
+                                           (let [[params ret] arity
+                                                 pairs (partition 2 params)
+                                                 params (mapv (fn [[n t]]
+                                                                (make-param (unquote-name n) :type (parse-type t)))
+                                                              pairs)]
+                                             (make-func-arity params :ret (make-ret (parse-type ret)))))
+                                         rest)]
+                       [sym (make-func sym :arities arities)])
+                     ;; 单重载：最后一项是返回类型，其余是参数对
+                     (let [ret (last rest)
+                           param-pairs (partition 2 (butlast rest))
+                           params (mapv (fn [[n t]]
+                                          (make-param (unquote-name n) :type (parse-type t)))
+                                        param-pairs)]
+                       [sym (make-func sym :params params :ret (make-ret (parse-type ret)))]))
+                   :record
+                   (let [fields (mapv (fn [fdef]
+                                        (let [[fname ftype] fdef
+                                              fname (unquote-name fname)]
+                                          (when-not (symbol? fname)
+                                            (throw (ex-info "Record field name must be a symbol" {:fname fname :fdef fdef})))
+                                          (make-field fname :type (parse-type ftype))))
+                                      rest)]
+                     [sym (make-record sym :fields fields)])
+                   :protocol
+                   (let [methods (mapv (fn [[mname & arities]]
+                                         (make-method (unquote-name mname)
+                                                      (mapv (fn [[params ret]]
+                                                              (let [pairs (partition 2 params)
+                                                                    params (mapv (fn [[n t]]
+                                                                                   (make-param (unquote-name n) :type (parse-type t)))
+                                                                                 pairs)]
+                                                                (make-func-arity params :ret (make-ret (parse-type ret)))))
+                                                            arities)))
+                                       rest)]
+                     [sym (make-protocol sym :methods methods)])
+                   :var
+                   (let [type (parse-type (first rest))]
+                     [sym (make-variable sym :type type)])
+                   (throw (ex-info "Unknown entry kind" {:kind kind})))))
+             entries)))
 
-(defn get-methods
-  "获取协议的方法列表（仅 protocol 有效）"
-  [entry]
-  (:methods entry))
 
-(defn get-params
-  "获取函数的参数列表（仅 function 有效）"
-  [entry]
-  (:params entry))
 
-(defn get-ret
-  "获取函数的单返回值（可能为 nil）"
-  [entry]
-  (:ret entry))
 
-(defn get-rets
-  "获取函数的多返回值列表（可能为 nil）"
-  [entry]
-  (:rets entry))
+
+
+;; ============================================================
+;; 查询工具
+;; ============================================================
 
 ;; ── 判断函数 ──
 
-(defn function?
-  "判断条目是否为函数"
-  [entry]
-  (= (:kind entry) :function))
+(defn function-symbol? [entry] (= (:kind entry) :function))
+(defn record-symbol?   [entry] (= (:kind entry) :record))
+(defn protocol-symbol? [entry] (= (:kind entry) :protocol))
+(defn variable-symbol? [entry] (= (:kind entry) :variable))
 
-(defn record?
-  "判断条目是否为记录"
-  [entry]
-  (= (:kind entry) :record))
 
-(defn protocol?
-  "判断条目是否为协议"
-  [entry]
-  (= (:kind entry) :protocol))
+(defn lookup-sym
+  "在符号表（map 或通过 ICompileContext）中查找符号 sym。
+   返回符号条目，或 nil。"
+  [table sym]
+  (get table sym))
 
-(defn variable?
-  "判断条目是否为变量"
-  [entry]
-  (= (:kind entry) :variable))
+(defn lookup-func
+  "查找函数条目，若条目存在且为 :function 则返回，否则返回 nil。"
+  [table sym]
+  (when-let [entry (lookup-sym table sym)]
+    (when (function-symbol? entry) entry)))
+
+(defn lookup-record
+  "查找记录条目，若条目存在且为 :record 则返回，否则返回 nil。"
+  [table sym]
+  (when-let [entry (lookup-sym table sym)]
+    (when (record-symbol? entry) entry)))
+
+(defn lookup-protocol
+  "查找协议条目，若条目存在且为 :protocol 则返回，否则返回 nil。"
+  [table sym]
+  (when-let [entry (lookup-sym table sym)]
+    (when (protocol-symbol? entry) entry)))
+
+(defn lookup-variable
+  "查找变量条目，若条目存在且为 :variable 则返回，否则返回 nil。"
+  [table sym]
+  (when-let [entry (lookup-sym table sym)]
+    (when (variable-symbol? entry) entry)))
+
+(defn lookup-field-type
+  "在记录条目中查找字段 field-name 的类型，返回 IType 或 nil。"
+  [record-entry field-name]
+  (when-let [fields (:fields record-entry)]
+    (some (fn [f] (when (= (:field-name f) field-name) (:type f))) fields)))
+
+(defn list-arities
+  "返回函数条目的所有重载签名（向量）。若条目只有单签名，也包装为向量返回。"
+  [func-entry]
+  (or (:arities func-entry)
+      (when (:params func-entry)
+        [(select-keys func-entry [:params :ret])])))
+
+(defn find-matching-arities
+  "根据参数类型列表 arg-tys（IType 序列）查找函数条目的匹配重载。
+   匹配条件：参数个数相等，且每个参数类型相等（或通过 type-conversion 存在转换？此处只做精确匹配）。
+   返回匹配的 arity（包含 :params 和 :ret），若有多个匹配，返回第一个；无匹配返回 nil。"
+  [func-entry arg-tys]
+  (when-let [arities (list-arities func-entry)]
+    (first (filter (fn [arity]
+                     (let [params (:params arity)]
+                       (and (= (count params) (count arg-tys))
+                            (every? identity
+                                    (map (fn [p a]
+                                           (= (:type p) a))
+                                         params arg-tys)))))
+                   arities))))
+
+(defn resolve-overload
+  "在符号表中查找函数 sym 并尝试匹配 arg-tys，返回匹配的 arity 的返回值类型，或 nil。"
+  [table sym arg-tys]
+  (when-let [func-entry (lookup-func table sym)]
+    (when-let [arity (find-matching-arities func-entry arg-tys)]
+      (when-let [ret (:ret arity)]
+        (:type ret)))))
+
+
+(defn lookup-in-tables
+  "按顺序在多个符号表中查找 sym，返回第一个找到的条目。
+   每个参数应该是一个 map（键为符号，值为符号条目）。
+   若所有表中均未找到，返回 nil。"
+  [sym & tables]
+  (some (fn [tbl] (get tbl sym)) tables))

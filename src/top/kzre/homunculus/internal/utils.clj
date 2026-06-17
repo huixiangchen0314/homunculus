@@ -1,8 +1,7 @@
 (ns top.kzre.homunculus.internal.utils
   "编译器内部工具函数"
   (:require
-   [clojure.string :as str]
-   [clojure.walk :as w])
+    [clojure.string :as str])
   (:import
    (java.io FileNotFoundException PushbackReader StringReader)))
 

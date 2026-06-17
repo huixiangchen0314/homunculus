@@ -1,11 +1,10 @@
 (ns top.kzre.homunculus.internal.spec
   "编译器内部数据结构规范"
-  (:require [clojure.spec.alpha :as s]
-            [top.kzre.homunculus.core.types.protocol :as tp]))
+  (:require [clojure.spec.alpha :as s]))
 
 ;; ── 符号表条目 ──
-;; 符号，必须是命名空间符号
-(s/def ::sym (s/and symbol? (comp some? namespace)))
+;; 符号可以是命名空间符号或简单符号（用于内置函数/类型）
+(s/def ::sym (s/and symbol? #(or (namespace %) true)))
 
 ;; 符号的元数据
 (s/def ::meta map?)
@@ -24,10 +23,15 @@
                        :opt-un [::meta ::type]))
 (s/def ::params (s/coll-of ::param :kind vector?))
 (s/def ::ret (s/keys :opt-un [::meta ::type]))
-;; clojure 不会产生多返回值
+
+;; 单个函数/方法的元数签名（参数列表 + 返回类型）
+(s/def ::func-arity (s/keys :req-un [::params]
+                            :opt-un [::ret]))
+
+;; 函数条目：支持多重重载 (arities) 或简单单重载 (params + ret)
 (s/def ::function-entry
   (s/merge ::common-entry
-           (s/keys :opt-un [::params ::ret ])))
+           (s/keys :opt-un [::params ::ret ::arities])))
 
 ;; ── 记录特有字段 ──
 (s/def ::field-name symbol?)
@@ -43,16 +47,8 @@
 
 ;; ── 协议特有字段（支持重载） ──
 (s/def ::method-name symbol?)
-
-;; 单个 arity 签名
-(s/def ::method-arity (s/keys :req-un [::params]
-                              :opt-un [::ret ::rets]))
-
-;; 一个方法（包含所有重载版本）
 (s/def ::method (s/keys :req-un [::method-name ::arities]))
-(s/def ::arities (s/coll-of ::method-arity :kind vector? :min-count 1))
-
-;; 协议的方法列表
+(s/def ::arities (s/coll-of ::func-arity :kind vector? :min-count 1))
 (s/def ::methods (s/coll-of ::method :kind vector?))
 
 (s/def ::protocol-entry
@@ -72,16 +68,5 @@
 (s/def ::symbol-entry (s/multi-spec symbol-entry-kind :kind))
 
 ;; ── 完整的导出符号表 ──
-(s/def ::exports
+(s/def ::symbol-table
   (s/map-of ::sym ::symbol-entry :conform-keys true))
-
-;; ── 编译产物 ──
-(s/def ::code string?)
-(s/def ::namespace symbol?)
-(s/def ::emit-result
-  (s/keys :req-un [::code ::exports ::namespace]))
-
-;; ── 可选的附加 spec ──
-(s/def ::macro? boolean?)
-(s/def ::inline? boolean?)
-(s/def ::doc string?)

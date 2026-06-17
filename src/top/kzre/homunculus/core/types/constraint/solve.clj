@@ -29,18 +29,22 @@
 
 ;; ── 主求解循环 ──────────────────────────
 (defn solve-constraints
-  "求解约束集合，返回替换映射。
-   conversion-fn 可选，用于隐式转换。"
-  ([constraints]
-   (solve-constraints constraints nil))
+  ([constraints] (solve-constraints constraints nil))
   ([constraints conversion-fn]
    (let [subst (atom {})]
+     ;; 阶段1：只处理 CEqual 和 CConvert，直到收敛
      (loop []
        (let [old-subst @subst]
          (doseq [c constraints]
-           (swap! subst apply-constraint conversion-fn c))
+           (when (or (instance? CEqual c) (instance? CConvert c))
+             (swap! subst apply-constraint conversion-fn c)))
          (when (not= old-subst @subst)
            (recur))))
+     ;; 阶段2：处理 COverload 约束
+     (doseq [c constraints]
+       (when (instance? COverload c)
+         (swap! subst apply-constraint conversion-fn c)))
+     ;; 构建最终替换
      (let [final-subst @subst]
        (into {} (map (fn [[k v]] [k (u/substitute v final-subst)]) final-subst))))))
 
@@ -81,10 +85,7 @@
    ir2-roots 待求解的 IR2 节点树。
    context   全局编译上下文，可包含 :frontend / :backend 以提供隐式转换支持。"
   [ir2-roots context]
-  (let [context {:env       (get context :env {})
-                 :frontend  (:frontend context)
-                 :backend   (:backend context)}
-        {:keys [roots constraints]} (gen/generate-constraints ir2-roots context)
+  (let [{:keys [roots constraints]} (gen/generate-constraints ir2-roots context)
         conversion-fn (when-let [be (:backend context)]
                         (fn [s d] (tp/type-conversion be s d)))
         subst (solve-constraints constraints conversion-fn)

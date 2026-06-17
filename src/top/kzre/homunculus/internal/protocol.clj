@@ -8,12 +8,11 @@
   (output-dir   [this] "编译输出目录"))
 
 
-
 (defprotocol ICompileContext
   (config           [this])
   (register-deps    [this dep-syms] "递归编译所有依赖，确保它们已就绪")
   (register-sym [this sym-entry] "注册一个符号表项")
-  (lookup-sym      [this sym] "根据全限定符号，返回符号表项"))
+  (symbol-table      [this ] "返回全局符号表"))
 
 (defprotocol ICompiler
   "完整的编译器后端：接收合并后的表单序列，产出目标代码。"

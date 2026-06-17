@@ -8,22 +8,23 @@
             [lightDir float3]
             [lightColor float4]
             [ambient float4])
+(defuniform worldViewProj float4x4)
 
 (defshader :vertex vsMain
-           [^:POSITION float4 pos
-            ^:NORMAL float3 nrm
-            ^:TEXCOORD0 float2 uv]
+           [^:POSITION ^:float4 pos
+            ^:NORMAL ^:float3 nrm
+            ^:TEXCOORD0 ^:float2 uv]
            (let [worldPos (mul pos worldViewProj)]
-             (float4 (:xyz worldPos) 1.0)))  
+             (float4 (sw-xyz worldPos) 1.0)))
 
 (defshader :fragment psMain
-           [^:SV_POSITION float4 pos
-            ^:NORMAL float3 nrm
-            ^:TEXCOORD0 float2 uv]
+           [^:SV_POSITION ^:float4 pos
+            ^:NORMAL ^:float3 nrm
+            ^:TEXCOORD0 ^:float2 uv]
            (let [diffuse (sample myTexture mySampler uv)
                  N (normalize nrm)
                  L (normalize lightDir)
                  diff (max 0 (dot N L))
                  color (* diffuse (* lightColor diff))
                  finalColor (+ color ambient)]
-             finalColor))                      ;; 不再需要 return
+             finalColor))

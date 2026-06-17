@@ -19,7 +19,9 @@
   (meta->type          [this meta-node] "从元数据提取类型标注")
   (builtin-functions [this]
     "返回该语言的内置函数类型环境，键为符号，值为 IType（通常为 TFun 或多态类型）。HM 推断以此为基础。")
-  )
+  (builtin-symbols   [this]
+    "返回内置符号表，符合 ::spec/symbol-table 规范。
+     包含所有内置类型、函数、记录、协议、变量的类型信息。"))
 
 ;; ── 后端信息 ──────────────────────────────
 (defprotocol IBackendInfo

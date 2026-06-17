@@ -21,12 +21,12 @@
    '-      (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
    '* [(fn-> (ty/make-tcon :float)  (ty/make-tcon :float)  (ty/make-tcon :float))
        (fn-> (ty/make-tcon :float4) (ty/make-tcon :float)  (ty/make-tcon :float4))
-       ;(fn-> (ty/make-tcon :float4) (ty/make-tcon :float4) (ty/make-tcon :float4))
+       (fn-> (ty/make-tcon :float4) (ty/make-tcon :float4) (ty/make-tcon :float4))
        (fn-> (ty/make-tcon :float3) (ty/make-tcon :float3) (ty/make-tcon :float3))]
    '/      (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
 
     ;; 矩阵/向量乘法 (mul)
-   'mul    (fn-> (ty/make-tcon :float4x4) (ty/make-tcon :float4) (ty/make-tcon :float4))
+   'mul    (fn-> (ty/make-tcon :float4) (ty/make-tcon :float4x4)  (ty/make-tcon :float4))
 
     ;; 数学
    'abs    (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
@@ -68,10 +68,11 @@
 
     ;; 类型转换
    'float    (fn-> (ty/make-tcon :float)  (ty/make-tcon :int))
-   'float2   (fn-> (ty/make-tcon :float2) (ty/make-tcon :float) (ty/make-tcon :float))
-   'float3   (fn-> (ty/make-tcon :float3) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
-   'float4   (fn-> (ty/make-tcon :float4) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
-
+   'float2 [(fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float2))]
+   'float3 [(fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float3))
+            (fn-> (ty/make-tcon :float2) (ty/make-tcon :float) (ty/make-tcon :float3))]
+   'float4 [(fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float4))
+            (fn-> (ty/make-tcon :float3) (ty/make-tcon :float) (ty/make-tcon :float4))]
 
     ;; DSL 资源构造函数（提供类型以通过推导，返回值用于资源分类）
    'texture2D     (fn-> (ty/make-tcon :texture2D))

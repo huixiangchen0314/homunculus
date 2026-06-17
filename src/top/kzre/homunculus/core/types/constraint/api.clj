@@ -23,7 +23,8 @@
 
 (defn make-context
   [frontend compile-ctx]
-  {:frontend frontend
+  {:env {}
+   :frontend frontend
    :compile-ctx compile-ctx})
 
 ;; re-export 关键函数，外部只需依赖此 api 即可

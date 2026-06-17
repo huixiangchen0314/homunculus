@@ -32,16 +32,19 @@
 
 ;; ── 定义分类 ────────────────────────────
 (defn classify-defines
-  "将 :define 节点分为资源、全局常量和函数。
+  "将 :define 节点分为资源、全局常量、uniform 和函数。
    - 资源：attrs 中有 :shader/resource? 标记
+   - uniform：attrs 中有 :shader/uniform? 标记
    - 函数：val 是 lambda 节点
    - 全局常量：其余"
   [defines]
-  (let [resource?  #(some-> (n/node-meta %) :shader/resource?)
+  (let [resource? #(some-> (n/node-meta %) :shader/resource?)
+        uniform?  #(some-> (n/node-meta %) :shader/uniform?)
         function? #(when-let [v (n/define-val %)]
                      (= (n/kind v) :lambda))]
     {:resources (filter resource? defines)
-     :globals   (remove #(or (resource? %) (function? %)) defines)
+     :uniforms  (filter uniform? defines)
+     :globals   (remove #(or (resource? %) (uniform? %) (function? %)) defines)
      :functions (filter function? defines)}))
 
 ;; ── 入口规格构建 ────────────────────────
