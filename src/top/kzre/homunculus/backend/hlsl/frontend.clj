@@ -82,14 +82,14 @@
            [:func 'ddy      ['x :float] :float]
            [:func 'fwidth   ['x :float] :float]
 
-           [:func 'float    [] :float]
-           [:func 'float2   [] :float2]
-           [:func 'float3   [] :float3]
-           [:func 'float4   [] :float4]
-           [:func 'float4x4 [] :float4x4]
-           [:func 'texture2D     [] :texture2D]
-           [:func 'sampler-state [] :sampler]
-           [:func 'cbuffer       [] :cbuffer]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float    [] :float]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float2   [] :float2]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float3   [] :float3]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float4   [] :float4]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float4x4 [] :float4x4]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/texture2D     [] :texture2D]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/sampler-state [] :sampler]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/cbuffer       [] :cbuffer]
            ))
 
 

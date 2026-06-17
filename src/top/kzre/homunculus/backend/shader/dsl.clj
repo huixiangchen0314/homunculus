@@ -11,23 +11,34 @@
                  {:shader-stage stage
                   :shader/entry? true})))
 
-;; 类型构造器，用于标记类型
-(defn- texture2D  [] nil)
+;; 类型构造器（运行时无操作，仅用于类型标记）
+(defn- texture2D     [] nil)
 (defn- sampler-state [] nil)
-(defn- cbuffer [] nil)
-(defn float [] nil)
-(defn float2 [] nil)
-(defn float3 [] nil)
-(defn float4 [] nil)
-(defn float4x4 [] nil)
+(defn- cbuffer       [] nil)
+(defn float          [] nil)
+(defn float2         [] nil)
+(defn float3         [] nil)
+(defn float4         [] nil)
+(defn float4x4       [] nil)
+;; 根据短名返回全限定类型构造器符号
+(defn- fully-qualified-ctor [ctor-sym]
+  (let [ctor-name (name ctor-sym)]
+    (cond
+      (= "float"    ctor-name) `top.kzre.homunculus.backend.shader.dsl/float
+      (= "float2"   ctor-name) `top.kzre.homunculus.backend.shader.dsl/float2
+      (= "float3"   ctor-name) `top.kzre.homunculus.backend.shader.dsl/float3
+      (= "float4"   ctor-name) `top.kzre.homunculus.backend.shader.dsl/float4
+      (= "float4x4" ctor-name) `top.kzre.homunculus.backend.shader.dsl/float4x4
+      (= "texture2D"     ctor-name) `top.kzre.homunculus.backend.shader.dsl/texture2D
+      (= "sampler-state" ctor-name) `top.kzre.homunculus.backend.shader.dsl/sampler-state
+      (= "cbuffer"       ctor-name) `top.kzre.homunculus.backend.shader.dsl/cbuffer
+      :else (throw (ex-info (str "Unknown type constructor: " ctor-name) {:ctor ctor-name})))))
 
 (defmacro defuniform
   "定义全局 uniform 常量。示例：(defuniform worldViewProj float4x4)"
   [name type-ctor]
-  `(def ~(vary-meta name assoc :shader/uniform? true )
+  `(def ~(vary-meta name assoc :shader/uniform? true :shader/uniform-type type-ctor)
      (~type-ctor)))
-
-
 
 (defmacro deftexture
   "定义纹理资源。"
@@ -45,19 +56,28 @@
                     :shader/resource? true
                     :shader/resource-kind :sampler
                     :shader/sampler-register register-kw)
-     (sampler-state )))
+     (sampler-state)))
 
 (defmacro defcbuffer
   "定义 cbuffer 资源。成员以交替的符号+类型构造器给出，如 lightDir float3。
-   示例：(defcbuffer LightParams :b0 lightDir float3 lightColor float4 ambient float4)"
+   同时为每个成员生成隐式 def，使类型系统可见。"
   [name register-kw & members]
   (let [pairs (partition 2 members)
         map-expr (into {} (map (fn [[sym type-ctor]]
-                                 [(keyword sym) type-ctor])
-                               pairs))]
-    `(def ~(vary-meta name assoc
-                      :shader/resource? true
-                      :shader/resource-kind :cbuffer
-                      :shader/cbuffer-register register-kw
-                      :shader/cbuffer-members map-expr)
-       (cbuffer))))
+                                 [(keyword sym) (fully-qualified-ctor type-ctor)])
+                               pairs))
+        member-defs (map (fn [[sym type-ctor]]
+                           (let [full-ctor (fully-qualified-ctor type-ctor)]
+                             `(def ~(vary-meta sym assoc
+                                               :shader/cbuffer-member true
+                                               :shader/ignore-emit true)
+                                (~full-ctor))))
+                         pairs)]
+    `(do
+       ~@member-defs
+       (def ~(vary-meta name assoc
+                        :shader/resource? true
+                        :shader/resource-kind :cbuffer
+                        :shader/cbuffer-register register-kw
+                        :shader/cbuffer-members map-expr)
+         (top.kzre.homunculus.backend.shader.dsl/cbuffer)))))

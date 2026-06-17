@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.core.types.constraint.solvers.overload
   "COverload 约束求解器：从候选函数列表中选择最精确匹配的重载。
-   单候选直接合一，多重载须等实参全部具体化后才按代价选择。"
+   **修复**：不再在匹配过程中创建临时 TVar，避免替换映射无限膨胀。"
   (:require
     [top.kzre.homunculus.core.types.constraint.constraint :as c]
     [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
@@ -29,14 +29,14 @@
     [args ret]))
 
 (defn- try-match-overload-candidate
-  "返回 [new-subst cand cost] 三元组，cost 为匹配代价。
-   若实参为 TVar，代价为0；否则相等为0，可转换为转换代价，否则 Integer/MAX_VALUE。
-   若匹配失败则返回 nil。"
-  [subst conversion-fn cand arg-tys']
+  "返回 [new-subst cand cost] 三元组。
+   不再创建临时 TVar，直接使用传入的 ret-tvar' 构造期望类型。"
+  [subst conversion-fn cand arg-tys' ret-tvar']
   (let [cand (instantiate-candidate cand subst)]
     (try
+      ;; ★ 直接使用 ret-tvar'，不创建新 TVar
       (let [desired (reduce (fn [ret arg] (ty/make-tfun arg ret))
-                            (ty/make-tvar (gensym "ret"))
+                            ret-tvar'
                             (reverse arg-tys'))
             new-subst (u/unify cand desired subst)
             substituted-cand (u/substitute cand new-subst)
@@ -66,27 +66,31 @@
         node       (c/coverload-node overload)
         arg-tys'   (mapv #(u/substitute % subst) arg-tys)
         ret-tvar'  (u/substitute ret-tvar subst)]
-    ;; 单个候选：立即统一，无论实参中是否有 TVar
+
+    ;; 单候选：立即严格统一，无论实参中是否有 TVar
     (if (= 1 (count fn-ty-list))
       (let [cand (instantiate-candidate (first fn-ty-list) subst)
+            ;; ★ 直接使用 ret-tvar'
             desired (reduce (fn [ret arg] (ty/make-tfun arg ret)) ret-tvar' (reverse arg-tys'))
             new-subst (try (u/unify cand desired subst)
                            (catch Exception _ subst))]
-        (if (and (ty/var-type? ret-tvar')
-                 (not (contains? new-subst ret-tvar')))
+        (if (ty/var-type? ret-tvar')
           (assoc new-subst ret-tvar' (second (extract-arg-ret (u/substitute cand new-subst))))
           new-subst))
-      ;; 多个候选：推迟直到实参全部具体化
+
+      ;; 多候选：实参全部具体化后计算代价，选最优解
       (if (some ty/var-type? arg-tys')
-        subst
-        (let [scored (keep #(try-match-overload-candidate subst conversion-fn % arg-tys')
+        subst   ;; 推迟
+        (let [scored (keep #(try-match-overload-candidate subst conversion-fn % arg-tys' ret-tvar')
                            fn-ty-list)]
           (if (empty? scored)
-            (throw (ex-info "No matching overload" {:arg-tys arg-tys' :candidates fn-ty-list :node node}))
+            (throw (ex-info "No matching overload"
+                            {:arg-tys arg-tys' :candidates fn-ty-list :node node}))
             (let [min-cost (apply min (map #(nth % 2) scored))
                   best     (filter #(= (nth % 2) min-cost) scored)]
               (if (> (count best) 1)
-                (throw (ex-info "Ambiguous overload" {:arg-tys arg-tys' :matched (map second best) :node node}))
+                (throw (ex-info "Ambiguous overload"
+                                {:arg-tys arg-tys' :matched (map second best) :node node}))
                 (let [[new-subst cand-ret _] (first best)]
                   (if (ty/var-type? ret-tvar')
                     (assoc new-subst ret-tvar' cand-ret)

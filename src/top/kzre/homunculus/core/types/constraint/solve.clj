@@ -37,7 +37,6 @@
   ([constraints] (solve-constraints constraints nil))
   ([constraints conversion-fn]
    (let [subst (atom {})
-         ;; 分离约束
          simple-constraints (filter #(or (instance? CEqual %) (instance? CConvert %)) constraints)
          overload-constraints (filter #(instance? COverload %) constraints)]
      (loop []
@@ -52,7 +51,6 @@
        (let [old @subst]
          (doseq [c overload-constraints]
            (swap! subst apply-constraint conversion-fn c))
-         ;; 如果 COverload 产生了新替换，回到阶段1
          (when (not= old @subst)
            (recur))))
      ;; 构建最终替换并传播

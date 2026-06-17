@@ -1,63 +1,53 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.core
-  "约束生成 Pass 的核心调度：多方法定义与主入口。
-   同时负责为已有具体类型标注的节点生成验证约束。"
+  "约束生成 Pass 的核心调度：多方法定义与主入口。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.types.constraint.constraint :as c]
             [top.kzre.homunculus.core.types.env :as e]
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.type :as ty]))
 
-(defn frontend
-  [context]
-  (:frontend context))
+(defn frontend [context] (:frontend context))
+(defn frontend-types [context] (tp/frontend-types (frontend context)))
 
-(defn frontend-types
-  [context]
-  (tp/frontend-types (frontend context)))
+(defn fresh-tvar [] (ty/make-tvar (gensym "cg")))
 
-;; ── 工具函数 ────────────────────────────
-(defn fresh-tvar []
-  (ty/make-tvar (gensym "cg")))
-
-;; ── 底层多方法（仅按节点 kind 分发，不做任何标注短路）──
 (declare cg-node-raw)
 
 (defmulti cg-node-raw
-          "为单个 IR2 节点生成约束的核心多方法。返回 [type-var new-node constraints]。"
           (fn [node _context] (n/kind node)))
 
 (defmethod cg-node-raw :default [node _context]
   (let [tv (fresh-tvar)]
     [tv (ty/set-type! node tv) nil]))
 
-;; ── 包装函数：自动为有类型标注的节点附加验证约束 ──
+;; ── 包装函数：自动将三元组升级为四元组（上下文为 nil）──
 (defn cg-node
-  "节点约束生成入口。
-   1. 调用 cg-node-raw 得到推导类型 tv、新节点、内部约束。
-   2. 若原始节点已有具体类型标注（非 TVar），生成 (CEqual tv annotated-ty) 验证约束。
-   3. 返回合并后的 [tv new-node constraints]。"
+  "节点约束生成入口，返回 [tv new-node constraints new-context-or-nil]。"
   [node context]
-  (let [known-types (frontend-types context)                ;; TODO 从编译上下文获取导入类型(全限定符号)
+  (let [known-types (frontend-types context)
         annotated-ty (ty/get-type node known-types)
-        [tv new-node inner-constrs] (cg-node-raw node context)]
+        raw (cg-node-raw node context)
+        ;; 确保至少是三元组
+        [tv new-node inner-constrs] raw
+        ;; 如果 raw 长度 >=4，取第4个作为 new-ctx，否则 nil
+        new-ctx (when (>= (count raw) 4) (nth raw 3))]
     (if (and annotated-ty
              (satisfies? tp/IType annotated-ty)
              (not (ty/var-type? annotated-ty)))
-      [tv new-node (concat inner-constrs [(c/make-cequal tv annotated-ty)])]
-      [tv new-node inner-constrs])))
+      [tv new-node (concat inner-constrs [(c/make-cequal tv annotated-ty)]) new-ctx]
+      [tv new-node inner-constrs new-ctx])))
 
-;; ── 全局入口 ────────────────────────────
-(defn generate-constraints
-  "给定 IR2 节点树，为其生成约束。返回新的节点树和约束域。"
-  [ir2-roots context]
+;; ── 全局入口 ──
+(defn generate-constraints [ir2-roots context]
   (let [state (atom {:constraints []
                      :env (:env context)})
         new-roots
         (mapv (fn [root]
-                (let [[tv node constrs] (cg-node root (assoc context :env (:env @state)))]
+                (let [[tv node constrs new-ctx] (cg-node root (assoc context :env (:env @state)))]
                   (swap! state update :constraints into (or constrs []))
-                  (when (= (n/kind node) :define)
-                    (swap! state update :env e/extend-env (n/define-name node) tv))
+                  ;; 如果返回了有效的新上下文，则将其环境合并到全局
+                  (when new-ctx
+                    (swap! state assoc :env (:env new-ctx)))
                   node))
               ir2-roots)]
     {:roots new-roots

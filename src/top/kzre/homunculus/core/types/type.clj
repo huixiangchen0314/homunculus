@@ -155,3 +155,15 @@
   "强制覆盖节点的类型。用于推断或用户明确指定的场景。"
   [node ty]
   (assoc-in node [:attrs :type] ty))
+
+
+
+(defn concrete?
+  "判断类型是否为确定的（具体）类型。
+   TCon 是确定的；TFun 的参数和返回值都确定时才是确定的；其他均不确定。"
+  [ty]
+  (cond
+    (con-type? ty) true
+    (fun-type? ty) (and (concrete? (fun-arg ty))
+                        (concrete? (fun-ret ty)))
+    :else false))
