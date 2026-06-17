@@ -16,26 +16,36 @@
   `(def ~(vary-meta name assoc :shader/uniform? true) ~val))
 
 ;; 资源构造器（运行时无操作，仅用于元数据标记）
-(defn texture2D  [register] nil)
-(defn sampler-state [register] nil)
-(defn cbuffer [register members] nil)
+(defn texture2D  [] nil)
+(defn sampler-state [] nil)
+(defn cbuffer [] nil)
 
 (defmacro deftexture
   "定义纹理资源。"
   [name register-kw]
-  `(def ~(vary-meta name assoc :shader/resource? true :shader/resource-kind :texture2D)
-     (texture2D ~(name register-kw))))
+  `(def ~(vary-meta name assoc
+                    :shader/resource? true
+                    :shader/resource-kind :texture2D
+                    :shader/texture-register register-kw)
+     (texture2D)))
 
 (defmacro defsampler
   "定义采样器资源。"
   [name register-kw]
-  `(def ~(vary-meta name assoc :shader/resource? true :shader/resource-kind :sampler)
-     (sampler-state ~(name register-kw))))
+  `(def ~(vary-meta name assoc
+                    :shader/resource? true
+                    :shader/resource-kind :sampler
+                    :shader/sampler-register register-kw)
+     (sampler-state )))
 
 (defmacro defcbuffer
-  "定义 cbuffer 资源。"
+  "定义 cbuffer 资源。寄存器与成员信息通过元数据传递。"
   [name register-kw & members]
   (let [pairs (map (fn [[sym type]] [(keyword sym) type]) members)
         map-expr (into {} pairs)]
-    `(def ~(vary-meta name assoc :shader/resource? true :shader/resource-kind :cbuffer)
-       (cbuffer ~(name register-kw) ~map-expr))))
+    `(def ~(vary-meta name assoc
+                      :shader/resource? true
+                      :shader/resource-kind :cbuffer
+                      :shader/cbuffer-register register-kw
+                      :shader/cbuffer-members map-expr)
+       (cbuffer))))

@@ -1,9 +1,9 @@
 (ns top.kzre.homunculus.backend.hlsl.config
   "HLSL 后端的 ICompiler 实现，整合所有 Pass 并输出 HLSL 代码。"
   (:require
+    [top.kzre.homunculus.backend.hlsl.api :as emit]
     [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
     [top.kzre.homunculus.backend.hlsl.frontend :as hlsl-front]
-    [top.kzre.homunculus.backend.hlsl.emit :as hlsl-emit]
     [top.kzre.homunculus.core.ir1.api :as ir1]
     [top.kzre.homunculus.core.ir2.api :as ir2]
     [top.kzre.homunculus.core.types.check.api :as check]
@@ -34,8 +34,11 @@
           backend    (hlsl-backend/->HLSLBackend)
           lift-cfg   (default-lift-config)
 
+          ;; 预处理
+          processed (ir1/preprocess forms)
+
           ;; IR1 -> IR2
-          ir1-roots  (mapv ir1/->ir1 forms)
+          ir1-roots  (mapv ir1/->ir1 processed)
           ir2-roots  (mapcat ir2/->ir2 ir1-roots)
 
           ;; 命名空间处理（依赖注册、别名替换）
@@ -64,4 +67,4 @@
           _          (module/collect-symbols ir2-roots' context)]
 
       ;; 最终代码生成（HLSL）
-      (hlsl-emit/emit checked))))
+      (emit/emit checked))))

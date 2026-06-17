@@ -35,7 +35,11 @@
         actual* (if (ty/scheme-type? actual)
                   (scheme/instantiate actual)
                   actual)]
-    (if (or (nil? expected) (= actual* expected) (ty/var-type? actual*))
+    (if (or (nil? expected)                                 ;; 没有一个明确的期望
+            (= actual* expected)
+            (ty/var-type? actual*)
+            (ty/var-type? expected))
+
       node
       (try-convert node actual* expected context))))
 

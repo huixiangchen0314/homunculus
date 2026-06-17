@@ -4,13 +4,15 @@
             [top.kzre.homunculus.core.ir1.node :as n]))
 
 (defmethod ir1/form->node 'fn* [form]
-  (let [[_ maybe-name params & body] form
+  (let [[fn-sym maybe-name params & body] form
         [name params body] (if (symbol? maybe-name)
                              [maybe-name params body]
                              [nil maybe-name (cons params body)])
         ;; 将参数符号转换为参数描述 map
-        param-descs (mapv (fn [p] (n/make-param p (meta p))) params)]
-    (n/make-fn name param-descs body (meta form))))
+        param-descs (mapv (fn [p] (n/make-param p (meta p))) params)
+        ;; 合并 fn-sym、form、params 的元数据，确保各种位置标注都能传递
+        merged-meta (merge (meta fn-sym) (meta form) (meta params))]
+    (n/make-fn name param-descs body merged-meta)))
 
 (defmethod ir1/build-tree :fn [node]
   (let [name      (n/fn-name node)          ;; 可能是 nil 或符号

@@ -79,6 +79,8 @@
 (defn make-tvar [id] (t/->TVar id))
 (defn make-tcon [name] (t/->TCon name))
 (defn make-tfun [arg ret] (t/->TFun arg ret))
+
+
 (defn make-tapp [ctor args] (t/->TApp ctor args))
 (defn make-tcontainer [kind element-type shape] (t/->TContainer kind element-type shape))
 (defn make-hetero-vec [types] (t/->THeteroVec types))

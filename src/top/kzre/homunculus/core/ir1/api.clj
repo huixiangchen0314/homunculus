@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.core.ir1.api
   "IR1 的公共入口：加载所有特殊形式处理方法，并导出核心转换函数。"
   (:require [top.kzre.homunculus.core.ir1.core :as core]
+    [top.kzre.homunculus.core.ir1.preprocess :as pre]
     ;; 基础字面量
             [top.kzre.homunculus.core.ir1.forms.literal]
             [top.kzre.homunculus.core.ir1.forms.symbol]
@@ -30,3 +31,5 @@
             [top.kzre.homunculus.core.ir1.forms.member-access]))
 
 (def ->ir1 core/->ir1)
+
+(def preprocess pre/preprocess)

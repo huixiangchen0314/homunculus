@@ -1,3 +1,29 @@
-(ns top.kze.homunculus.examples.hlsl-lambert.core)
+(ns top.kze.homunculus.examples.hlsl-lambert.core
+  (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]))
 
-(def my-identity  ^:int (  fn*  [^:int x] x))
+;; ── 资源声明 ──────────────────────────────
+(deftexture myTexture :t0)
+(defsampler mySampler :s0)
+(defcbuffer LightParams :b0
+            [lightDir float3]
+            [lightColor float4]
+            [ambient float4])
+
+(defshader :vertex vsMain
+           [^:POSITION float4 pos
+            ^:NORMAL float3 nrm
+            ^:TEXCOORD0 float2 uv]
+           (let [worldPos (mul pos worldViewProj)]
+             (float4 worldPos.xyz 1.0)))       ;; 不再需要 return
+
+(defshader :fragment psMain
+           [^:SV_POSITION float4 pos
+            ^:NORMAL float3 nrm
+            ^:TEXCOORD0 float2 uv]
+           (let [diffuse (sample myTexture mySampler uv)
+                 N (normalize nrm)
+                 L (normalize lightDir)
+                 diff (max 0 (dot N L))
+                 color (* diffuse (* lightColor diff))
+                 finalColor (+ color ambient)]
+             finalColor))                      ;; 不再需要 return

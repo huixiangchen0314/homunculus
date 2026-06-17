@@ -1,5 +1,6 @@
 (ns top.kzre.homunculus.core.types.utils
-  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
+  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+            [top.kzre.homunculus.core.types.protocol :as tp]))
 
 
 (defn fresh-name [base]
@@ -37,6 +38,17 @@
                      (= (:name root) name))
             root))
         ir2-roots))
+
+(defn lookup-builtin
+  "从前端内置函数表中查找符号 sym。
+ 如果 sym 是全限定名，则自动去除命名空间后再查找。"
+  [frontend sym]
+  (when frontend
+    (let [builtins (tp/builtin-functions frontend)
+          simple-name (if (namespace sym)
+                        (symbol (name sym))
+                        sym)]
+      (get builtins simple-name))))
 
 
 (defn known-fn-name?

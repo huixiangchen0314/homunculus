@@ -14,56 +14,62 @@
 ;; 键：符号（如 'mul）
 ;; 值：IType 实例（通常为 TFun）
 (def common-builtins
-  '{;; 代数
-    +      (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    -      (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    *      (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    /      (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
+  {;; 代数
+   '+      (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   '-      (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   '*      (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   '/      (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
 
     ;; 矩阵/向量乘法 (mul)
-    mul    (fn-> (t/->TCon :float4x4) (t/->TCon :float4) (t/->TCon :float4))
+   'mul    (fn-> (ty/make-tcon :float4x4) (ty/make-tcon :float4) (ty/make-tcon :float4))
 
     ;; 数学
-    abs    (fn-> (t/->TCon :float) (t/->TCon :float))
-    max    (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    min    (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    clamp  (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    saturate (fn-> (t/->TCon :float) (t/->TCon :float))
+   'abs    (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
+   'max    (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   'min    (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   'clamp  (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   'saturate (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
 
     ;; 三角函数
-    sin    (fn-> (t/->TCon :float) (t/->TCon :float))
-    cos    (fn-> (t/->TCon :float) (t/->TCon :float))
-    tan    (fn-> (t/->TCon :float) (t/->TCon :float))
-    asin   (fn-> (t/->TCon :float) (t/->TCon :float))
-    acos   (fn-> (t/->TCon :float) (t/->TCon :float))
-    atan   (fn-> (t/->TCon :float) (t/->TCon :float))
-    atan2  (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
+   'sin    (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
+   'cos    (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
+   'tan    (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
+   'asin   (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
+   'acos   (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
+   'atan   (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
+   'atan2  (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
 
     ;; 指数/幂
-    pow    (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    sqrt   (fn-> (t/->TCon :float) (t/->TCon :float))
-    rsqrt  (fn-> (t/->TCon :float) (t/->TCon :float))
+   'pow    (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   'sqrt   (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
+   'rsqrt  (fn-> (ty/make-tcon :float) (ty/make-tcon :float))
 
     ;; 插值
-    lerp   (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    step   (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    smoothstep (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
+   'lerp   (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   'step   (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   'smoothstep (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
 
     ;; 几何
-    dot       (fn-> (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    cross     (fn-> (t/->TCon :float3) (t/->TCon :float3) (t/->TCon :float3))
-    normalize (fn-> (t/->TCon :float3) (t/->TCon :float3))
-    length    (fn-> (t/->TCon :float) (t/->TCon :float3))
-    distance  (fn-> (t/->TCon :float) (t/->TCon :float3) (t/->TCon :float3))
-    reflect   (fn-> (t/->TCon :float3) (t/->TCon :float3) (t/->TCon :float3))
-    refract   (fn-> (t/->TCon :float3) (t/->TCon :float3) (t/->TCon :float3) (t/->TCon :float))
+   'dot       (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   'cross     (fn-> (ty/make-tcon :float3) (ty/make-tcon :float3) (ty/make-tcon :float3))
+   'normalize (fn-> (ty/make-tcon :float3) (ty/make-tcon :float3))
+   'length    (fn-> (ty/make-tcon :float) (ty/make-tcon :float3))
+   'distance  (fn-> (ty/make-tcon :float) (ty/make-tcon :float3) (ty/make-tcon :float3))
+   'reflect   (fn-> (ty/make-tcon :float3) (ty/make-tcon :float3) (ty/make-tcon :float3))
+   'refract   (fn-> (ty/make-tcon :float3) (ty/make-tcon :float3) (ty/make-tcon :float3) (ty/make-tcon :float))
 
     ;; 纹理采样（需要纹理类型作为第一个参数，这里仅给出简化版本）
-    sample    (fn-> (t/->TCon :texture2D) (t/->TCon :sampler) (t/->TCon :float2) (t/->TCon :float4))
+   'sample    (fn-> (ty/make-tcon :texture2D) (ty/make-tcon :sampler) (ty/make-tcon :float2) (ty/make-tcon :float4))
 
     ;; 类型转换
-    float    (fn-> (t/->TCon :float)  (t/->TCon :int))
-    float2   (fn-> (t/->TCon :float2) (t/->TCon :float) (t/->TCon :float))
-    float3   (fn-> (t/->TCon :float3) (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
-    float4   (fn-> (t/->TCon :float4) (t/->TCon :float) (t/->TCon :float) (t/->TCon :float) (t/->TCon :float))
+   'float    (fn-> (ty/make-tcon :float)  (ty/make-tcon :int))
+   'float2   (fn-> (ty/make-tcon :float2) (ty/make-tcon :float) (ty/make-tcon :float))
+   'float3   (fn-> (ty/make-tcon :float3) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   'float4   (fn-> (ty/make-tcon :float4) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+
+
+    ;; DSL 资源构造函数（提供类型以通过推导，返回值用于资源分类）
+   'texture2D     (fn-> (ty/make-tcon :texture2D))
+   'sampler-state (fn-> (ty/make-tcon :sampler))
+   'cbuffer       (fn-> (ty/make-tcon :cbuffer))
     })

@@ -1,9 +1,9 @@
 (ns top.kzre.homunculus.core.ir1.core
   "IR1 核心：基于 defrecord 的 AST 节点构造与表单解析。
    所有特殊形式的解析逻辑在 ir1.forms 中。"
-  (:require [top.kzre.homunculus.core.ir1.protocol :as p]
-            [top.kzre.homunculus.core.ir1.model :as m]))
-
+  (:require
+    [top.kzre.homunculus.core.ir1.model :as m]
+   [top.kzre.homunculus.core.ir1.protocol :as p]))
 
 
 (defn attach-parents

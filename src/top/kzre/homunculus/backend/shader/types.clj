@@ -16,6 +16,9 @@
 
 (defn shader-type-str
   "根据 IR 类型关键字返回默认的着色器类型字符串。
-   各后端可以直接使用此函数，或用自己的映射覆盖。"
+   ir-type 可以是关键字（如 :float4）或 IType 对象（从 types.type 获取 type-sym 后的结果）。
+   若为 nil 或未知类型，返回 \"void\"。"
   [type-kw]
-  (get default-type-map type-kw (name type-kw)))
+  (if type-kw
+    (get default-type-map type-kw (name type-kw))
+    "void"))
