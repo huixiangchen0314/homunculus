@@ -1,7 +1,10 @@
 (ns top.kzre.homunculus.core.types.constraint.solve
   "求解约束集合并将类型替换应用到 IR2 树。
    支持重载消解（含歧义检测）、TScheme 实例化与泛型化，以及隐式转换。
-   求解完成后，对根节点中仍未绑定的类型变量进行泛型化（TScheme）。"
+   采用两阶段循环：
+     阶段1 – 只处理 CEqual / CConvert 直到收敛
+     阶段2 – 一次性处理 COverload
+   若阶段2产生新替换，则回到阶段1重新迭代，直到整体不动点。"
   (:require
     [clojure.walk :as walk]
     [top.kzre.homunculus.core.ir2.protocol :as ir2p]
@@ -29,22 +32,30 @@
 
 ;; ── 主求解循环 ──────────────────────────
 (defn solve-constraints
+  "求解约束集合，返回替换映射。
+   conversion-fn 可选，用于隐式转换。"
   ([constraints] (solve-constraints constraints nil))
   ([constraints conversion-fn]
-   (let [subst (atom {})]
-     ;; 阶段1：只处理 CEqual 和 CConvert，直到收敛
+   (let [subst (atom {})
+         ;; 分离约束
+         simple-constraints (filter #(or (instance? CEqual %) (instance? CConvert %)) constraints)
+         overload-constraints (filter #(instance? COverload %) constraints)]
      (loop []
-       (let [old-subst @subst]
-         (doseq [c constraints]
-           (when (or (instance? CEqual c) (instance? CConvert c))
-             (swap! subst apply-constraint conversion-fn c)))
-         (when (not= old-subst @subst)
+       ;; 阶段1：迭代 CEqual / CConvert 直到收敛
+       (loop []
+         (let [old @subst]
+           (doseq [c simple-constraints]
+             (swap! subst apply-constraint conversion-fn c))
+           (when (not= old @subst)
+             (recur))))
+       ;; 阶段2：一次性处理 COverload
+       (let [old @subst]
+         (doseq [c overload-constraints]
+           (swap! subst apply-constraint conversion-fn c))
+         ;; 如果 COverload 产生了新替换，回到阶段1
+         (when (not= old @subst)
            (recur))))
-     ;; 阶段2：处理 COverload 约束
-     (doseq [c constraints]
-       (when (instance? COverload c)
-         (swap! subst apply-constraint conversion-fn c)))
-     ;; 构建最终替换
+     ;; 构建最终替换并传播
      (let [final-subst @subst]
        (into {} (map (fn [[k v]] [k (u/substitute v final-subst)]) final-subst))))))
 
