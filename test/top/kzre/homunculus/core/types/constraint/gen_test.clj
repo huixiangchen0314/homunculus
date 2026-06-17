@@ -2,11 +2,9 @@
   "约束生成 Pass 的单元测试。"
   (:require [clojure.test :refer :all]
             [top.kzre.homunculus.core.ir2.model :as m]
+            [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
             [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.core.types.protocol :as tp]
-            [top.kzre.homunculus.core.types.env :as e]
-            [top.kzre.homunculus.core.types.constraint.gen :as gen]
-            [top.kzre.homunculus.core.types.constraint.scheme :as scheme])
+            [top.kzre.homunculus.core.types.protocol :as tp])
   (:import (top.kzre.homunculus.core.types.constraint.model CEqual COverload)))
 
 ;; ── 测试辅助 ──

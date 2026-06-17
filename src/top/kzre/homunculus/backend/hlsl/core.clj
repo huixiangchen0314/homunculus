@@ -40,6 +40,25 @@
          output-struct "\n"
          (tmpl/entry-wrapper stage func-name input-struct-name output-struct-name wrapper-body))))
 
+
+(defn emit-resource-decl [node]
+  (let [attrs    (n/node-meta node)
+        res-kind (:shader/resource-kind attrs)
+        res-name (name (n/define-name node))
+        ;; 从元数据中提取寄存器信息
+        reg      (case res-kind
+                   :texture2D (:shader/texture-register attrs)
+                   :sampler   (:shader/sampler-register attrs)
+                   :cbuffer   (:shader/cbuffer-register attrs)
+                   nil)]
+    (case res-kind
+      :texture2D (tmpl/texture2d-decl res-name (name reg))
+      :sampler   (tmpl/sampler-decl res-name (name reg))
+      :cbuffer   (let [members (:shader/cbuffer-members attrs)
+                       member-strs (map (fn [[sym type]] (tmpl/struct-member (hlsl-type-str type) (name sym) nil)) members)]
+                   (tmpl/cbuffer-decl res-name (name reg) (clojure.string/join "\n" member-strs)))
+      (throw (ex-info "Unknown resource type" {:node node})))))
+
 ;; ── 公共入口 ──
 (defn emit
   "对 IR2 根节点列表发射 HLSL 代码。"
@@ -47,7 +66,7 @@
   (let [flat      (mapcat n/unwrap-body ir2-roots)
         defines   (filter n/define-node? flat)
         {:keys [resources globals functions]} (sc/classify-defines defines)
-        resource-strs  (mapv (fn [d] (emit-node (assoc d :kind :define-resource))) resources)
+        resource-strs  (mapv (fn [d] (emit-resource-decl d )) resources)
         global-strs    (mapv emit-node globals)
         fn-strs        (mapv emit-node functions)
         entry-fns      (filter #(md/fn-shader-stage %) functions)

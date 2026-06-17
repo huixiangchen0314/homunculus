@@ -15,9 +15,14 @@
 ;; 值：IType 实例（通常为 TFun）
 (def common-builtins
   {;; 代数
-   '+      (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   '+ [(fn-> (ty/make-tcon :float)  (ty/make-tcon :float)  (ty/make-tcon :float))
+       (fn-> (ty/make-tcon :float4) (ty/make-tcon :float4) (ty/make-tcon :float4))
+       (fn-> (ty/make-tcon :float3) (ty/make-tcon :float3) (ty/make-tcon :float3))]
    '-      (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
-   '*      (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   '* [(fn-> (ty/make-tcon :float)  (ty/make-tcon :float)  (ty/make-tcon :float))
+       (fn-> (ty/make-tcon :float4) (ty/make-tcon :float)  (ty/make-tcon :float4))
+       ;(fn-> (ty/make-tcon :float4) (ty/make-tcon :float4) (ty/make-tcon :float4))
+       (fn-> (ty/make-tcon :float3) (ty/make-tcon :float3) (ty/make-tcon :float3))]
    '/      (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
 
     ;; 矩阵/向量乘法 (mul)
@@ -50,7 +55,7 @@
    'smoothstep (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
 
     ;; 几何
-   'dot       (fn-> (ty/make-tcon :float) (ty/make-tcon :float) (ty/make-tcon :float))
+   'dot       (fn-> (ty/make-tcon :float3) (ty/make-tcon :float3) (ty/make-tcon :float))
    'cross     (fn-> (ty/make-tcon :float3) (ty/make-tcon :float3) (ty/make-tcon :float3))
    'normalize (fn-> (ty/make-tcon :float3) (ty/make-tcon :float3))
    'length    (fn-> (ty/make-tcon :float) (ty/make-tcon :float3))

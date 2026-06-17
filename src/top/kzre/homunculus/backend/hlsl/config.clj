@@ -7,6 +7,7 @@
     [top.kzre.homunculus.core.ir1.api :as ir1]
     [top.kzre.homunculus.core.ir2.api :as ir2]
     [top.kzre.homunculus.core.types.check.api :as check]
+    [top.kzre.homunculus.core.types.alpha-rename :as rename]
     [top.kzre.homunculus.core.types.constraint.api :as solve]
     [top.kzre.homunculus.core.types.infer.api :as infer]
     [top.kzre.homunculus.core.types.lambda-elim.api :as lambda-elim]
@@ -41,8 +42,11 @@
           ir1-roots  (mapv ir1/->ir1 processed)
           ir2-roots  (mapcat ir2/->ir2 ir1-roots)
 
+          ;; ★ Alpha 重命名：确保所有变量名唯一，防止后续 Pass 变量捕获
+          ir2-roots' (mapv rename/rename ir2-roots)
+
           ;; 命名空间处理（依赖注册、别名替换）
-          ir2-roots' (module/resolve-ns ir2-roots context)
+          ir2-roots' (module/resolve-ns ir2-roots' context)
           _          (module/collect-symbols ir2-roots' context)
 
           ;; 递归消除

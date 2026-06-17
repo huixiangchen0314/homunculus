@@ -9,10 +9,8 @@
 (defmethod core/emit-node :let [node]
   (let [bindings (n/let-bindings node)
         decls    (mapv (fn [[v e]]
-                         (tmpl/var-decl-init
-                           (core/hlsl-type-str (ty/get-type v))
-                           (name (n/var-name v))
-                           (core/emit-node e)))
+                         (let [v-type (core/hlsl-type-str (ty/get-type v))]
+                           (str v-type " " (name (n/var-name v)) " = " (core/emit-node e) ";")))
                        bindings)
         body     (core/emit-node (n/let-body node))]
     (str (str/join "\n" decls) "\n" body)))

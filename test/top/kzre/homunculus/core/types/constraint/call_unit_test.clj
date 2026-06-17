@@ -1,13 +1,11 @@
 (ns top.kzre.homunculus.core.types.constraint.call-unit-test
   "针对 call 的约束生成和求解测试。"
   (:require [clojure.test :refer :all]
-            [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.core.types.test-utils :refer :all]
-            [top.kzre.homunculus.core.types.constraint.solve :as cs]
-            [top.kzre.homunculus.core.types.constraint.gen :as gen]
+            [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
-            [top.kzre.homunculus.core.ir2.model :as m])
-  (:import [top.kzre.homunculus.core.types.model TVar TCon TFun]))
+            [top.kzre.homunculus.core.types.constraint.solve :as cs]
+            [top.kzre.homunculus.core.types.model :as t]
+            [top.kzre.homunculus.core.types.test-utils :refer :all]))
 
 (defn- vref [name] (m/->VariableNode name nil nil nil))
 

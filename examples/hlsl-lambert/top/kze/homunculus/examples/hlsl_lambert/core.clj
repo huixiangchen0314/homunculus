@@ -14,7 +14,7 @@
             ^:NORMAL float3 nrm
             ^:TEXCOORD0 float2 uv]
            (let [worldPos (mul pos worldViewProj)]
-             (float4 worldPos.xyz 1.0)))       ;; 不再需要 return
+             (float4 (:xyz worldPos) 1.0)))  
 
 (defshader :fragment psMain
            [^:SV_POSITION float4 pos

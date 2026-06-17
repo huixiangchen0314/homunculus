@@ -2,11 +2,9 @@
   (:require
     [clojure.test :refer :all]
     [top.kzre.homunculus.core.ir2.model :as m]
-    [top.kzre.homunculus.core.types.model :as t]
-    [top.kzre.homunculus.core.types.test-utils :refer [get-type tcon?]]
     [top.kzre.homunculus.core.types.constraint.solve :as cs]
-    [top.kzre.homunculus.core.types.constraint.gen :as gen]
-    [top.kzre.homunculus.core.types.constraint.unify :as u]))
+    [top.kzre.homunculus.core.types.model :as t]
+    [top.kzre.homunculus.core.types.test-utils :refer [get-type tcon?]]))
 
 (defn- vref [name] (m/->VariableNode name nil nil nil))
 (defn- lit [val] (m/->LiteralNode val nil nil nil))

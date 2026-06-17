@@ -4,7 +4,7 @@
 
 
 (defonce special-forms
-         '#{ns fn* let* loop* recur quote var set! try catch throw
+         '#{ns fn* let loop* recur quote var set! try catch throw
             if do . def defrecord defprotocol})
 
 (defn ns-form?  "判断一个形式是否是 ns."

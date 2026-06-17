@@ -15,7 +15,6 @@
     [top.kzre.homunculus.backend.hlsl.methods.record]
     [top.kzre.homunculus.backend.hlsl.methods.vector]
     [top.kzre.homunculus.backend.hlsl.methods.lambda]
-    [top.kzre.homunculus.backend.hlsl.methods.define]
-    [top.kzre.homunculus.backend.hlsl.methods.resource]))
+    [top.kzre.homunculus.backend.hlsl.methods.define]))
 
 (def emit core/emit)

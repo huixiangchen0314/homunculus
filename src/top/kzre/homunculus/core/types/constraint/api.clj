@@ -16,8 +16,10 @@
     [top.kzre.homunculus.core.types.constraint.gen.methods.variable]
     [top.kzre.homunculus.core.types.constraint.gen.methods.vector]
     [top.kzre.homunculus.core.types.constraint.gen.methods.while]
-    [top.kzre.homunculus.core.types.constraint.solve :as solve])
-  )
+    [top.kzre.homunculus.core.types.constraint.solve :as solve]
+    [top.kzre.homunculus.core.types.constraint.solvers.equal]
+    [top.kzre.homunculus.core.types.constraint.solvers.overload]
+    [top.kzre.homunculus.core.types.constraint.solvers.convert]))
 
 (defn make-context
   [frontend compile-ctx]

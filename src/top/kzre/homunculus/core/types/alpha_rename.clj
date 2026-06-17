@@ -1,121 +1,143 @@
 (ns top.kzre.homunculus.core.types.alpha-rename
-  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [top.kzre.homunculus.core.ir2.model :as m]
+  "Alpha 重命名：为所有局部变量生成唯一名称，避免变量捕获。
+   使用多方法分派，覆盖所有 IR2 节点类型，全部通过 ir2.node 工具函数操作。"
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.types.utils :as u]))
 
-(defn- rename-node
-  [node rename-table]
-  (if (satisfies? ir2p/INode node)
-    (case (ir2p/kind node)
-      :lambda
-      (let [old-params (:params node)
-            new-params (mapv (fn [p]
-                               (let [old-name (:name p)
-                                     new-name (u/fresh-name old-name)]
-                                 (swap! rename-table assoc old-name new-name)
-                                 (assoc p :name new-name)))
-                             old-params)
-            new-body (rename-node (:body node) rename-table)]
-        (m/->LambdaNode new-params new-body (:captures node) (:fn-name node)
-                        (:attrs node) (:meta node) (:parent node)))
+;; ── 动态重命名表（atom）───────────────────
+(defmulti rename-node
+          (fn [node rename-table] (n/kind node)))
 
-      :let
-      (let [old-bindings (:bindings node)
-            new-bindings (mapv (fn [[var val]]
-                                 (let [old-name (:name var)
-                                       new-name (u/fresh-name old-name)]
-                                   (swap! rename-table assoc old-name new-name)
-                                   [(assoc var :name new-name)
-                                    (rename-node val rename-table)]))
-                               old-bindings)
-            new-body (rename-node (:body node) rename-table)]
-        (m/->LetNode new-bindings new-body (:attrs node) (:meta node) (:parent node)))
+(defmethod rename-node :default [node _rename-table]
+  node)
 
-      :loop
-      (let [old-bindings (:bindings node)
-            new-bindings (mapv (fn [[var val]]
-                                 (let [old-name (:name var)
-                                       new-name (u/fresh-name old-name)]
-                                   (swap! rename-table assoc old-name new-name)
-                                   [(assoc var :name new-name)
-                                    (rename-node val rename-table)]))
-                               old-bindings)
-            new-body (rename-node (:body node) rename-table)]
-        (m/->LoopNode new-bindings new-body (:attrs node) (:meta node) (:parent node)))
+;; ── 叶子 ──────────────────────────────────
+(defmethod rename-node :literal [node _] node)
 
-      :catch
-      (let [old-sym (:sym node)
-            old-name (:name old-sym)
-            new-name (u/fresh-name old-name)]
-        (swap! rename-table assoc old-name new-name)
-        (m/->CatchNode (:class node) (assoc old-sym :name new-name)
-                       (mapv #(rename-node % rename-table) (:body node))
-                       (:attrs node) (:meta node) (:parent node)))
-
-      :variable
-      (if-let [new-name (get @rename-table (:name node))]
-        (assoc node :name new-name)
-        node)
-
-      :call
-      (m/->CallNode (rename-node (:fn node) rename-table)
-                    (mapv #(rename-node % rename-table) (:args node))
-                    (:attrs node) (:meta node) (:parent node))
-
-      :if
-      (m/->IfNode (rename-node (:test node) rename-table)
-                  (rename-node (:then node) rename-table)
-                  (when (:else node) (rename-node (:else node) rename-table))
-                  (:attrs node) (:meta node) (:parent node))
-
-      :block
-      (m/->BlockNode (mapv #(rename-node % rename-table) (:exprs node))
-                     (:attrs node) (:meta node) (:parent node))
-
-      :assign
-      (m/->AssignNode (rename-node (:var node) rename-table)
-                      (rename-node (:val node) rename-table)
-                      (:attrs node) (:meta node) (:parent node))
-
-      :recur
-      (m/->RecurNode (mapv #(rename-node % rename-table) (:args node))
-                     (:attrs node) (:meta node) (:parent node))
-
-      :try
-      (m/->TryNode (mapv #(rename-node % rename-table) (:body node))
-                   (mapv #(rename-node % rename-table) (:catches node))
-                   (when (:finally node) (mapv #(rename-node % rename-table) (:finally node)))
-                   (:attrs node) (:meta node) (:parent node))
-
-      :throw
-      (m/->ThrowNode (rename-node (:expr node) rename-table)
-                     (:attrs node) (:meta node) (:parent node))
-
-      :while
-      (m/->WhileNode (rename-node (:test node) rename-table)
-                     (rename-node (:body node) rename-table)
-                     (:attrs node) (:meta node) (:parent node))
-
-      :vector
-      (m/->VectorNode (mapv #(rename-node % rename-table) (:items node))
-                      (:attrs node) (:meta node) (:parent node))
-
-      :map
-      (m/->MapNode (mapv #(rename-node % rename-table) (:kvs node))
-                   (:attrs node) (:meta node) (:parent node))
-
-      :define
-      (m/->DefineNode (:name node) (rename-node (:val node) rename-table)
-                      (:doc node) (:attrs node) (:meta node) (:parent node))
-
-      ;; 叶子
-      (:literal :symbol)
-      node
-
-      ;; 未知抛出
-      (throw (ex-info (str "Unknown node kind in alpha-rename: " (ir2p/kind node)) {:node node})))
+(defmethod rename-node :variable [node rename-table]
+  (if-let [new-name (get @rename-table (n/var-name node))]
+    (n/make-variable new-name (n/attrs node) (n/node-meta node) (n/parent node))
     node))
 
+;; ── 绑定引入节点 ──────────────────────────
+(defmethod rename-node :lambda [node rename-table]
+  (let [old-params (n/lambda-params node)
+        new-params (mapv (fn [p]
+                           (let [old-name (n/var-name p)
+                                 new-name (u/fresh-name old-name)]
+                             (swap! rename-table assoc old-name new-name)
+                             (n/make-variable new-name (n/attrs p) (n/node-meta p) (n/parent p))))
+                         old-params)
+        new-body (rename-node (n/lambda-body node) rename-table)]
+    (n/make-lambda new-params new-body
+                   (n/lambda-captures node) (n/lambda-fn-name node)
+                   (n/attrs node) (n/node-meta node) (n/parent node))))
+
+(defmethod rename-node :let [node rename-table]
+  (let [old-bindings (n/let-bindings node)
+        new-bindings (mapv (fn [[var val]]
+                             (let [old-name (n/var-name var)
+                                   new-name (u/fresh-name old-name)]
+                               (swap! rename-table assoc old-name new-name)
+                               [(n/make-variable new-name (n/attrs var) (n/node-meta var) (n/parent var))
+                                (rename-node val rename-table)]))
+                           old-bindings)
+        new-body (rename-node (n/let-body node) rename-table)]
+    (n/make-let new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))))
+
+(defmethod rename-node :loop [node rename-table]
+  (let [old-bindings (n/loop-bindings node)
+        new-bindings (mapv (fn [[var val]]
+                             (let [old-name (n/var-name var)
+                                   new-name (u/fresh-name old-name)]
+                               (swap! rename-table assoc old-name new-name)
+                               [(n/make-variable new-name (n/attrs var) (n/node-meta var) (n/parent var))
+                                (rename-node val rename-table)]))
+                           old-bindings)
+        new-body (rename-node (n/loop-body node) rename-table)]
+    (n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))))
+
+(defmethod rename-node :catch [node rename-table]
+  (let [old-sym (n/catch-sym node)
+        old-name (n/var-name old-sym)
+        new-name (u/fresh-name old-name)]
+    (swap! rename-table assoc old-name new-name)
+    (n/make-catch (rename-node (n/catch-class node) rename-table)
+                  (n/make-variable new-name (n/attrs old-sym) (n/node-meta old-sym) (n/parent old-sym))
+                  (mapv #(rename-node % rename-table) (n/catch-body node))
+                  (n/attrs node) (n/node-meta node) (n/parent node))))
+
+;; ── 容器递归 ─────────────────────────────
+(defmethod rename-node :call [node rename-table]
+  (n/make-call (rename-node (n/call-fn node) rename-table)
+               (mapv #(rename-node % rename-table) (n/call-args node))
+               (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :if [node rename-table]
+  (n/make-if (rename-node (n/if-test node) rename-table)
+             (rename-node (n/if-then node) rename-table)
+             (when-let [e (n/if-else node)] (rename-node e rename-table))
+             (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :block [node rename-table]
+  (n/make-block (mapv #(rename-node % rename-table) (n/block-exprs node))
+                (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :assign [node rename-table]
+  (n/make-assign (rename-node (n/assign-var node) rename-table)
+                 (rename-node (n/assign-val node) rename-table)
+                 (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :recur [node rename-table]
+  (n/make-recur (mapv #(rename-node % rename-table) (n/recur-args node))
+                (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :try [node rename-table]
+  (n/make-try (rename-node (n/try-body node) rename-table)
+              (mapv #(rename-node % rename-table) (n/try-catches node))
+              (when-let [f (n/try-finally node)] (rename-node f rename-table))
+              (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :throw [node rename-table]
+  (n/make-throw (rename-node (n/throw-expr node) rename-table)
+                (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :while [node rename-table]
+  (n/make-while (rename-node (n/while-test node) rename-table)
+                (rename-node (n/while-body node) rename-table)
+                (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :vector [node rename-table]
+  (n/make-vector (mapv #(rename-node % rename-table) (n/vector-items node))
+                 (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :map [node rename-table]
+  (n/make-map (mapv #(rename-node % rename-table) (n/map-kvs node))
+              (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :define [node rename-table]
+  (n/make-define (n/define-name node)
+                 (rename-node (n/define-val node) rename-table)
+                 (n/define-doc node)
+                 (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :convert [node rename-table]
+  (n/make-convert (rename-node (n/convert-expr node) rename-table)
+                  (n/convert-src-ty node) (n/convert-dst-ty node) (n/convert-cost node)
+                  (n/attrs node) (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :member-access [node rename-table]
+  (n/make-member-access (rename-node (n/access-target node) rename-table)
+                        (n/access-member node) ;; accessor 不变
+                        (mapv #(rename-node % rename-table) (n/access-args node))
+                        (n/node-meta node) (n/parent node)))
+
+(defmethod rename-node :ns [node _] node)
+(defmethod rename-node :record [node _] node)
+(defmethod rename-node :protocol [node _] node)
+
+;; ── 入口 ──────────────────────────────────
 (defn rename
+  "对 IR2 节点树执行 alpha 重命名，返回新树。"
   ([node] (rename-node node (atom {})))
   ([node rename-table] (rename-node node rename-table)))

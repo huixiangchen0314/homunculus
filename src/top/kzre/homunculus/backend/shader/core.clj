@@ -37,7 +37,7 @@
    - 函数：val 是 lambda 节点
    - 全局常量：其余"
   [defines]
-  (let [resource?  #(some-> (n/attrs %) :shader/resource?)
+  (let [resource?  #(some-> (n/node-meta %) :shader/resource?)
         function? #(when-let [v (n/define-val %)]
                      (= (n/kind v) :lambda))]
     {:resources (filter resource? defines)

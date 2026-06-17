@@ -136,17 +136,17 @@
 (defn texture2d-decl
   "纹理声明：Texture2D name : register(t0);"
   [name register-slot]
-  (T "Texture2D ${name} : register(t${register-slot});"))
+  (T "Texture2D ${name} : register(${register-slot});"))
 
 (defn sampler-decl
   "采样器声明：SamplerState name : register(s0);"
   [name register-slot]
-  (T "SamplerState ${name} : register(s${register-slot});"))
+  (T "SamplerState ${name} : register(${register-slot});"))
 
 (defn cbuffer-decl
   "cbuffer 声明：cbuffer Name : register(b0) { members };"
   [name register-slot members-str]
-  (T "cbuffer ${name} : register(b${register-slot}) { ${members-str} };"))
+  (T "cbuffer ${name} : register(${register-slot}) { ${members-str} };"))
 
 ;; ── 入口包装 ─────────────────────────────
 (defn entry-input-struct

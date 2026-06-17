@@ -8,7 +8,7 @@
         rest-after-doc (if docstring? (rest more) more)
         attr-map? (when (map? (first rest-after-doc)) (first rest-after-doc))
         val-expr (if attr-map? (second rest-after-doc) (first rest-after-doc))
-        def-meta (merge (meta form) (meta val-expr))]
+        def-meta (merge (meta form) (meta sym) (meta val-expr))]
     (n/make-def sym docstring? attr-map? val-expr def-meta)))
 
 (defmethod ir1/build-tree :def [node]
