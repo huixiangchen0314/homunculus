@@ -70,7 +70,7 @@
                            (let [full-ctor (fully-qualified-ctor type-ctor)]
                              `(def ~(vary-meta sym assoc
                                                :shader/cbuffer-member true
-                                               :shader/ignore-emit true)
+                                               :shader/ignore-emit? true)
                                 (~full-ctor))))
                          pairs)]
     `(do

@@ -40,11 +40,12 @@
   [defines]
   (let [resource? #(some-> (n/node-meta %) :shader/resource?)
         uniform?  #(some-> (n/node-meta %) :shader/uniform?)
+        ignore?  #(some-> (n/node-meta %) :shader/ignore-emit?)
         function? #(when-let [v (n/define-val %)]
                      (= (n/kind v) :lambda))]
     {:resources (filter resource? defines)
      :uniforms  (filter uniform? defines)
-     :globals   (remove #(or (resource? %) (uniform? %) (function? %)) defines)
+     :globals   (remove #(or (resource? %) (uniform? %) (function? %) (ignore? %)) defines)
      :functions (filter function? defines)}))
 
 ;; ── 入口规格构建 ────────────────────────
