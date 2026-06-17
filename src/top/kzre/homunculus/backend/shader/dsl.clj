@@ -37,8 +37,8 @@
 (defmacro defuniform
   "定义全局 uniform 常量。示例：(defuniform worldViewProj float4x4)"
   [name type-ctor]
-  `(def ~(vary-meta name assoc :shader/uniform? true :shader/uniform-type type-ctor)
-     (~type-ctor)))
+  `(def ~(vary-meta name assoc :shader/uniform? true)
+     (~(fully-qualified-ctor type-ctor))))
 
 (defmacro deftexture
   "定义纹理资源。"
