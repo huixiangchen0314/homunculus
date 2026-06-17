@@ -59,13 +59,13 @@
           mutable    (mut/analyze elaborated)
 
           ;; 局部类型推导
-          inferred   (infer/infer mutable (infer/make-context frontend))
+          inferred   (infer/infer mutable (infer/make-context context frontend))
 
           ;; HM(X) 约束求解
           solved     (solve/process inferred (solve/make-context context frontend backend))
 
           ;; 双向检查 + 隐式转换插入
-          checked    (check/check solved (check/make-context frontend backend))
+          checked    (check/check solved (check/make-context context frontend backend))
 
           ;; 收集标记了类型的符号表
           _          (module/collect-symbols ir2-roots' context)]

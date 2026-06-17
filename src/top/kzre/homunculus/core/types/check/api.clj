@@ -19,11 +19,16 @@
             [top.kzre.homunculus.core.types.check.methods.while]
             [top.kzre.homunculus.core.types.check.methods.try]
             [top.kzre.homunculus.core.types.check.methods.assign]
-            [top.kzre.homunculus.core.types.check.methods.default]))
+            [top.kzre.homunculus.core.types.check.methods.default]
+            [top.kzre.homunculus.core.types.protocol :as tp]
+            [top.kzre.homunculus.internal.protocol :as ip]))
 
 (defn make-context
-  [frontend backend]
-  {:frontend frontend
-   :backend backend})
+  [compile-ctx frontend backend]
+  {:ctx compile-ctx
+   :frontend frontend
+   :backend backend
+   :symbol-table (merge (tp/builtin-symbols frontend)
+                        (ip/symbol-table compile-ctx))})
 
 (def check core/check-program)

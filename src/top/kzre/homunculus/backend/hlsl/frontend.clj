@@ -80,7 +80,13 @@
            [:func 'discard  [] nil]
            [:func 'ddx      ['x :float] :float]
            [:func 'ddy      ['x :float] :float]
-           [:func 'fwidth   ['x :float] :float]))
+           [:func 'fwidth   ['x :float] :float]
+
+           [:func 'float    [] :float]
+           [:func 'float2   [] :float2]
+           [:func 'float3   [] :float3]
+           [:func 'float4   [] :float4]
+           [:func 'float4x4 [] :float4x4]))
 
 
 

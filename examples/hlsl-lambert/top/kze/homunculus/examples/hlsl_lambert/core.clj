@@ -4,18 +4,22 @@
 ;; ── 资源声明 ──────────────────────────────
 (deftexture myTexture :t0)
 (defsampler mySampler :s0)
+
+
 (defcbuffer LightParams :b0
-            [lightDir float3]
-            [lightColor float4]
-            [ambient float4])
+            lightDir float3
+            lightColor float4
+            ambient float4)
+
 (defuniform worldViewProj float4x4)
+
 
 (defshader :vertex vsMain
            [^:POSITION ^:float4 pos
             ^:NORMAL ^:float3 nrm
             ^:TEXCOORD0 ^:float2 uv]
-           (let [worldPos (mul pos worldViewProj)]
-             (float4 (sw-xyz worldPos) 1.0)))
+           (let [worldPos (mul worldViewProj pos)]
+             (float4 (:xyz worldPos) 1.0)))
 
 (defshader :fragment psMain
            [^:SV_POSITION ^:float4 pos
