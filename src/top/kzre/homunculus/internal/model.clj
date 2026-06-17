@@ -41,25 +41,18 @@
           ;; 移除“编译中”标记
           (swap! s update :compiling disj ns-sym))))))
 
-
-
-;; ── 默认编译上下文 ──
+;; state 应该是个 atom
 (defrecord DefaultCompileContext [config compiler state]
   p/ICompileContext
   (config [_] config)
 
-  ;; ── 注册依赖：确保所有 dep-syms 的导出表已缓存 ──
   (register-deps [this dep-syms]
     (doseq [dep dep-syms]
       (ensure-compiled this dep))
     this)  ;; 返回自身
 
-
   (register-sym [this sym-entry]
-    (swap! state assoc-in [:symbols (:sym sym-entry)] sym-entry)
+    (swap! state assoc-in [:symbol-table (:sym sym-entry)] sym-entry)
     this)
 
-  (lookup-sym [_ sym]
-    (when-let [entry (get-in @state [:global-symbols sym])]
-      entry))
-  )
+  (symbol-table [_] (:symbol-table @state)))

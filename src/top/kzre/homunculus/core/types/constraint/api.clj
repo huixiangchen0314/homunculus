@@ -22,10 +22,11 @@
     [top.kzre.homunculus.core.types.constraint.solvers.convert]))
 
 (defn make-context
-  [frontend compile-ctx]
+  [compile-ctx frontend backend]
   {:env {}
    :frontend frontend
-   :compile-ctx compile-ctx})
+   :ctx compile-ctx
+   :backend backend})
 
 ;; re-export 关键函数，外部只需依赖此 api 即可
 (def process solve/process)

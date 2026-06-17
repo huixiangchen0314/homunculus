@@ -62,7 +62,7 @@
           inferred   (infer/infer mutable (infer/make-context frontend))
 
           ;; HM(X) 约束求解
-          solved     (solve/process inferred (solve/make-context frontend context))
+          solved     (solve/process inferred (solve/make-context context frontend backend))
 
           ;; 双向检查 + 隐式转换插入
           checked    (check/check solved (check/make-context frontend backend))
