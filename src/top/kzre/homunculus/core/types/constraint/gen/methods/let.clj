@@ -12,9 +12,13 @@
           (fn [[bnds env constrs] [var val]]
             (let [[val-tv val-node val-constr] (gen/cg-node-raw val (assoc context :env env))
                   var-name (n/var-name var)
-                  binding (if (ty/fun-type? val-tv)
-                            (scheme/generalize val-tv env)
-                            val-tv)
+                  ;; 若 val-tv 已经是确定的具体类型，直接使用，不泛化
+                  binding (if (ty/concrete? val-tv)
+                            val-tv
+                            ;; 否则若为函数类型，泛化为 TScheme，支持多态
+                            (if (ty/fun-type? val-tv)
+                              (scheme/generalize val-tv env)
+                              val-tv))
                   var-node (ty/set-type! var binding)]
               [(conj bnds [var-node val-node])
                (e/extend-env env var-name binding)

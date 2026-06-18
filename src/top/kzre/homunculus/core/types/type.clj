@@ -51,6 +51,11 @@
 (defn fun-ret [fn-ty]
   (:ret fn-ty))
 
+(defn fun-result [fn-ty]
+  (if (fun-type? fn-ty)
+    (recur (fun-ret fn-ty))
+    fn-ty))
+
 ;; ── 容器类型访问器（TContainer 字段）──
 
 (defn container-element-type [container-ty]
@@ -78,6 +83,8 @@
 
 (defn make-tvar [id] (t/->TVar id))
 (defn make-tcon [name] (t/->TCon name))
+
+;; 柯里化函数
 (defn make-tfun [arg ret] (t/->TFun arg ret))
 
 
@@ -126,6 +133,9 @@
   ([node]                                                   ;; 获取内部标注类型
    ;(throw (ex-info "known-types is required." {:node node}))
    (get-in node [:attrs :type])))
+
+
+
 
 (defn frontend-type
   "获取节点中标注的前端类型."

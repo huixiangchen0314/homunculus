@@ -14,7 +14,8 @@
   (st/shader-type-str (ty/type-sym ir-type)))
 
 ;; ── 多方法分发 ──
-(defmulti emit-node (fn [node] (n/kind node)))
+(defmulti emit-node (fn [node]
+                      (n/kind node)))
 
 (defmethod emit-node :default [node]
   (throw (ex-info (str "HLSL emit not implemented for " (n/kind node)) {:node node})))
@@ -25,6 +26,8 @@
         func-name (name (n/define-name define-node))
         input-struct-name (str func-name "_Input")
         output-struct-name (str func-name "_Output")
+        ;; 提取实际返回类型
+        return-type (-> output-params first :type)
         input-members  (str/join "\n" (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) input-params))
         output-members (str/join "\n" (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) output-params))
         input-struct  (tmpl/struct-decl input-struct-name input-members)
@@ -38,7 +41,10 @@
                        (str "return " core-call ";"))]
     (str input-struct "\n"
          output-struct "\n"
-         (tmpl/entry-wrapper stage func-name input-struct-name output-struct-name wrapper-body))))
+         (tmpl/entry-wrapper stage func-name
+                             input-struct-name output-struct-name
+                             return-type
+                             wrapper-body))))
 
 
 (defn emit-resource-decl [node]

@@ -54,6 +54,16 @@
             [['a :float3 'b :float3] :float3]
             [['a :float4 'b :float4] :float4]]
 
+           ;; 向量构造函数（多重重载）
+           [:func 'float4 [['a :float 'b :float 'c :float 'd :float] :float4]
+            [['a :float2 'b :float 'c :float] :float4]
+            [['a :float3 'b :float] :float4]
+            [['a :float 'b :float3] :float4]]
+           [:func 'float3 [['a :float 'b :float 'c :float] :float3]
+            [['a :float2 'b :float] :float3]
+            [['a :float 'b :float2] :float3]]
+           [:func 'float2 [['a :float 'b :float] :float2]]
+
            ;; 单重载函数
            [:func 'normalize ['v :float3] :float3]
            [:func 'dot       ['a :float3 'b :float3] :float]

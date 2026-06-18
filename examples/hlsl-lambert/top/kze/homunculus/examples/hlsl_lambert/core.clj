@@ -19,7 +19,7 @@
             ^:NORMAL ^:float3 nrm
             ^:TEXCOORD0 ^:float2 uv]
            (let [worldPos (mul worldViewProj pos)]
-             (float4 (:xyz worldPos) 1.0)))
+             (float4 (float3 1.0 1.0 1.0) 1.0)))
 
 (defshader :fragment psMain
            [^:SV_POSITION ^:float4 pos

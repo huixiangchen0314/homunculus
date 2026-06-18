@@ -160,11 +160,15 @@
   (struct-decl name members-str))
 
 (defn entry-wrapper
-  "生成完整的入口函数（如 main），负责从输入拷贝到输出，并调用核心函数。
-   此处只提供外壳，内部逻辑由调用者拼接。"
-  [stage func-name input-type output-type body-str]
+  "生成入口包装函数。参数：
+   stage        - :vertex / :fragment
+   func-name    - 核心函数名
+   input-type   - 输入结构体名（如 vsMain_Input）
+   output-type  - 输出结构体名（如 vsMain_Output）
+   return-type  - 返回类型字符串（如 \"float4\"）
+   body-str     - 函数体"
+  [stage func-name input-type output-type return-type body-str]
   (case stage
-    :vertex   (T "VSOutput ${func-name}(VSInput input) { ${body-str} }")
-    :fragment (T "float4 ${func-name}(VSOutput input) : SV_TARGET { ${body-str} }")
-    ;; 默认使用通用签名
+    :vertex   (T "${output-type} ${func-name}(${input-type} input) { ${body-str} }")
+    :fragment (T "${return-type} ${func-name}(${input-type} input) : SV_TARGET { ${body-str} }")
     (T "void ${func-name}() { ${body-str} }")))
