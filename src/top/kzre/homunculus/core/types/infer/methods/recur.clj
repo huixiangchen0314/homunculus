@@ -4,4 +4,4 @@
 
 (defmethod infer/local-infer :recur [node context]
   ;; recur 不产生有意义的值，类型为 nil，此处保留 nil
-  (infer/nothing node))
+  (infer/nothing node context))

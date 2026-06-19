@@ -5,15 +5,16 @@
 
 (defmethod infer/local-infer :block [node context]
   (let [exprs (n/block-exprs node)
-        ;; 1. 急切求值，避免惰性重复计算
-        results (mapv #(infer/local-infer % context) exprs)
-        ;; 2. 直接取最后一个结果的类型（peek 对向量是 O(1)）
-        last-ty  (first (peek results))
-        ;; 3. 提取所有新节点
-        new-exprs (mapv second results)]
+        ;; 顺序处理每个表达式，累积上下文和节点，同时记录最后一个表达式的类型
+        [new-exprs final-ctx last-ty]
+        (reduce (fn [[nodes ctx _] expr]
+                  (let [[ty new-expr new-ctx] (infer/local-infer expr ctx)]
+                    [(conj nodes new-expr) new-ctx ty]))
+                [[] context nil]
+                exprs)
+        ;; 重建 block 节点
+        new-node (n/block-with-exprs node new-exprs)]
+    ;; 如果最后一个表达式有类型，则 block 的整体类型为该类型
     (if last-ty
-      (infer/success last-ty
-                     (-> node
-                        (n/block-with-exprs new-exprs)
-                         (type/set-type! last-ty)))
-      (infer/nothing (n/block-with-exprs node new-exprs)))))
+      (infer/success last-ty (type/set-type! new-node last-ty) final-ctx)
+      (infer/nothing new-node final-ctx))))

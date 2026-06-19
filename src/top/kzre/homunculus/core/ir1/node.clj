@@ -4,8 +4,14 @@
             [top.kzre.homunculus.core.ir1.model :as m]))
 
 
-(defn binding-pairs [bindings]
-  (partition 2 bindings))
+
+(defn make-pair
+  "创建一个键值对 [k v]。k 和 v 都是 IR2 节点。"
+  [k v]
+  [k v])
+
+(defn kv-pairs [l]
+  (partition 2 l))
 
 ;; ════════════════════════════════════════════════════════════
 ;; 通用节点访问
@@ -115,11 +121,8 @@
    (m/->LetNode bindings body (/ (count bindings) 2) meta nil))
   ([bindings body meta parent]
    (m/->LetNode bindings body (/ (count bindings) 2) meta parent)))
-
-(defn make-binding
-  "创建一个绑定对 [sym val]，其中 sym 和 val 为原始表单或 IR 节点。"
-  [bind val]
-  [bind val])
+(def binding-pairs kv-pairs)
+(def make-binding make-pair)
 
 (defn let-with-bindings [node bindings] (assoc node :bindings bindings))
 (defn let-with-body     [node body]      (assoc node :body body))

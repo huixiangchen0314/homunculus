@@ -52,7 +52,7 @@
                                            {:node node :name (n/define-name node)})))
             fn-ty      (ty/get-type lam)
             ret-type   (if (ty/fun-type? fn-ty)
-                         (core/hlsl-type-str (ty/fun-result fn-ty))
+                         (core/hlsl-type-str (ty/fun-return-type fn-ty))
                          (throw (ex-info "Cannot determine return type"
                                          {:fn-name (n/define-name node)})))
             params     (n/lambda-params lam)

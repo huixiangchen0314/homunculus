@@ -8,11 +8,9 @@
 
 ;; 纯数据工具：将扁平绑定列表划分为 [sym val] 对
 (def binding-pairs  n1/binding-pairs)
+(def kv-pairs  n1/kv-pairs)
 (def make-binding n1/make-binding)
-(defn make-pair
-  "创建一个键值对 [k v]。k 和 v 都是 IR2 节点。"
-  [k v]
-  [k v])
+(def make-pair n1/make-pair)
 
 ;; ══════════════════════════════════════════════
 ;; 通用字段访问

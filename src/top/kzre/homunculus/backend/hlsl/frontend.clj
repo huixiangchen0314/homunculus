@@ -11,13 +11,13 @@
 (defonce ^:private symbol-tables
          (sym/build-symbol-table
 
-           ;; 原始类型（名称符号，类型符号）
-           [:var 'float       'float]
-           [:var 'int         'int]
-           [:var 'bool        'bool]
-           [:var 'texture2D   'texture2D]
-           [:var 'sampler     'sampler]
-           [:var 'cbuffer     'cbuffer]
+           ;; 原始类型
+           [:primitive 'float]
+           [:primitive 'int]
+           [:primitive 'bool]
+           [:primitive 'texture2D]
+           [:primitive 'sampler]
+           [:primitive 'cbuffer]
 
            ;; 类型记录（字段类型用符号）
            [:record 'float4   ['x 'float] ['y 'float] ['z 'float] ['w 'float]]

@@ -10,7 +10,7 @@
 (s/def ::meta map?)
 
 ;; 条目种类
-(s/def ::kind #{:function :record :protocol :variable})
+(s/def ::kind #{:function :record :protocol :variable :primitive})
 
 ;; ── 通用字段（所有条目共有） ──
 (s/def ::common-entry
@@ -58,12 +58,17 @@
 ;; ── 变量特有字段（无额外字段） ──
 (s/def ::variable-entry ::common-entry)
 
+;; 原始类型
+(s/def ::primitive-entry ::common-entry)
+
+
 ;; ── multi-spec 分发 ──
 (defmulti symbol-entry-kind :kind)
 (defmethod symbol-entry-kind :function [_] ::function-entry)
 (defmethod symbol-entry-kind :record   [_] ::record-entry)
 (defmethod symbol-entry-kind :protocol [_] ::protocol-entry)
 (defmethod symbol-entry-kind :variable [_] ::variable-entry)
+(defmethod symbol-entry-kind :primitive [_] ::primitive-entry)
 
 (s/def ::symbol-entry (s/multi-spec symbol-entry-kind :kind))
 

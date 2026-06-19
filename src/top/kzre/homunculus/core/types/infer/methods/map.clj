@@ -6,21 +6,23 @@
 
 (defmethod infer/local-infer :map [node context]
   (let [kvs (n/map-kvs node)               ;; 键值对序列，交替存放 key-node, val-node
-        ;; 将 kvs 按对分组
-        pairs (partition 2 kvs)
-        ;; 逐对推导
-        results (mapv (fn [[k-node v-node]]
-                        (let [[k-ty k-new] (infer/local-infer k-node context)
-                              [v-ty v-new] (infer/local-infer v-node context)]
-                          {:key-ty k-ty :val-ty v-ty
-                           :key-node k-new :val-node v-new}))
-                      pairs)
+        pairs (n/kv-pairs kvs)
+        ;; 顺序处理每一对，累积新节点和上下文
+        [results final-ctx]
+        (reduce (fn [[pairs ctx] [k-node v-node]]
+                  (let [[k-ty k-node k-ctx] (infer/local-infer k-node ctx)
+                        [v-ty v-node v-ctx] (infer/local-infer v-node k-ctx)]
+                    [(conj pairs {:key-ty k-ty :val-ty v-ty
+                                  :key-node k-node :val-node v-node})
+                     v-ctx]))
+                [[] context]
+                pairs)
         ;; 构造异构 map 类型：entries 为 [[key-type val-type] ...]
         entries (mapv (fn [{:keys [key-ty val-ty]}] [key-ty val-ty]) results)
         map-type (t/->THeteroMap entries)
-        ;; 重建节点：需要将新子节点展平放回 :kvs
+        ;; 重建节点：将新子节点展平放回 :kvs
         new-kvs  (mapcat (fn [{:keys [key-node val-node]}] [key-node val-node]) results)
         new-node (n/map-with-kvs node new-kvs)]
     (if (every? (fn [{:keys [key-ty val-ty]}] (and key-ty val-ty)) results)
-      (infer/success map-type (type/set-type! new-node map-type))
-      (infer/nothing (type/set-type! new-node map-type)))))
+      (infer/success map-type (type/set-type! new-node map-type) final-ctx)
+      (infer/nothing (type/set-type! new-node map-type) final-ctx))))

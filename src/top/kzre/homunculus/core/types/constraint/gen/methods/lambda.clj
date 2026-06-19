@@ -12,7 +12,7 @@
         env (:env context)
         frontend (:frontend context)
         known-types (tp/frontend-types frontend)
-        ;; 参数类型优先级：已有类型 > 本地环境 > 元数据标注(符号表) > 新 TVar
+
         param-tys (mapv (fn [p]
                           (or (ty/get-type p known-types)           ;; 已有类型 (infer 写入)
                               (e/lookup-env env (n/var-name p))    ;; 本地环境

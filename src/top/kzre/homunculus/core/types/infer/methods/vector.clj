@@ -6,15 +6,16 @@
 
 (defmethod infer/local-infer :vector [node context]
   (let [items (n/vector-items node)
-        ;; 急切推导所有元素，得到 [type, new-node] 对
-        results (mapv #(infer/local-infer % context) items)
-        item-tys   (mapv first results)
-        item-nodes (mapv second results)
+        ;; 顺序推导每个元素，累积新节点、类型以及上下文
+        [item-nodes item-tys final-ctx]
+        (reduce (fn [[nodes tys ctx] item]
+                  (let [[ty new-item new-ctx] (infer/local-infer item ctx)]
+                    [(conj nodes new-item) (conj tys ty) new-ctx]))
+                [[] [] context]
+                items)
         ;; 构造异构向量类型：保留每个元素的独立类型
-        vec-type   (t/->THeteroVec item-tys)
-        ;; 使用工具函数重建节点（假设已存在 vector-with-items，若没有则用 assoc）
-        new-node   (n/vector-with-items node item-nodes)]
-    ;; 只有当所有元素都成功推导（无 nil 类型）时，才认为向量类型有效
+        vec-type (t/->THeteroVec item-tys)
+        new-node (n/vector-with-items node item-nodes)]
     (if (every? some? item-tys)
-      (infer/success vec-type (type/set-type! new-node vec-type))
-      (infer/nothing (type/set-type! new-node vec-type)))))
+      (infer/success vec-type (type/set-type! new-node vec-type) final-ctx)
+      (infer/nothing (type/set-type! new-node vec-type) final-ctx))))

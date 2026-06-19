@@ -2,29 +2,34 @@
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.env :as e]
-    [top.kzre.homunculus.core.types.infer.core :as infer]
+    [top.kzre.homunculus.core.types.infer.core :as core]
     [top.kzre.homunculus.core.types.type :as t]
     [top.kzre.homunculus.internal.symbol :as sym]))
 
-(defmethod infer/local-infer :variable [node context]
-  (let [env (infer/env context)
+(defmethod core/local-infer :variable [node context]
+  (let [env  (core/env context)
         name (n/var-name node)
-        existing (t/get-type node)]
+        ;; 1. 最高优先级：节点自身的类型（用户标注 + 前序推断结果）
+        existing (t/get-type node (core/known-types context))]
     (if existing
-      (infer/success existing node)
-      (let [binding (e/lookup-env env name)]
-        (if binding
-          (infer/success binding (t/ensure-type node binding))
-          ;; 使用符号表查询
-          (if-let [entry (sym/lookup-in-tables name (:symbol-table context))]
+      ;; 已有类型，直接使用，不改变环境
+      (core/success existing node context)
+      ;; 2. 次级：局部环境绑定（函数参数、let 引入等）
+      (if-let [binding (e/lookup-env env name)]
+        (core/success binding (t/ensure-type node binding) context)
+        ;; 3. 最低回退：全局符号表
+        (if-let [entry (sym/lookup-in-tables name (core/symbol-table context))]
+          (let [ty (:type entry)]
             (cond
-              (sym/function-symbol? entry)
               ;; 函数类型不在此处确定，交给约束求解处理
-              (infer/nothing node)
-              (sym/record-symbol? entry)
-              (infer/success (:type entry) (t/ensure-type node (:type entry)))
-              (sym/variable-symbol? entry)
-              (infer/success (:type entry) (t/ensure-type node (:type entry)))
-              :else
-              (infer/nothing node))
-            (infer/nothing node)))))))
+              (sym/function-symbol? entry) (core/nothing node context)
+              ;; 记录、变量、原始类型：将其类型绑定到局部环境，供后续使用
+              (or (sym/record-symbol? entry)
+                  (sym/variable-symbol? entry)
+                  (sym/primitive-symbol? entry))
+              (if ty
+                (let [new-env (e/extend-env env name ty)]
+                  (core/success ty (t/ensure-type node ty) (core/new-env context new-env)))
+                (core/nothing node context))
+              :else (core/nothing node context)))
+          (core/nothing node context))))))

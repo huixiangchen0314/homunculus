@@ -157,6 +157,15 @@
   [entry]
   (:arities entry))
 
+;; 原始类型构造器
+(defn make-primitive
+  "构建原始类型符号条目。sym 为类型名符号，type 可选（默认 = TCon sym）。"
+  [sym & {:keys [type meta]}]
+  (let [entry (cond-> {:kind :primitive :sym sym}
+                      type (assoc :type type)
+                      meta (assoc :meta meta))]
+    (validate! entry)
+    entry))
 
 ;; ── 类似 Hiccup 的 DSL ──
 ;; ── 多方法：解析符号表项 ──
@@ -239,6 +248,15 @@
   [entry-vec]
   (throw (ex-info "Unknown entry kind" {:kind (first entry-vec)})))
 
+(defmethod parse-table-entry :primitive
+  [[_ sym & rest]]
+  (let [sym (unquote-name sym)
+        ;; 可选的类型参数，默认类型即为 TCon sym
+        type (if (seq rest)
+               (parse-type (first rest))
+               (ty/make-tcon sym))]
+    (list [sym (make-primitive sym :type type)])))
+
 ;; ── 主构建函数 ──
 (defn build-symbol-table [& entries]
   (into {} (mapcat parse-table-entry entries)))
@@ -257,6 +275,18 @@
 (defn record-symbol?   [entry] (= (:kind entry) :record))
 (defn protocol-symbol? [entry] (= (:kind entry) :protocol))
 (defn variable-symbol? [entry] (= (:kind entry) :variable))
+(defn primitive-symbol? [entry] (= (:kind entry) :primitive))
+
+
+(defn types-symbols
+  "从符号表中提取所有类型符号（原始类型、记录、协议）。
+   返回符号集合，可用于已知类型检查。"
+  [symbol-table]
+  (into #{}
+        (comp (filter (fn [[_ entry]]
+                        (#{:primitive :record :protocol} (:kind entry))))
+              (map key))
+        symbol-table))
 
 
 (defn lookup-sym

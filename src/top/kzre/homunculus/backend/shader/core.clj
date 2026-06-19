@@ -84,7 +84,7 @@
                        (filterv (comp some? :semantic) raw-inputs)
                        raw-inputs)
         ;; 返回类型
-        ret-type-str (type-conv-fn (ty/fun-result (ty/get-type lam)))
+        ret-type-str (type-conv-fn (ty/fun-return-type (ty/get-type lam)))
         output-param {:name     "pos"
                       :type     ret-type-str
                       :semantic (case stage

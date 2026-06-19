@@ -30,8 +30,10 @@
   (when (con-type? ty)
     (:name ty)))
 
+;; TODO 应当由前端协议来判断 什么是false.
 (defn bool-type?
-  "判断 type 是否为 TCon 且类型名为 :bool。"
+  "判断 type 是否为 TCon 且类型名为 :bool.
+  各个后端语言必须支持逻辑bool值"
   [type]
   (= (type-sym type) :bool))
 
@@ -51,10 +53,14 @@
 (defn fun-ret [fn-ty]
   (:ret fn-ty))
 
-(defn fun-result [fn-ty]
-  (if (fun-type? fn-ty)
-    (recur (fun-ret fn-ty))
-    fn-ty))
+(defn fun-return-type
+  ([fn-ty]
+   (if (fun-type? fn-ty)
+     (recur (fun-ret fn-ty))
+     fn-ty))
+  ([fun-ty arity]                                           ;; 知道参数个数用这个推导
+   (nth (iterate :ret fun-ty) arity)))
+
 
 ;; ── 容器类型访问器（TContainer 字段）──
 
@@ -116,31 +122,25 @@
 
 
 (defn meta->type
-  "从节点的 node-meta 中查找第一个匹配 known-types 的关键字，返回 TCon 实例或 nil。"
+  "从节点的 node-meta 中查找类型标注，优先 :tag 符号，其次无命名空间关键字，
+   与 known-types（符号集合）匹配后返回 TCon。"
   [node known-types]
   (when-let [md (ir2p/node-meta node)]
-    (some (fn [k]
-            (when (and (keyword? k) (contains? (set known-types) k))
-              (t/->TCon k)))
-          (keys md))))
+    (let [type-sym (:tag md)]                               ;; 标准类型位置.
+      (when (and type-sym (contains? (set known-types) type-sym)) ;; 旧位置
+        (t/->TCon type-sym)))))
 
 (defn get-type
   "获取节点的类型，优先级：attrs :type > node-meta 类型标注 > nil。
-   known-types 是一个关键字集合（例如 #{:float4 :int ...}）。"
-  ([node known-types]                                       ;; 获取用户标注类型
+   type-symbols 是一个关键字集合（例如 #{:float4 :int ...}）。"
+  ([node type-symbols]                                       ;; 获取用户标注类型
    (or (get-in node [:attrs :type])
-       (meta->type node known-types)))
+       (meta->type node type-symbols)))
   ([node]                                                   ;; 获取内部标注类型
-   ;(throw (ex-info "known-types is required." {:node node}))
+   ;(throw (ex-info "type-symbols is required." {:node node}))
    (get-in node [:attrs :type])))
 
 
-
-
-(defn frontend-type
-  "获取节点中标注的前端类型."
-  [node frontend]
-  (get-type node (p/frontend-types frontend)))
 
 (defn has-type?
   "判断节点是否已有明确类型（在 attrs 或 node-meta 中）。"
