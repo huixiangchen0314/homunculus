@@ -2,36 +2,29 @@
   "HLSL 代码发射核心：多方法分派与公共辅助。"
   (:require
     [clojure.string :as str]
-    [top.kzre.homunculus.backend.hlsl.templates :as tmpl]
+    [top.kzre.homunculus.backend.hlsl.render :as render]
     [top.kzre.homunculus.backend.shader.core :as sc]
     [top.kzre.homunculus.backend.shader.types :as st]
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.types.type :as ty]
-    [top.kzre.homunculus.core.types.metadata :as md]))
+    [top.kzre.homunculus.core.types.metadata :as md]
+    [top.kzre.homunculus.core.types.type :as ty]))
 
-;; 核心工具函数 ==============================================
-
-
-
-;; ── 类型转换适配 ──
 (defn hlsl-type-str [ir-type]
   (st/shader-type-str (ty/type-sym ir-type)))
 
-;; ── 多方法分发 ──
-(defmulti emit-node (fn [node]
-                      (n/kind node)))
+(defmulti emit-node (fn [node _context] (n/kind node)))
 
-(defmethod emit-node :default [node]
+(defmethod emit-node :default [node _context]
   (throw (ex-info (str "HLSL emit not implemented for " (n/kind node)) {:node node})))
 
-;; ── 入口包装（使用 shader.core）──
-(defn- emit-entry-wrapper [stage define-node]
-  (let [{:keys [input-params output-params]} (sc/entry-spec stage define-node hlsl-type-str)
+;; ── 入口包装 ──
+(defn- emit-entry-wrapper [define-node]
+  (let [stage (md/fn-shader-stage define-node)
+        {:keys [input-params output-params]} (sc/entry-spec stage define-node hlsl-type-str)
         func-name (name (n/define-name define-node))
         input-struct-name  (str func-name "_Input")
         output-struct-name (str func-name "_Output")
 
-        ;; ── 顶点着色器自动输出非 POSITION 的插值语义 ──
         output-params (if (= stage :vertex)
                         (let [passthrough (mapv (fn [in]
                                                   {:name     (:name in)
@@ -43,86 +36,91 @@
                           (concat passthrough output-params))
                         output-params)
 
-        ;; 返回类型：顶点用输出结构体名，片段用唯一输出成员的类型（如 float4）
-        return-type (if (= stage :vertex)
-                      output-struct-name
-                      (-> output-params first :type))
+        ;; 成员必须用 :struct-member 标签
+        input-members  (mapv (fn [p] [:struct-member (:type p) (:name p) (:semantic p)]) input-params)
+        output-members (mapv (fn [p] [:struct-member (:type p) (:name p) (:semantic p)]) output-params)
 
-        input-members  (str/join "\n" (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) input-params))
-        output-members (str/join "\n" (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) output-params))
-
-        input-struct  (tmpl/struct-decl input-struct-name input-members)
-        output-struct (tmpl/struct-decl output-struct-name output-members)
+        input-struct  [:struct input-struct-name input-members]
+        output-struct [:struct output-struct-name output-members]
 
         call-args (str/join ", " (mapv (fn [p] (str "input." (:name p))) input-params))
         core-call (str func-name "(" call-args ")")
 
-        wrapper-body (if (= stage :vertex)
-                       (let [out-assigns (str/join "\n"
-                                                   (for [p output-params]
-                                                     (if (= "SV_POSITION" (:semantic p))
-                                                       (str "out." (:name p) " = " core-call ";")
-                                                       (str "out." (:name p) " = input." (:name p) ";"))))]
-                         (str output-struct-name " out;\n" out-assigns "\nreturn out;"))
-                       (str "return " core-call ";"))]
-    (str input-struct "\n"
-         output-struct "\n"
-         (tmpl/entry-wrapper stage func-name
-                             input-struct-name output-struct-name
-                             return-type
-                             wrapper-body))))
+        ;; 包装体：顶点着色器需要声明输出变量并赋值
+        body-stmts (if (= stage :vertex)
+                     (let [out-decl [:raw (str output-struct-name " out;")]
+                           assignments (mapv (fn [p]
+                                               (if (= "SV_POSITION" (:semantic p))
+                                                 [:assign (str "out." (:name p)) [:literal core-call]]
+                                                 [:assign (str "out." (:name p)) [:member-access [:var-ref "input"] (:name p)]]))
+                                             output-params)
+                           return-stmt [:return [:var-ref "out"]]]
+                       (into [out-decl] (conj assignments return-stmt)))
+                     [[:return [:literal core-call]]])
 
+        wrapper-fn (if (= stage :vertex)
+                     [:entry-wrapper :vertex func-name input-struct-name output-struct-name output-struct-name
+                      body-stmts]
+                     [:entry-wrapper :fragment func-name input-struct-name output-struct-name
+                      (-> output-params first :type)
+                      body-stmts])]
+    [input-struct output-struct wrapper-fn]))
 
+;; ── 资源声明 ──
 (defn emit-resource-decl [node]
   (let [attrs    (n/node-meta node)
         res-kind (:shader/resource-kind attrs)
         res-name (name (n/define-name node))
-        ;; 从元数据中提取寄存器信息
         reg      (case res-kind
                    :texture2D (:shader/texture-register attrs)
                    :sampler   (:shader/sampler-register attrs)
                    :cbuffer   (:shader/cbuffer-register attrs)
                    nil)]
     (case res-kind
-      :texture2D (tmpl/texture2d-decl res-name (name reg))
-      :sampler   (tmpl/sampler-decl res-name (name reg))
+      :texture2D [:texture-decl res-name (name reg)]
+      :sampler   [:sampler-decl res-name (name reg)]
       :cbuffer   (let [members (:shader/cbuffer-members attrs)
-                       member-strs (map (fn [[sym type-sym-node]] (tmpl/struct-member (st/shader-type-str (keyword type-sym-node)) (name sym) nil)) members)]
-                   (tmpl/cbuffer-decl res-name (name reg) (clojure.string/join "\n" member-strs)))
+                       member-vecs (mapv (fn [[sym type-sym-node]]
+                                          [:struct-member (st/shader-type-str (keyword type-sym-node)) (name sym) nil])
+                                        members)]
+                   [:cbuffer-decl res-name (name reg) member-vecs])
       (throw (ex-info "Unknown resource type" {:node node})))))
 
-
-;; 在 hlsl/core.clj 中添加
-(defn emit-uniform-decl [node]
+(defn emit-uniform-decl [node context]
   (let [val (n/define-val node)
         type-str (hlsl-type-str (ty/get-type val))
         name-str (name (n/define-name node))]
-    (tmpl/uniform-var-decl type-str name-str)))
+    [:uniform-decl type-str name-str]))
 
-(defn emit-static-var-decl [node]
+(defn emit-static-var-decl [node context]
   (let [ir-type (ty/get-type node)
         type-str (hlsl-type-str ir-type)
         name-str (name (n/define-name node))
         val-expr (or (n/define-val node)
-                                (throw (ex-info "Static variable must have an initializer" {:name name-str})))
-        val-expr-str (emit-node val-expr)]
-    (tmpl/static-var-decl-init type-str name-str val-expr-str)))
+                     (throw (ex-info "Static variable must have an initializer" {:name name-str})))
+        init-struct (emit-node val-expr context)]
+    [:static-var-decl type-str name-str init-struct]))
 
-
-;; ── 公共入口 ──
+;; ── 全局入口 ──
 (defn emit
-  "对 IR2 根节点列表发射 HLSL 代码。"
-  [ir2-roots]
+  [ir2-roots context]
   (let [flat      (mapcat n/unwrap-body ir2-roots)
         defines   (filter n/define-node? flat)
         records   (filter n/record-node? flat)
         {:keys [resources uniforms static-vars global-vars functions]} (sc/classify-defines defines)
-        resource-strs  (mapv (fn [d] (emit-resource-decl d )) resources)
-        uniform-strs  (mapv emit-uniform-decl uniforms)
-        static-var-strs (mapv emit-static-var-decl static-vars)
-        global-var-strs    (mapv emit-node global-vars)
-        struct-strs       (mapv emit-node records)
-        fn-strs        (mapv emit-node functions)
-        entry-fns      (filter #(md/fn-shader-stage %) functions)
-        entry-wrappers (mapv (fn [d] (emit-entry-wrapper (md/fn-shader-stage d) d)) entry-fns)]
-    (str/join "\n\n" (concat resource-strs uniform-strs static-var-strs global-var-strs struct-strs fn-strs entry-wrappers))))
+        resource-structs  (mapv emit-resource-decl resources)
+        uniform-structs   (mapv #(emit-uniform-decl % context) uniforms)
+        static-var-structs (mapv #(emit-static-var-decl % context) static-vars)
+        global-var-structs (mapv #(emit-node % context) global-vars)
+        struct-structs     (mapv #(emit-node % context) records)
+        fn-structs         (mapv #(emit-node % context) functions)
+        entry-fns          (filter #(md/fn-shader-stage %) functions)
+        entry-wrapper-structs (mapcat emit-entry-wrapper entry-fns)
+        all-structs (remove nil? (concat resource-structs
+                                         uniform-structs
+                                         static-var-structs
+                                         global-var-structs
+                                         struct-structs
+                                         fn-structs
+                                         entry-wrapper-structs))]
+    (render/render all-structs)))

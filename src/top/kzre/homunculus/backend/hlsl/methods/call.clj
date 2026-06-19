@@ -4,35 +4,32 @@
             [top.kzre.homunculus.backend.hlsl.core :as core]
             [top.kzre.homunculus.core.ir2.node :as n]))
 
-;; 中缀运算符集合
 (def ^:private infix-ops #{"+" "-" "*" "/" "%" "==" "!=" "<" ">" "<=" ">=" "&&" "||"})
+
 (defn- remove-record-ctor-prefix-arrow [fn-name]
   (if (str/starts-with? fn-name "->")
     (subs fn-name 2)
     fn-name))
 
-
-(defmethod core/emit-node :call [node]
+(defmethod core/emit-node :call [node context]
   (let [fn-node  (n/call-fn node)
         fn-sym   (when (= (n/kind fn-node) :variable) (n/var-name fn-node))
         fn-name  (name fn-sym)
-        fn-name (remove-record-ctor-prefix-arrow fn-name)
+        fn-name  (remove-record-ctor-prefix-arrow fn-name)
         args     (n/call-args node)]
     (cond
-      ;; sample 特殊处理
+      ;; sample 特殊处理 → :sample
       (= fn-name "sample")
-      (let [target  (core/emit-node (first args))
-            sampler (core/emit-node (second args))
-            uv      (core/emit-node (nth args 2))]
-        (str target ".Sample(" sampler ", " uv ")"))
+      [:sample (core/emit-node (first args) context)
+       (core/emit-node (second args) context)
+       (core/emit-node (nth args 2) context)]
 
-      ;; 中缀运算符
-      (contains? infix-ops fn-name)
-      (let [arg-strs (mapv core/emit-node args)]
-        (if (= (count arg-strs) 2)
-          (str "(" (first arg-strs) " " fn-name " " (second arg-strs) ")")
-          (str fn-name "(" (str/join ", " arg-strs) ")")))
+      ;; 中缀运算符，且恰好 2 个实参
+      (and (contains? infix-ops fn-name) (= (count args) 2))
+      [:binary fn-name
+       (core/emit-node (first args) context)
+       (core/emit-node (second args) context)]
 
-      ;; 普通函数调用
+      ;; 普通函数调用（包括中缀但参数不是2）
       :else
-      (str fn-name "(" (str/join ", " (mapv core/emit-node args)) ")"))))
+      (into [:call fn-name] (mapv #(core/emit-node % context) args)))))

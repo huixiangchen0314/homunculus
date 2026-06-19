@@ -71,4 +71,4 @@
           _          (module/collect-symbols ir2-roots' context)]
 
       ;; 最终代码生成（HLSL）
-      (emit/emit checked))))
+      (emit/emit checked (emit/make-context context frontend)))))
