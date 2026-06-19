@@ -81,9 +81,7 @@
     (fn [n]
       (if (satisfies? ir2p/INode n)
         (if-let [ty (ty/get-type n)]
-          (if (and (ty/var-type? ty) (contains? subst ty))
-            (ty/set-type! n (u/substitute ty subst))
-            n)
+          (ty/set-type! n (u/substitute ty subst))  ;; 无条件替换，递归处理, 确保能处理函数返回值
           n)
         n))
     node))
@@ -99,4 +97,4 @@
                         (fn [s d] (tp/type-conversion be s d)))
         subst (solve-constraints constraints conversion-fn)
         typed-roots (mapv #(apply-subst % subst) roots)]
-    (mapv generalize-tree typed-roots)))
+    typed-roots))
