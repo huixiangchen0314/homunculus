@@ -1,8 +1,7 @@
 (ns top.kzre.homunculus.core.ir1.expand-symbols
   "符号展开：根据 ns 声明将符号转换为全限定名，辅助宏展开。
    修复：对 :refer :all 的命名空间，通过 require + resolve 进行逐个尝试，
-   避免依赖 find-ns 导致的加载失败。"
-  (:require [clojure.walk :as walk]))
+   避免依赖 find-ns 导致的加载失败。")
 
 (defn- parse-ns [ns-form]
   (let [rest-args (drop 2 ns-form)

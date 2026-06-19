@@ -7,7 +7,7 @@
   "定义着色器入口函数。stage 为 :vertex, :fragment 等，params 为带类型标注的参数向量。"
   [stage name params & body]
   `(def ~name
-     ~(with-meta (list* 'fn* params body)
+     ~(with-meta (list* 'fn params body)
                  {:shader-stage stage
                   :shader/entry? true})))
 
@@ -15,6 +15,7 @@
 (defn- texture2D     [] nil)
 (defn- sampler-state [] nil)
 (defn- cbuffer       [] nil)
+;; 声明专用类型构造器.
 (defn float          [] nil)
 (defn float2         [] nil)
 (defn float3         [] nil)
@@ -39,6 +40,11 @@
   [name type-ctor]
   `(def ~(vary-meta name assoc :shader/uniform? true)
      (~(fully-qualified-ctor type-ctor))))
+
+(defmacro defstatic
+  "定义全局静态变量专用宏. eg. (defstatic accumColor (float4 0.0 0.0 0.0 0.0))"
+  [name type-ctor]
+  `(def ~(vary-meta name assoc :shader/static-var? true) ~type-ctor))    ;; 不展开成声明专用类型构造器
 
 (defmacro deftexture
   "定义纹理资源。"

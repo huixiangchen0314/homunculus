@@ -1,17 +1,22 @@
 (ns top.kzre.homunculus.backend.hlsl.methods.call
   "HLSL :call 节点发射。处理函数调用、运算符和采样。"
-  (:require [top.kzre.homunculus.backend.hlsl.core :as core]
-            [top.kzre.homunculus.backend.hlsl.templates :as tmpl]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [top.kzre.homunculus.backend.hlsl.core :as core]
+            [top.kzre.homunculus.core.ir2.node :as n]))
 
 ;; 中缀运算符集合
 (def ^:private infix-ops #{"+" "-" "*" "/" "%" "==" "!=" "<" ">" "<=" ">=" "&&" "||"})
+(defn- remove-record-ctor-prefix-arrow [fn-name]
+  (if (str/starts-with? fn-name "->")
+    (subs fn-name 2)
+    fn-name))
+
 
 (defmethod core/emit-node :call [node]
   (let [fn-node  (n/call-fn node)
         fn-sym   (when (= (n/kind fn-node) :variable) (n/var-name fn-node))
         fn-name  (name fn-sym)
+        fn-name (remove-record-ctor-prefix-arrow fn-name)
         args     (n/call-args node)]
     (cond
       ;; sample 特殊处理

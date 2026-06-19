@@ -21,6 +21,16 @@
 ;; ── 用 DSL 构建完整的内置符号表 ──
 (defonce ^:private symbol-tables
          (sym/build-symbol-table
+
+           ;; 原始类型
+           [:var 'float  :float]
+           [:var 'int    :int]
+           [:var 'bool   :bool]
+           [:var 'texture2D   :texture2D]
+           [:var 'sampler     :sampler]
+           [:var 'cbuffer     :cbuffer]
+
+
            ;; 类型记录
            [:record 'float4   ['x :float] ['y :float] ['z :float] ['w :float]]
            [:record 'float3   ['x :float] ['y :float] ['z :float]]
@@ -109,8 +119,9 @@
 
 (defrecord HLSLFrontend []
   tp/IFrontendInfo
+  ;; 原始类型
   (frontend-types [_]
-    [:float :float2 :float3 :float4 :float4x4 :bool :int :texture2D :sampler :cbuffer])
+    [:float :bool :int :texture2D :sampler :cbuffer])
 
   (literal->type [_ val]
     (cond

@@ -158,61 +158,89 @@
 
 
 ;; ── 类似 Hiccup 的 DSL ──
+;; ── 多方法：解析符号表项 ──
+(defmulti parse-table-entry
+          "根据表项的 `kind` 分派，返回键值对序列 [[sym entry] ...]。"
+          (fn [entry-vec]
+            (let [kind (first entry-vec)]
+              kind)))
 
+(defmethod parse-table-entry :func
+  [[_ sym & rest]]
+  (let [sym (unquote-name sym)]
+    (if (and (vector? (first rest))
+             (vector? (ffirst rest)))
+      ;; 多重载
+      (let [arities (mapv (fn [arity]
+                            (let [[params ret] arity
+                                  pairs (partition 2 params)
+                                  params (mapv (fn [[n t]]
+                                                 (make-param (unquote-name n) :type (parse-type t)))
+                                               pairs)]
+                              (make-func-arity params :ret (make-ret (parse-type ret)))))
+                          rest)]
+        (list [sym (make-func sym :arities arities)]))
+      ;; 单重载
+      (let [ret (last rest)
+            param-pairs (partition 2 (butlast rest))
+            params (mapv (fn [[n t]]
+                           (make-param (unquote-name n) :type (parse-type t)))
+                         param-pairs)]
+        (list [sym (make-func sym :params params :ret (make-ret (parse-type ret)))])))))
+
+(defmethod parse-table-entry :record
+  [[_ sym & rest]]
+  (let [sym (unquote-name sym)
+        fields (mapv (fn [fdef]
+                       (let [[fname ftype] fdef
+                             fname (unquote-name fname)]
+                         (when-not (symbol? fname)
+                           (throw (ex-info "Record field name must be a symbol"
+                                           {:fname fname :fdef fdef})))
+                         (make-field fname :type (parse-type ftype))))
+                     rest)
+        record-sym sym
+        record-entry (make-record record-sym :fields fields)
+        ;; 构造器条目
+        ctor-sym (symbol (str "->" (name record-sym)))
+        ctor-params (mapv (fn [field]
+                            (make-param (:field-name field) :type (:type field)))
+                          fields)
+        ret-type (ty/make-tcon record-sym)
+        ctor-entry (make-func ctor-sym
+                              :params ctor-params
+                              :ret (make-ret ret-type))]
+    (list [record-sym record-entry]
+          [ctor-sym ctor-entry])))
+
+(defmethod parse-table-entry :protocol
+  [[_ sym & rest]]
+  (let [sym (unquote-name sym)
+        methods (mapv (fn [[mname & arities]]
+                        (make-method (unquote-name mname)
+                                     (mapv (fn [[params ret]]
+                                             (let [pairs (partition 2 params)
+                                                   params (mapv (fn [[n t]]
+                                                                  (make-param (unquote-name n) :type (parse-type t)))
+                                                                pairs)]
+                                               (make-func-arity params :ret (make-ret (parse-type ret)))))
+                                           arities)))
+                      rest)]
+    (list [sym (make-protocol sym :methods methods)])))
+
+(defmethod parse-table-entry :var
+  [[_ sym & rest]]
+  (let [sym (unquote-name sym)
+        type (parse-type (first rest))]
+    (list [sym (make-variable sym :type type)])))
+
+(defmethod parse-table-entry :default
+  [entry-vec]
+  (throw (ex-info "Unknown entry kind" {:kind (first entry-vec)})))
+
+;; ── 主构建函数 ──
 (defn build-symbol-table [& entries]
-  (into {}
-        (map (fn [entry]
-               (let [[kind sym & rest] entry
-                     sym (unquote-name sym)]
-                 (case kind
-                   :func
-                   ;; 判断是多重载还是单重载
-                   (if (and (vector? (first rest))
-                            (vector? (ffirst rest)))
-                     ;; 多重载：每个元素为 ([params] ret)
-                     (let [arities (mapv (fn [arity]
-                                           (let [[params ret] arity
-                                                 pairs (partition 2 params)
-                                                 params (mapv (fn [[n t]]
-                                                                (make-param (unquote-name n) :type (parse-type t)))
-                                                              pairs)]
-                                             (make-func-arity params :ret (make-ret (parse-type ret)))))
-                                         rest)]
-                       [sym (make-func sym :arities arities)])
-                     ;; 单重载：最后一项是返回类型，其余是参数对
-                     (let [ret (last rest)
-                           param-pairs (partition 2 (butlast rest))
-                           params (mapv (fn [[n t]]
-                                          (make-param (unquote-name n) :type (parse-type t)))
-                                        param-pairs)]
-                       [sym (make-func sym :params params :ret (make-ret (parse-type ret)))]))
-                   :record
-                   (let [fields (mapv (fn [fdef]
-                                        (let [[fname ftype] fdef
-                                              fname (unquote-name fname)]
-                                          (when-not (symbol? fname)
-                                            (throw (ex-info "Record field name must be a symbol" {:fname fname :fdef fdef})))
-                                          (make-field fname :type (parse-type ftype))))
-                                      rest)]
-                     [sym (make-record sym :fields fields)])
-                   :protocol
-                   (let [methods (mapv (fn [[mname & arities]]
-                                         (make-method (unquote-name mname)
-                                                      (mapv (fn [[params ret]]
-                                                              (let [pairs (partition 2 params)
-                                                                    params (mapv (fn [[n t]]
-                                                                                   (make-param (unquote-name n) :type (parse-type t)))
-                                                                                 pairs)]
-                                                                (make-func-arity params :ret (make-ret (parse-type ret)))))
-                                                            arities)))
-                                       rest)]
-                     [sym (make-protocol sym :methods methods)])
-                   :var
-                   (let [type (parse-type (first rest))]
-                     [sym (make-variable sym :type type)])
-                   (throw (ex-info "Unknown entry kind" {:kind kind})))))
-             entries)))
-
+  (into {} (mapcat parse-table-entry entries)))
 
 
 

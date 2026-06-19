@@ -40,18 +40,21 @@
         (conj result current-proto)
         result))))
 
-;; ── 解析字段（支持默认值）────────────────
 (defn- parse-fields [field-vec]
   (loop [items (seq field-vec)
          result []]
-    (if items
-      (let [f (first items)]
-        (if (symbol? f)                     ;; 只有名字，无默认值
-          (recur (rest items)
-                 (conj result (n/make-field f nil (meta f))))
-          (let [default-expr (second items)]
-            (recur (nnext items)
-                   (conj result (n/make-field f default-expr (meta f)))))))
+    (if-let [f (first items)]
+      (if (symbol? f)
+        (let [rest-items (rest items)
+              next (first rest-items)]
+          (if (and next (not (symbol? next)))
+            ;; 下一个元素不是符号 → 它是当前字段的默认值
+            (recur (rest rest-items)
+                   (conj result (n/make-field f next (meta f))))
+            ;; 下一个元素是符号（或无元素）→ 当前字段无默认值
+            (recur rest-items
+                   (conj result (n/make-field f nil (meta f))))))
+        (throw (ex-info "Record field name must be a symbol" {:found f})))
       result)))
 
 ;; ── form->node ：只提取原始数据 ───────────

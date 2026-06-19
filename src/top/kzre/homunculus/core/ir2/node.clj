@@ -17,11 +17,24 @@
 ;; ══════════════════════════════════════════════
 ;; 通用字段访问
 ;; ══════════════════════════════════════════════
-(defn kind      [node] (ir2p/kind node))
-(defn attrs     [node] (ir2p/attrs node))
-(defn node-meta [node] (ir2p/node-meta node))
-(defn parent    [node] (:parent node))
-(defn children  [node] (ir2p/children node))
+(defn kind [node]
+  (when node
+    (ir2p/kind node)))
+
+(defn attrs [node]
+  (when node
+    (ir2p/attrs node)))
+
+(defn node-meta [node]
+  (when node
+    (ir2p/node-meta node)))
+(defn parent [node]
+  (when node
+    (:parent node)))
+
+(defn children [node]
+  (when node
+    (ir2p/children node)))
 
 ;; ── 类型操作 ──
 (defn type-attr [node] (get-in node [:attrs :type]))
@@ -102,10 +115,11 @@
   ([exprs attrs meta parent]    (m/->BlockNode exprs attrs meta parent)))
 
 (defn block-with-exprs [node exprs] (assoc node :exprs exprs))
-
+(defn block-node? [bode] (= (kind bode) :block))
 ;; ══════════════════════════════════════════════
 ;; LetNode
 ;; ══════════════════════════════════════════════
+(defn let-node? [bode] (= (kind bode) :let))
 (defn let-bindings [node] (:bindings node))
 (defn let-body     [node] (:body node))
 
@@ -138,6 +152,8 @@
 (defn lambda-with-body     [node body]     (assoc node :body body))
 (defn lambda-with-captures [node captures] (assoc node :captures captures))
 (defn lambda-with-fn-name  [node fn-name]  (assoc node :fn-name fn-name))
+(defn lambda-node? [node]
+  (= (kind node) :lambda))
 
 ;; ══════════════════════════════════════════════
 ;; DefineNode
@@ -353,6 +369,7 @@
 (defn record-with-name      [node name]      (assoc node :name name))
 (defn record-with-fields    [node fields]    (assoc node :fields fields))
 (defn record-with-protocols [node protocols] (assoc node :protocols protocols))
+(defn record-node? [node] (= (some-> node ir2p/kind) :record))
 
 ;; ══════════════════════════════════════════════
 ;; ProtocolNode

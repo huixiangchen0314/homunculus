@@ -1,6 +1,8 @@
 (ns top.kzre.homunculus.backend.hlsl.templates
   "HLSL 代码模板。使用 T 宏生成语法片段，纯字符串变换。"
-  (:require [top.kzre.homunculus.backend.util.format :refer [T]]))
+  (:require
+   [clojure.string :as str]
+   [top.kzre.homunculus.backend.util.format :refer [T]]))
 
 ;; ── 类型映射 ─────────────────────────────
 (defn hlsl-type
@@ -36,17 +38,23 @@
     (nil? val)     "0"
     :else (pr-str val)))
 
-;; ── 变量声明与引用 ──────────────────────
 (defn var-decl
-  "变量声明：float3 position;"
-  [type-str name]
-  (T "${type-str} ${name};"))
-
-(defn var-decl-init
   "带初始值的变量声明：float3 color = float3(1,0,0);"
   [type-str name init-str]
-  (T "${type-str} ${name} = ${init-str};"))
+  (if init-str
+    (T "${type-str} ${name} = ${init-str};")
+    ;; 如果初始值缺失，退化为声明但不初始化（可能触发 HLSL 编译器错误）
+    (T "${type-str} ${name};")))
 
+(defn uniform-var-decl
+  "uniform 变量声明（无初始化）：uniform float4x4 worldViewProj;"
+  [type-str name]
+  (T "uniform ${type-str} ${name};"))
+
+(defn static-var-decl-init
+  "static 变量声明（必须初始化）：static float4 accumColor = float4(0,0,0,0);"
+  [type-str name init-str]
+  (T "static ${type-str} ${name} = ${init-str};"))
 (defn var-ref
   "变量引用，直接返回名称。"
   [name]
@@ -58,11 +66,19 @@
   [target-str value-str]
   (T "${target-str} = ${value-str};"))
 
+
+
 ;; ── 函数调用 ─────────────────────────────
 (defn call
   "函数调用或运算符：fnName(arg1, arg2)。"
   [fn-name args-str]
   (T "${fn-name}(${args-str})"))
+
+(defn fn-call
+  [fn-name args]
+  (call fn-name (str/join ", " args)))
+
+
 
 ;; ── 类型转换 ─────────────────────────────
 (defn type-cast   ;; 重命名后的显式类型转换
@@ -76,6 +92,8 @@
   [target-str member]
   (let [member-str (if (keyword? member) (name member) member)]
     (T "${target-str}.${member-str}")))
+
+
 
 ;; ── 控制流 ──────────────────────────────
 (defn if-stmt
@@ -123,7 +141,8 @@
 (defn struct-decl
   "结构体声明：struct Name { members };"
   [name members-str]
-  (T "struct ${name} { ${members-str} };"))
+  (T
+    "struct ${name} { ${members-str} };"))
 
 (defn struct-member
   "结构体成员：float3 position : SV_POSITION;"
@@ -172,3 +191,5 @@
     :vertex   (T "${output-type} ${func-name}(${input-type} input) { ${body-str} }")
     :fragment (T "${return-type} ${func-name}(${input-type} input) : SV_TARGET { ${body-str} }")
     (T "void ${func-name}() { ${body-str} }")))
+
+

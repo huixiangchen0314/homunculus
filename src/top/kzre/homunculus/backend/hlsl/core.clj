@@ -9,6 +9,10 @@
     [top.kzre.homunculus.core.types.type :as ty]
     [top.kzre.homunculus.core.types.metadata :as md]))
 
+;; 核心工具函数 ==============================================
+
+
+
 ;; ── 类型转换适配 ──
 (defn hlsl-type-str [ir-type]
   (st/shader-type-str (ty/type-sym ir-type)))
@@ -28,12 +32,12 @@
         output-struct-name (str func-name "_Output")
         ;; 提取实际返回类型
         return-type (-> output-params first :type)
-        input-members  (str/join "\n" (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) input-params))
-        output-members (str/join "\n" (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) output-params))
+        input-members  (str/join " " (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) input-params))
+        output-members (str/join " " (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) output-params))
         input-struct  (tmpl/struct-decl input-struct-name input-members)
         output-struct (tmpl/struct-decl output-struct-name output-members)
-        call-args    (str/join ", " (mapv (fn [p] (str "in." (:name p))) input-params))
-        core-call    (str func-name "(" call-args ")")
+        call-args (mapv (fn [m] (tmpl/member-access "input" (:name m)) ) input-params)
+        core-call    (tmpl/fn-call func-name call-args)
         wrapper-body (if (= stage :vertex)
                        (str "VSOutput out;\n"
                             "out.position = " core-call ";\n"
@@ -69,20 +73,34 @@
 ;; 在 hlsl/core.clj 中添加
 (defn emit-uniform-decl [node]
   (let [val (n/define-val node)
-        ir-type (ty/get-type val)
-        name (name (n/define-name node))]
-    (str "uniform " (hlsl-type-str ir-type) " " name ";")))
+        type-str (hlsl-type-str (ty/get-type val))
+        name-str (name (n/define-name node))]
+    (tmpl/uniform-var-decl type-str name-str)))
+
+(defn emit-static-var-decl [node]
+  (let [ir-type (ty/get-type node)
+        type-str (hlsl-type-str ir-type)
+        name-str (name (n/define-name node))
+        val-expr (or (n/define-val node)
+                                (throw (ex-info "Static variable must have an initializer" {:name name-str})))
+        val-expr-str (emit-node val-expr)]
+    (tmpl/static-var-decl-init type-str name-str val-expr-str)))
+
+
 ;; ── 公共入口 ──
 (defn emit
   "对 IR2 根节点列表发射 HLSL 代码。"
   [ir2-roots]
   (let [flat      (mapcat n/unwrap-body ir2-roots)
         defines   (filter n/define-node? flat)
-        {:keys [resources uniforms  globals functions]} (sc/classify-defines defines)
+        records   (filter n/record-node? flat)
+        {:keys [resources uniforms static-vars global-vars functions]} (sc/classify-defines defines)
         resource-strs  (mapv (fn [d] (emit-resource-decl d )) resources)
         uniform-strs  (mapv emit-uniform-decl uniforms)
-        global-strs    (mapv emit-node globals)
+        static-var-strs (mapv emit-static-var-decl static-vars)
+        global-var-strs    (mapv emit-node global-vars)
+        struct-strs       (mapv emit-node records)
         fn-strs        (mapv emit-node functions)
         entry-fns      (filter #(md/fn-shader-stage %) functions)
         entry-wrappers (mapv (fn [d] (emit-entry-wrapper (md/fn-shader-stage d) d)) entry-fns)]
-    (str/join "\n\n" (concat resource-strs uniform-strs global-strs fn-strs entry-wrappers))))
+    (str/join "\n\n" (concat resource-strs uniform-strs static-var-strs global-var-strs struct-strs fn-strs entry-wrappers))))

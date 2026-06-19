@@ -13,6 +13,13 @@
 
 (defuniform worldViewProj float4x4)
 
+(defstatic accumColor (->float4 0.0 0.0 0.0 0.0))
+
+(defrecord MyInout [^:SV_TARGET ^:float a 0.0])
+
+(def remin-sum (fn [^:float a] a))
+
+;(defrecord MainOutput [^:float4 color])
 
 (defshader :vertex vsMain
            [^:POSITION ^:float4 pos

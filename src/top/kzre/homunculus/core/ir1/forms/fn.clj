@@ -3,7 +3,9 @@
   (:require [top.kzre.homunculus.core.ir1.core :as ir1]
             [top.kzre.homunculus.core.ir1.node :as n]))
 
-(defmethod ir1/form->node 'fn* [form]
+;; fn* 是 clojure 宏展开后的形式.
+;; 我们把 fn 作为特殊形式，不会去展开它.
+(defmethod ir1/form->node 'fn [form]
   (let [[fn-sym maybe-name params & body] form
         [name params body] (if (symbol? maybe-name)
                              [maybe-name params body]

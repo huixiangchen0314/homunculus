@@ -57,23 +57,6 @@
      (let [final-subst @subst]
        (into {} (map (fn [[k v]] [k (u/substitute v final-subst)]) final-subst))))))
 
-;; ── 泛化未绑定的类型变量 ────────────────
-(defn- generalize-node-type [node]
-  (if-let [ty (ty/get-type node)]
-    (let [ftvs (scheme/ftv ty)]
-      (if (seq ftvs)
-        (let [scheme (scheme/generalize ty {})]
-          (ty/set-type! node scheme))
-        node))
-    node))
-
-(defn- generalize-tree [root]
-  (walk/prewalk
-    (fn [n]
-      (if (satisfies? ir2p/INode n)
-        (generalize-node-type n)
-        n))
-    root))
 
 ;; ── 应用替换 ─────────────────────────────
 (defn apply-subst [node subst]

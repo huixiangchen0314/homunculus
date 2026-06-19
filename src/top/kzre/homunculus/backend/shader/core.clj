@@ -6,17 +6,34 @@
     [top.kzre.homunculus.core.types.type :as ty]
     [top.kzre.homunculus.core.types.metadata :as md]))
 
+(def shader-semantics
+  "已知的 HLSL 语义集合（大小写敏感，通常全大写）。
+   包含顶点输入语义、系统值语义等。"
+  #{"POSITION" "NORMAL" "TEXCOORD0" "TEXCOORD1" "TEXCOORD2" "TEXCOORD3"
+    "TEXCOORD4" "TEXCOORD5" "TEXCOORD6" "TEXCOORD7"
+    "COLOR0" "COLOR1" "TANGENT" "BINORMAL" "BLENDINDICES" "BLENDWEIGHT"
+    "SV_POSITION" "SV_TARGET" "SV_DEPTH" "SV_IsFrontFace"
+    "SV_VertexID" "SV_InstanceID" "SV_PrimitiveID"})
+
+
 ;; ── 语义提取 ────────────────────────────
-(defn extract-semantic
-  "从参数节点的元数据中提取语义字符串，如 POSITION → \"POSITION\"。
-   只取无命名空间的大写关键字。"
-  [param-node]
+;; top.kzre.homunculus.backend.shader.core
+
+(defn semantic-from-meta
+  "从元数据 map 中提取语义字符串（无命名空间且以大写字母开头的关键字）。"
+  [meta]
   (some (fn [k]
           (when (and (keyword? k)
                      (not (namespace k))
                      (re-find #"^[A-Z]" (name k)))
-            (name k)))
-        (keys (md/node-meta param-node))))
+            (when (contains? shader-semantics name)
+              name)))
+        (keys meta)))
+
+(defn extract-semantic
+  "从参数节点（必须实现 INode 协议）的元数据中提取语义字符串。"
+  [param-node]
+  (semantic-from-meta (md/node-meta param-node)))
 
 ;; ── 参数信息提取 ────────────────────────
 (defn extract-params
@@ -32,7 +49,7 @@
 
 ;; ── 定义分类 ────────────────────────────
 (defn classify-defines
-  "将 :define 节点分为资源、全局常量、uniform 和函数。
+  "将全局 :define 节点分为资源、全局常量、uniform 和函数。
    - 资源：attrs 中有 :shader/resource? 标记
    - uniform：attrs 中有 :shader/uniform? 标记
    - 函数：val 是 lambda 节点
@@ -40,12 +57,14 @@
   [defines]
   (let [resource? #(some-> (n/node-meta %) :shader/resource?)
         uniform?  #(some-> (n/node-meta %) :shader/uniform?)
+        static-var?  #(some-> (n/node-meta %) :shader/static-var?)
         ignore?  #(some-> (n/node-meta %) :shader/ignore-emit?)
         function? #(when-let [v (n/define-val %)]
                      (= (n/kind v) :lambda))]
     {:resources (filter resource? defines)
      :uniforms  (filter uniform? defines)
-     :globals   (remove #(or (resource? %) (uniform? %) (function? %) (ignore? %)) defines)
+     :static-vars    (filter static-var? defines)
+     :global-vars   (remove #(or (resource? %) (uniform? %) (static-var? %) (function? %) (ignore? %)) defines)
      :functions (filter function? defines)}))
 
 ;; ── 入口规格构建 ────────────────────────

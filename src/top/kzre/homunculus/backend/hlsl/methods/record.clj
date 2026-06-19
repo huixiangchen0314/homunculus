@@ -2,6 +2,8 @@
   "HLSL :record 节点发射 —— 将 defrecord 编译为 HLSL struct。"
   (:require [top.kzre.homunculus.backend.hlsl.core :as core]
             [top.kzre.homunculus.backend.hlsl.templates :as tmpl]
+            [top.kzre.homunculus.backend.shader.core :as sc]
+
             [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.types.type :as ty]
             [clojure.string :as str]))
@@ -12,11 +14,12 @@
         members     (mapv (fn [field]
                             (let [fname (name (n/field-name field))
                                   ftype (n/field-init field)  ;; 字段的初始值表达式，其类型即字段类型
-                                  ir-type (when ftype (ty/get-type ftype))]
+                                  ir-type (when ftype (ty/get-type ftype))
+                                  semantic (sc/semantic-from-meta (n/field-meta field))]
                               (when-not ir-type
                                 (throw (ex-info (str "Record field missing type: " fname)
                                                 {:field field})))
-                              (tmpl/struct-member (core/hlsl-type-str ir-type) fname nil)))
+                              (tmpl/struct-member (core/hlsl-type-str ir-type) fname semantic)))
                           fields)
         members-str (str/join "\n" members)]
     (tmpl/struct-decl struct-name members-str)))

@@ -42,7 +42,7 @@
 (defmethod emit-node :let [node]
   (let [bindings (n/let-bindings node)
         decls    (mapv (fn [[v e]]
-                         (hlsl/var-decl-init
+                         (hlsl/var-decl
                            (unity-type-str (ty/get-type v))
                            (name (n/var-name v))
                            (emit-node e)))
@@ -81,7 +81,7 @@
              "\n"
              (hlsl/func-body body)))
       ;; 全局常量
-      (hlsl/var-decl-init (unity-type-str (ty/get-type val))
+      (hlsl/var-decl (unity-type-str (ty/get-type val))
                           (name (n/define-name node))
                           (emit-node val)))))
 
