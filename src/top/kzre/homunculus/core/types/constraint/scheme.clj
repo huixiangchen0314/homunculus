@@ -10,11 +10,11 @@
   p/IType
   (type-kind [_] :scheme))
 
-;; ── 判断函数 ──
 (defn tscheme?
-  "基于协议判断 x 是否为 TScheme。"
+  "安全判断 x 是否为 TScheme，x 为 nil 或非类型时返回 false。"
   [x]
-  (= :scheme (p/type-kind x)))
+  (and (satisfies? p/IType x)
+       (= :scheme (p/type-kind x))))
 
 
 

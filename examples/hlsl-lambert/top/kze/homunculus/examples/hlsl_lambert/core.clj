@@ -15,23 +15,23 @@
 
 (defstatic accumColor (->float4 0.0 0.0 0.0 0.0))
 
-(defrecord MyInout [^:SV_TARGET ^:float a 0.0])
+(defrecord MyInout [^:SV_TARGET ^float a 0.0])
 
-(def remin-sum (fn [^:float a] a))
+(def remin-sum (fn [^float a] a))
 
 ;(defrecord MainOutput [^:float4 color])
 
 (defshader :vertex vsMain
-           [^:POSITION ^:float4 pos
-            ^:NORMAL ^:float3 nrm
-            ^:TEXCOORD0 ^:float2 uv]
+           [^:POSITION ^float4 pos
+            ^:NORMAL ^float3 nrm
+            ^:TEXCOORD0 ^float2 uv]
            (let [worldPos (mul worldViewProj pos)]
              (float4 (float3 1.0 1.0 1.0) 1.0)))
 
 (defshader :fragment psMain
-           [^:SV_POSITION ^:float4 pos
-            ^:NORMAL ^:float3 nrm
-            ^:TEXCOORD0 ^:float2 uv]
+           [^:SV_POSITION ^float4 pos
+            ^:NORMAL ^float3 nrm
+            ^:TEXCOORD0 ^float2 uv]
            (let [diffuse (sample myTexture mySampler uv)
                  N (normalize nrm)
                  L (normalize lightDir)

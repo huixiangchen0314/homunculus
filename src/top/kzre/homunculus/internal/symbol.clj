@@ -22,8 +22,9 @@
 
 (defn- parse-type [type-spec]
   (cond
-    (keyword? type-spec) (ty/make-tcon type-spec)
-    (vector? type-spec)
+    (keyword? type-spec) (ty/make-tcon (symbol (name type-spec)))  ; :float -> TCon 'float
+    (symbol? type-spec)  (ty/make-tcon type-spec)                  ; 'float -> TCon 'float
+    (vector? type-spec)  ;; 保持原有复杂类型处理
     (let [parts (partition-by #{'->} type-spec)
           types (remove #{['->]} parts)]
       (reduce (fn [ret arg]
