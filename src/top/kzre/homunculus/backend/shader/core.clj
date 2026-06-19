@@ -18,15 +18,14 @@
 
 ;; ── 语义提取 ────────────────────────────
 
-(defn semantic-from-meta
-  "从元数据 map 中提取语义字符串（无命名空间且以大写字母开头的关键字）。"
-  [meta]
+(defn semantic-from-meta [meta]
   (some (fn [k]
           (when (and (keyword? k)
                      (not (namespace k))
                      (re-find #"^[A-Z]" (name k)))
-            (when (contains? shader-semantics name)
-              name)))
+            (let [s (name k)]
+              (when (contains? shader-semantics s)
+                s))))
         (keys meta)))
 
 (defn extract-semantic

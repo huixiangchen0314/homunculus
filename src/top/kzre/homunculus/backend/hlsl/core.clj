@@ -28,20 +28,42 @@
 (defn- emit-entry-wrapper [stage define-node]
   (let [{:keys [input-params output-params]} (sc/entry-spec stage define-node hlsl-type-str)
         func-name (name (n/define-name define-node))
-        input-struct-name (str func-name "_Input")
+        input-struct-name  (str func-name "_Input")
         output-struct-name (str func-name "_Output")
-        ;; 提取实际返回类型
-        return-type (-> output-params first :type)
-        input-members  (str/join " " (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) input-params))
-        output-members (str/join " " (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) output-params))
+
+        ;; ── 顶点着色器自动输出非 POSITION 的插值语义 ──
+        output-params (if (= stage :vertex)
+                        (let [passthrough (mapv (fn [in]
+                                                  {:name     (:name in)
+                                                   :type     (:type in)
+                                                   :semantic (:semantic in)})
+                                                (filter #(and (:semantic %)
+                                                              (not= "POSITION" (:semantic %)))
+                                                        input-params))]
+                          (concat passthrough output-params))
+                        output-params)
+
+        ;; 返回类型：顶点用输出结构体名，片段用唯一输出成员的类型（如 float4）
+        return-type (if (= stage :vertex)
+                      output-struct-name
+                      (-> output-params first :type))
+
+        input-members  (str/join "\n" (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) input-params))
+        output-members (str/join "\n" (mapv (fn [p] (tmpl/struct-member (:type p) (:name p) (:semantic p))) output-params))
+
         input-struct  (tmpl/struct-decl input-struct-name input-members)
         output-struct (tmpl/struct-decl output-struct-name output-members)
-        call-args (mapv (fn [m] (tmpl/member-access "input" (:name m)) ) input-params)
-        core-call    (tmpl/fn-call func-name call-args)
+
+        call-args (str/join ", " (mapv (fn [p] (str "input." (:name p))) input-params))
+        core-call (str func-name "(" call-args ")")
+
         wrapper-body (if (= stage :vertex)
-                       (str "VSOutput out;\n"
-                            "out.position = " core-call ";\n"
-                            "return out;")
+                       (let [out-assigns (str/join "\n"
+                                                   (for [p output-params]
+                                                     (if (= "SV_POSITION" (:semantic p))
+                                                       (str "out." (:name p) " = " core-call ";")
+                                                       (str "out." (:name p) " = input." (:name p) ";"))))]
+                         (str output-struct-name " out;\n" out-assigns "\nreturn out;"))
                        (str "return " core-call ";"))]
     (str input-struct "\n"
          output-struct "\n"

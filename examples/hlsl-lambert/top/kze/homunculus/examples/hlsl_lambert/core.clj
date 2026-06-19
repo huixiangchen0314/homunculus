@@ -13,7 +13,7 @@
 
 (defuniform worldViewProj float4x4)
 
-(defstatic accumColor (->float4 0.0 0.0 0.0 0.0))
+(defstatic accumColor (float4 0.0 0.0 0.0 0.0))
 
 (defrecord MyInout [^:SV_TARGET ^float a 0.0])
 
