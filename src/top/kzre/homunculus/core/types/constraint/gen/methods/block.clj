@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.block
   (:require [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
             [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.type :as ty]))
+            [top.kzre.homunculus.core.types.type :as t]))
 
 (defmethod gen/cg-node-raw :block [node context]
   (let [exprs (n/block-exprs node)
@@ -10,17 +10,19 @@
         (reduce
           (fn [[results ctx] expr]
             (let [[tv new-expr constrs new-ctx] (gen/cg-node expr ctx)]
-              [(conj results [tv new-expr constrs])
-               (or new-ctx ctx)]))  ;; 若子节点未返回新上下文，则沿用旧的
+              [(conj results [tv new-expr constrs]) new-ctx]))
           [[] context]
           exprs)
-        types (mapv first results)
+        types     (mapv first results)
         new-exprs (mapv second results)
-        constrs (mapcat #(nth % 2) results)
-        last-tv (if (seq types) (last types) (ty/make-tcon :nil))
-        new-node (n/make-block new-exprs
-                               (n/attrs node)
-                               (n/node-meta node)
-                               (n/parent node))]
-    ;; 返回四元组，将块内累积的上下文传递出去
-    [last-tv (ty/set-type! new-node last-tv) constrs final-ctx]))
+        constrs   (mapcat #(nth % 2) results)
+        ;; 若块为空，分配新类型变量（通常不会空）
+        block-tv  (if (seq types)
+                    (last types)
+                    (gen/fresh-tvar))
+        new-node  (n/make-block new-exprs
+                                (n/attrs node)
+                                (n/node-meta node)
+                                (n/parent node))]
+    ;; 返回四元组：类型、节点、约束、最终上下文
+    [block-tv (t/set-type! new-node block-tv) constrs final-ctx]))

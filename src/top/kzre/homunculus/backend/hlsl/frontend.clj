@@ -6,7 +6,7 @@
     [top.kzre.homunculus.internal.symbol :as sym]
     [top.kzre.homunculus.core.types.type :as ty]))
 
-;; ── 用 DSL 构建完整的内置符号表 ──
+
 ;; ── 用 DSL 构建完整的内置符号表 ──
 (defonce ^:private symbol-tables
          (sym/build-symbol-table
@@ -144,4 +144,6 @@
             'lerp            (ty/make-tfun (ty/make-tcon :float) (ty/make-tfun (ty/make-tcon :float) (ty/make-tfun (ty/make-tcon :float) (ty/make-tcon :float))))}))
 
   (builtin-symbols [_] symbol-tables)
-  )
+  ;; 新增语言约束策略方法
+  (truly-type [_] 'bool)    ; HLSL 要求 if 条件为 bool
+  (dynamic? [_] false))

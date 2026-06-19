@@ -1,28 +1,30 @@
-;; 文件：top/kzre/homunculus/core/types/constraint/gen/methods/map.clj
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.map
   (:require [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
             [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.type :as ty]))
+            [top.kzre.homunculus.core.types.type :as t]))
 
 (defmethod gen/cg-node-raw :map [node context]
-  (let [kvs (n/map-kvs node)                                    ;; 键值对交替列表
-        ;; 将键值对按顺序分组为 [[k v] ...]
-        pairs (partition 2 kvs)
-        ;; 对每一对中的 key 和 value 分别推导，急切求值
-        results (mapv (fn [[k v]]
-                        (let [[k-ty k-node k-constr] (gen/cg-node-raw k context)
-                              [v-ty v-node v-constr] (gen/cg-node-raw v context)]
-                          {:key-ty k-ty :val-ty v-ty
-                           :key-node k-node :val-node v-node
-                           :constraints (concat k-constr v-constr)}))
-                      pairs)
-        ;; 收集所有键和值的类型，构造 THeteroMap 的 entries
+  (let [kvs (n/map-kvs node)
+        pairs (n/kv-pairs kvs)
+        ;; 顺序处理每一对键值，累积上下文、结果节点和约束
+        [results final-ctx]
+        (reduce
+          (fn [[results ctx] [k v]]
+            (let [[k-ty k-node k-constr k-ctx] (gen/cg-node-raw k ctx)
+                  [v-ty v-node v-constr v-ctx] (gen/cg-node-raw v k-ctx)]
+              [(conj results {:key-ty k-ty :val-ty v-ty
+                              :key-node k-node :val-node v-node
+                              :constraints (concat k-constr v-constr)})
+               v-ctx]))
+          [[] context]
+          pairs)
+        ;; 构造 map 的类型（异构 map）
         entries (mapv (fn [{:keys [key-ty val-ty]}] [key-ty val-ty]) results)
-        map-type (ty/make-hetero-map entries)
-        ;; 重建节点：将所有新子节点按原始顺序展平放回 :kvs
+        map-type (t/make-hetero-map entries)
+        ;; 重建节点：将新的子节点按顺序展平放入 :kvs
         new-kvs (mapcat (fn [{:keys [key-node val-node]}] [key-node val-node]) results)
-        new-node (n/make-map new-kvs
-                             (n/attrs node) (n/node-meta node) (n/parent node))
+        new-node (n/map-with-kvs node new-kvs)
         ;; 合并所有子约束
         all-constr (mapcat :constraints results)]
-    [map-type (ty/set-type! new-node map-type) all-constr]))
+    ;; 返回四元组：类型、新节点、约束、最终上下文
+    [map-type (t/set-type! new-node map-type) all-constr final-ctx]))

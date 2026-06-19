@@ -1,8 +1,8 @@
 (ns top.kzre.homunculus.core.types.constraint.api
-  "约束生成与求解的公共入口。
-   负责加载所有 gen 方法实现并 re-export 对外函数。"
+  "约束系统的公共入口：加载所有 gen 方法实现，并 re-export 关键函数。"
   (:require
-    [top.kzre.homunculus.core.types.constraint.gen.methods.assign] ;; 加载所有 defmethod 实现，触发注册
+    ;; 加载各 gen 方法以注册多方法（defmethod）
+    [top.kzre.homunculus.core.types.constraint.gen.methods.assign]
     [top.kzre.homunculus.core.types.constraint.gen.methods.block]
     [top.kzre.homunculus.core.types.constraint.gen.methods.call]
     [top.kzre.homunculus.core.types.constraint.gen.methods.define]
@@ -16,21 +16,9 @@
     [top.kzre.homunculus.core.types.constraint.gen.methods.variable]
     [top.kzre.homunculus.core.types.constraint.gen.methods.vector]
     [top.kzre.homunculus.core.types.constraint.gen.methods.while]
-    [top.kzre.homunculus.core.types.constraint.solve :as solve]
-    [top.kzre.homunculus.core.types.constraint.solvers.equal]
-    [top.kzre.homunculus.core.types.constraint.solvers.overload]
-    [top.kzre.homunculus.core.types.constraint.solvers.convert]
-    [top.kzre.homunculus.core.types.protocol :as tp]
-    [top.kzre.homunculus.internal.protocol :as ip]))
-
-(defn make-context [compile-ctx frontend backend]
-  (let [builtin-table (tp/builtin-symbols frontend)
-        user-table    (ip/symbol-table compile-ctx)]
-    {:env {}
-     :frontend frontend
-     :ctx compile-ctx
-     :backend backend
-     :symbol-table (merge builtin-table user-table)}))   ;; 内置优先，用户补充
+    ;; 从约束核心入口导入所需函数
+    [top.kzre.homunculus.core.types.constraint.core :as core]))
 
 ;; re-export 关键函数，外部只需依赖此 api 即可
-(def process solve/process)
+(def make-context core/make-context)
+(def process core/process)

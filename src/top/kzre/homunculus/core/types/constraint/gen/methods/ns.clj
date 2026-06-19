@@ -6,4 +6,4 @@
 (defmethod gen/cg-node-raw :ns [node context]
   ;; 命名空间声明不参与类型推导，分配一个类型变量
   (let [tv (gen/fresh-tvar)]
-    [tv (ty/set-type! node tv) nil]))
+    [tv (ty/set-type! node tv) nil context]))

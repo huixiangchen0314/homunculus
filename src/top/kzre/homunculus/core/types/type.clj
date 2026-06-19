@@ -30,13 +30,7 @@
   (when (con-type? ty)
     (:name ty)))
 
-;; TODO 应当由前端协议来判断 什么是false.
-(defn bool-type?
-  "判断 type 是否为 TCon 且类型名为 :bool.
-  各个后端语言必须支持逻辑bool值"
-  [type]
-  (= (type-sym type) :bool))
-
+;; TODO 补充函数类型的判等逻辑
 (defn type=?
   "比较两个类型是否具有相同的类型名称 (type-sym)。
    当两个 type-sym 都为 nil 时，视为不相等。"
@@ -60,6 +54,7 @@
      fn-ty))
   ([fun-ty arity]                                           ;; 知道参数个数用这个推导
    (nth (iterate :ret fun-ty) arity)))
+
 
 
 ;; ── 容器类型访问器（TContainer 字段）──
@@ -93,6 +88,12 @@
 ;; 柯里化函数
 (defn make-tfun [arg ret] (t/->TFun arg ret))
 
+(defn arity->tfun
+  "从 符号表 标准 arity 构造函数类型."
+  [arity]
+  (reduce (fn [ret param] (make-tfun (:type param) ret))
+          (some-> (:ret arity) :type)
+          (reverse (:params arity))))
 
 (defn make-tapp [ctor args] (t/->TApp ctor args))
 (defn make-tcontainer [kind element-type shape] (t/->TContainer kind element-type shape))
@@ -122,22 +123,21 @@
 
 
 (defn meta->type
-  "从节点的 node-meta 中查找类型标注，优先 :tag 符号，其次无命名空间关键字，
+  "从元数据 map 中提取类型标注。
+   优先 :tag 符号（如 ^float），其次遍历关键字键，
    与 known-types（符号集合）匹配后返回 TCon。"
-  [node known-types]
-  (when-let [md (ir2p/node-meta node)]
-    (let [type-sym (:tag md)]                               ;; 标准类型位置.
-      (when (and type-sym (contains? (set known-types) type-sym)) ;; 旧位置
+  [md known-types]
+  (when md
+    (let [type-sym (:tag md)]
+      (when (and type-sym (contains? (set known-types) type-sym))
         (t/->TCon type-sym)))))
 
 (defn get-type
-  "获取节点的类型，优先级：attrs :type > node-meta 类型标注 > nil。
-   type-symbols 是一个关键字集合（例如 #{:float4 :int ...}）。"
-  ([node type-symbols]                                       ;; 获取用户标注类型
+  "获取节点的类型，优先级：attrs :type > node-meta 类型标注 > nil。"
+  ([node known-types]
    (or (get-in node [:attrs :type])
-       (meta->type node type-symbols)))
-  ([node]                                                   ;; 获取内部标注类型
-   ;(throw (ex-info "type-symbols is required." {:node node}))
+       (meta->type (ir2p/node-meta node) known-types)))
+  ([node]
    (get-in node [:attrs :type])))
 
 

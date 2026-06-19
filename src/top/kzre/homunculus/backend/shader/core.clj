@@ -17,7 +17,6 @@
 
 
 ;; ── 语义提取 ────────────────────────────
-;; top.kzre.homunculus.backend.shader.core
 
 (defn semantic-from-meta
   "从元数据 map 中提取语义字符串（无命名空间且以大写字母开头的关键字）。"

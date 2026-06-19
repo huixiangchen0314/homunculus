@@ -6,4 +6,4 @@
 (defmethod gen/cg-node-raw :protocol [node context]
   ;; 协议声明不参与类型推导
   (let [tv (gen/fresh-tvar)]
-    [tv (ty/set-type! node tv) nil]))
+    [tv (ty/set-type! node tv) nil context]))

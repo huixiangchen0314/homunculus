@@ -5,16 +5,18 @@
 
 (defmethod gen/cg-node-raw :vector [node context]
   (let [items (n/vector-items node)
-        results (mapv #(gen/cg-node-raw % context) items)   ;; 急切求值
-        item-tys   (mapv first results)
-        item-nodes (mapv second results)
-        child-constraints (mapcat #(nth % 2) results)
-        ;; 构造异构向量类型：保留每个元素的类型
+        ;; 顺序处理每个元素，累积上下文、新节点、类型、约束
+        [item-nodes item-tys constrs final-ctx]
+        (reduce
+          (fn [[nodes tys constrs ctx] item]
+            (let [[tv new-item cc new-ctx] (gen/cg-node-raw item ctx)]
+              [(conj nodes new-item) (conj tys tv) (into constrs cc) new-ctx]))
+          [[] [] [] context]
+          items)
+        ;; 构造异构向量类型
         vec-type (ty/make-hetero-vec item-tys)
         new-node (n/make-vector (vec item-nodes)
                                 (n/attrs node)
                                 (n/node-meta node)
                                 (n/parent node))]
-    [vec-type
-     (ty/set-type! new-node vec-type)
-     child-constraints]))   ;; 无额外统一约束
+    [vec-type (ty/set-type! new-node vec-type) constrs final-ctx]))
