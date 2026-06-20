@@ -26,3 +26,14 @@
 (defn cconvert-src-ty [ccv] (:src-ty ccv))
 (defn cconvert-dst-ty [ccv] (:dst-ty ccv))
 (defn cconvert-cost   [ccv] (:cost ccv))
+
+
+
+;; ── CVecLenAdd ───────────────────────────
+(defn make-cveclenadd [ty ty1 delta]
+  (cm/->CVecLenAdd ty ty1 delta))
+
+(defn cveclenadd-ty    [c] (:ty c))
+(defn cveclenadd-ty1   [c] (:ty1 c))
+(defn cveclenadd-delta [c] (:delta c))
+

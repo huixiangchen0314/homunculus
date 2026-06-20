@@ -2,10 +2,8 @@
 (ns top.kzre.homunculus.core.types.infer.core
   "轻量级局部类型推导 pass（前向传播）。"
   (:require
-   [top.kzre.homunculus.core.ir2.node :as n]
-   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-   [top.kzre.homunculus.core.types.env :as e]
-   [top.kzre.homunculus.core.types.protocol :as tp]
+    [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+    [top.kzre.homunculus.core.types.protocol :as tp]
    [top.kzre.homunculus.internal.protocol :as ip]
    [top.kzre.homunculus.internal.symbol :as sym]))
 
