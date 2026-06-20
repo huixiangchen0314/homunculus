@@ -90,7 +90,9 @@
                                             body
                                             (render-body body (inc indent-level)))
                                           "\n}")))
-
+        ;; 导入指令
+        :import    (let [[_ path] node]
+                     (str "#include \"" path "\""))
         ;; 结构体成员（用于 struct 和 cbuffer 内部）
         :struct-member (let [[_ type name semantic] node]
                          (str type " " name (when semantic (str " : " semantic)) ";"))

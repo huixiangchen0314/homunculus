@@ -104,10 +104,12 @@
 ;; ── 全局入口 ──
 (defn emit
   [ir2-roots context]
-  (let [flat      (mapcat n/unwrap-body ir2-roots)
+  (let [ns-node   (first (filter n/ns-node? ir2-roots))
+        flat      (mapcat n/unwrap-body ir2-roots)
         defines   (filter n/define-node? flat)
         records   (filter n/record-node? flat)
         {:keys [resources uniforms static-vars global-vars functions]} (sc/classify-defines defines)
+        ns-struct         (when ns-node (emit-node ns-node context))
         resource-structs  (mapv emit-resource-decl resources)
         uniform-structs   (mapv #(emit-uniform-decl % context) uniforms)
         static-var-structs (mapv #(emit-static-var-decl % context) static-vars)
@@ -116,7 +118,8 @@
         fn-structs         (mapv #(emit-node % context) functions)
         entry-fns          (filter #(md/fn-shader-stage %) functions)
         entry-wrapper-structs (mapcat emit-entry-wrapper entry-fns)
-        all-structs (remove nil? (concat resource-structs
+        all-structs (remove nil? (concat (when ns-struct [ns-struct])
+                                         resource-structs
                                          uniform-structs
                                          static-var-structs
                                          global-var-structs

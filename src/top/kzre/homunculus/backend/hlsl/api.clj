@@ -16,9 +16,11 @@
     [top.kzre.homunculus.backend.hlsl.methods.record]
     [top.kzre.homunculus.backend.hlsl.methods.vector]
     [top.kzre.homunculus.backend.hlsl.methods.lambda]
+    [top.kzre.homunculus.backend.hlsl.methods.ns]
     [top.kzre.homunculus.backend.hlsl.methods.define]
     [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.internal.protocol :as ip]
+    [top.kzre.homunculus.internal.utils :as iu]
     [top.kzre.homunculus.internal.symbol :as sym]))
 
 (defn make-context
@@ -28,10 +30,19 @@
   [compile-ctx frontend]
   (let [builtin-table (tp/builtin-symbols frontend)
         user-table    (ip/symbol-table compile-ctx)
-        symbols       (merge builtin-table user-table)]
-    {:frontend     frontend
-     :ctx          compile-ctx
-     :symbol-table symbols
-     :known-types  (sym/types-symbols symbols)}))
+        symbols       (merge builtin-table user-table)
+        ;; 从编译上下文中获取编译配置
+        exclude-ns (tp/macro-namespaces frontend)
+        config        (ip/config compile-ctx)
+        style         (when config (ip/module-naming-style config))
+        style         (or style :default)
+        module-naming-fn (fn [ns-sym] (iu/ns->module-path ns-sym style ".hlsl"))]
+    {:frontend         frontend
+     :ctx              compile-ctx
+     :symbol-table     symbols
+     :known-types      (sym/types-symbols symbols)
+     :module-naming-fn module-naming-fn
+     :exclude-ns       (set exclude-ns)
+     }))
 
 (def emit core/emit)

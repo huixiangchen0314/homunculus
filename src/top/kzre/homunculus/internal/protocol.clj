@@ -5,7 +5,12 @@
   "一次编译指令所需的静态配置。"
   (source-paths [this] "入口源文件路径列表")
   (lib-paths    [this] "库文件的搜索路径列表")
-  (output-dir   [this] "编译输出目录"))
+  (output-dir   [this] "编译输出目录")
+  (module-naming-style [this]
+    "模块命名风格：:default、:flat 或 :flat-snake。
+     :default - Java 风格，点分隔目录，例如 a.b.c -> a/b/c.hlsl
+     :flat    - 所有输出在同一目录，include 路径为 a.b.c.hlsl
+     :flat-snake - 类似 flat，但将点替换为下划线，例如 a_b_c.hlsl"))
 
 
 (defprotocol ICompileContext

@@ -2,6 +2,7 @@
   "编译器内部数据结构规范"
   (:require [clojure.spec.alpha :as s]))
 
+;; 符号表 ======================================================================================
 ;; ── 符号表条目 ──
 ;; 符号可以是命名空间符号或简单符号（用于内置函数/类型）
 (s/def ::sym (s/and symbol? #(or (namespace %) true)))
@@ -75,3 +76,5 @@
 ;; ── 完整的导出符号表 ──
 (s/def ::symbol-table
   (s/map-of ::sym ::symbol-entry :conform-keys true))
+
+

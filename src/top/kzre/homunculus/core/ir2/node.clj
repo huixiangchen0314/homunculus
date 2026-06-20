@@ -350,7 +350,7 @@
 
 (defn ns-with-name       [node name]       (assoc node :name name))
 (defn ns-with-references [node references] (assoc node :references references))
-
+(defn ns-node? [node] (= (some-> node ir2p/kind) :ns))
 ;; ══════════════════════════════════════════════
 ;; RecordNode
 ;; ══════════════════════════════════════════════

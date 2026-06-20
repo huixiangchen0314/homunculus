@@ -10,7 +10,8 @@
   p/ICompileConfig
   (source-paths [_] source-paths)
   (lib-paths [_] lib-paths)
-  (output-dir [_] output-dir))
+  (output-dir [_] output-dir)
+  (module-naming-style [_] :default))
 
 
 (defn- ensure-compiled
