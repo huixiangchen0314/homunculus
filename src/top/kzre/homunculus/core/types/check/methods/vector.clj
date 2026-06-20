@@ -17,13 +17,18 @@
           (throw (ex-info "Vector length mismatch"
                           {:expected (count exp-types) :actual (count items)}))))
 
-      ;; 统一元素类型向量期望 (TContainer :vector)
-      (and expected (ty/container-type? expected) (= (ty/container-kind expected) :vector))
-      (let [elem-ty (ty/container-element-type expected)
-            checked-items (mapv #(check/check-node % elem-ty context) items)]
-        (n/make-vector checked-items (n/attrs node) (n/node-meta node) (n/parent node)))
+      ;; 同构向量期望 (TVec)
+      (and expected (ty/vec-type? expected))
+      (let [elem-ty (ty/vec-element-type expected)
+            vec-len (ty/vec-size expected)
+            actual-len (count items)]
+        ;; 长度检查：如果期望长度是字面量常量，则必须匹配
+        (when (and (integer? vec-len) (not= vec-len actual-len))
+          (throw (ex-info "Vector length mismatch" {:expected vec-len :actual actual-len})))
+        (let [checked-items (mapv #(check/check-node % elem-ty context) items)]
+          (n/make-vector checked-items (n/attrs node) (n/node-meta node) (n/parent node))))
 
-      ;; 无期望或未知类型
+      ;; 无期望或未知期望：逐元素无类型检查
       :else
       (let [checked-items (mapv #(check/check-node % nil context) items)]
         (n/make-vector checked-items (n/attrs node) (n/node-meta node) (n/parent node))))))

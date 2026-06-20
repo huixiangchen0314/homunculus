@@ -59,7 +59,7 @@
           mutable    (mut/analyze elaborated)
 
           ;; 局部类型推导
-          inferred   (infer/infer mutable (infer/make-context context frontend))
+          inferred   (infer/infer mutable (infer/make-context context frontend backend))
 
           ;; HM(X) 约束求解
           solved     (solve/process inferred (solve/make-context context frontend backend))

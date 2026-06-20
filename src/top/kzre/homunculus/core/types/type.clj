@@ -68,18 +68,6 @@
 (defn container-kind [container-ty]
   (:kind container-ty))
 
-;; ── 形状 kind 查询（基于 ICollectionShape 协议）──
-
-(defn shape-kind
-  "返回形状的 kind 关键字，如 :fixed, :variable, :map, :set。"
-  [shape]
-  (p/shape-kind shape))
-
-(defn fixed-length?     [shape] (= :fixed    (shape-kind shape)))
-(defn variable-length?  [shape] (= :variable (shape-kind shape)))
-(defn map-shape?        [shape] (= :map      (shape-kind shape)))
-(defn set-shape?        [shape] (= :set      (shape-kind shape)))
-
 ;; ── 类型构造器 ─────────────────────────────
 
 (defn make-tvar [id] (t/->TVar id))
@@ -96,11 +84,35 @@
           (reverse (:params arity))))
 
 (defn make-tapp [ctor args] (t/->TApp ctor args))
-(defn make-tcontainer [kind element-type shape] (t/->TContainer kind element-type shape))
+(defn make-tvec [element-type size] (t/->TVec element-type size))
 (defn make-hetero-vec [types] (t/->THeteroVec types))
 (defn make-hetero-map [entries] (t/->THeteroMap entries))
-(defn make-fixed-length [size] (t/->FixedLength size))
-(defn make-variable-length [] (t/->VariableLength))
+;; 在 type.clj 中补充以下内容
+
+;; ── TVec (同构向量) 谓词与访问器 ──
+(defn vec-type? [ty]
+  (= :vec (type-kind ty)))
+
+(defn vec-element-type [ty]
+  (when (vec-type? ty)
+    (:element-type ty)))
+
+(defn vec-size [ty]
+  (when (vec-type? ty)
+    (:size ty)))
+
+;; ── THeteroVec (异构向量) 长度 ──
+(defn hetero-vec-length [ty]
+  (when (hetero-vec? ty)
+    (count (:types ty))))
+
+;; ── 通用向量长度（适用于同构或异构） ──
+(defn vector-length-expr [ty]
+  "返回向量类型的长度表达式（IR2 节点）或整数。"
+  (cond
+    (vec-type? ty)     (vec-size ty)           ; TVec 的 size 本身就是表达式节点
+    (hetero-vec? ty)   (hetero-vec-length ty)  ; 整数，可包装为字面量
+    :else nil))
 
 ;; ── 访问器 ─────────────────────────────────
 

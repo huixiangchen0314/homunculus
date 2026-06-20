@@ -45,7 +45,7 @@
             item2 (-> (n/->literal 2 {} {} nil) (ty/set-type! (t/->TCon :int64)))
             vec (-> (n/->vector [item1 item2] {} {} nil)
                     (ty/set-type! (t/->THeteroVec [(t/->TCon :int64) (t/->TCon :int64)])))
-            expected (t/->TContainer :vector (t/->TCon :float32) (t/->VariableLength))
+            expected (t/->TVec :vector (t/->TCon :float32) (t/->VariableLength))
             res (check/check-node vec expected ctx)
             items (:items res)]
         (is (every? n/convert-node? items))

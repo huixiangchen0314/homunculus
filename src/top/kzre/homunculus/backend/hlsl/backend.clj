@@ -22,4 +22,5 @@
            (= (ty/type-sym src-ty) :int)
            (= (ty/type-sym dst-ty) :half)) 1
       ;; 其他情况不允许
-      :else nil)))
+      :else nil))
+  (support-hetero-vec [_] false))

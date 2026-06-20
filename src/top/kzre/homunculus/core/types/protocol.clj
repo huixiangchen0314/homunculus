@@ -8,9 +8,6 @@
 (defprotocol IType
   (type-kind [this] "返回 :var, :con, :fun, :app, :container 等"))
 
-;; ── 集合形状协议 ──────────────────────────
-(defprotocol ICollectionShape
-  (shape-kind [this] "返回 :fixed, :variable, :map, :set 等"))
 
 ;; ── 前端语言信息 ──────────────────────────
 (defprotocol IFrontendInfo
@@ -26,8 +23,10 @@
   (dynamic? [this] "语言是否是动态类型的.")
   (macro-namespaces [this]
     "返回一个集合（符号），表示仅用于编译时宏展开的命名空间，
-     这些依赖不应生成 #include 指令。"))
+     这些依赖不应生成 #include 指令。")
+  )
 
 ;; ── 后端信息 ──────────────────────────────
 (defprotocol IBackendInfo
-  (type-conversion     [this src-ty dst-ty] "两个内置类型间的转换代价"))
+  (type-conversion     [this src-ty dst-ty] "两个内置类型间的转换代价")
+  (support-hetero-vec [this] "支持异构向量吗"))

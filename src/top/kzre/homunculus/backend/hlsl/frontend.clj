@@ -80,6 +80,12 @@
            [:func 'lerp      ['a 'float 'b 'float 't 'float] 'float]
            [:func 'step      ['edge 'float 'x 'float] 'float]
            [:func 'smoothstep ['min 'float 'max 'float 'x 'float] 'float]
+           [:func 'exp   ['x 'float] 'float]
+           [:func 'exp2  ['x 'float] 'float]
+           [:func 'log   ['x 'float] 'float]
+           [:func 'log2  ['x 'float] 'float]
+           [:func 'rsqrt ['x 'float] 'float]
+           [:func 'frac  ['x 'float] 'float]
 
            ;; HLSL 特有函数
            [:func 'tex2D    ['s 'sampler 'uv 'float2] 'float4]
@@ -100,6 +106,7 @@
            [:func 'top.kzre.homunculus.backend.shader.dsl/texture2D     [] 'texture2D]
            [:func 'top.kzre.homunculus.backend.shader.dsl/sampler-state [] 'sampler]
            [:func 'top.kzre.homunculus.backend.shader.dsl/cbuffer       [] 'cbuffer]
+           [:func `top.kzre.homunculus.backend.shader.dsl/int           [] 'int]
            ))
 
 

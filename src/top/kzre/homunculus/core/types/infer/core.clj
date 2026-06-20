@@ -52,11 +52,12 @@
 
 (defn make-context
   "构建局部推断所需的上下文 map。合并前端内置符号表与编译上下文用户符号表。"
-  [compile-ctx frontend ]
+  [compile-ctx frontend backend]
   (let [builtin-table (tp/builtin-symbols frontend)
         user-table    (ip/symbol-table compile-ctx)
         symbols (merge builtin-table user-table)]
     {:frontend frontend
+     :backend backend
      :ctx compile-ctx
      :symbol-table (merge builtin-table user-table)
      :known-types (sym/types-symbols symbols)

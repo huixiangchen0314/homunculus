@@ -20,20 +20,10 @@
   (type-kind [_] :app))
 
 
-;; ── 容器类型 ──────────────────────────────
-(defrecord TContainer [kind element-type shape]
+;; ── 同构向量类型 ──────────────────────────────
+(defrecord TVec [element-type size]
   p/IType
-  (type-kind [_] :container))
-
-;; ── 形状记录 ──────────────────────────────
-(defrecord FixedLength [size]
-  p/ICollectionShape
-  (shape-kind [_] :fixed))
-
-(defrecord VariableLength []
-  p/ICollectionShape
-  (shape-kind [_] :variable))
-
+  (type-kind [_] :vec))
 
 ;; 异构向量
 (defrecord THeteroVec [types]  ;; types 为元素类型向量，顺序与元素对应

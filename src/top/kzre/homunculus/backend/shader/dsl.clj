@@ -1,7 +1,7 @@
 ;; top.kzre.homunculus.backend.shader.dsl
 (ns top.kzre.homunculus.backend.shader.dsl
   "着色器 DSL 语法糖。提供统一的资源/入口声明，通过元数据传递给后端。"
-  (:refer-clojure :exclude [float]))
+  (:refer-clojure :exclude [float int]))
 
 (defmacro defshader
   "定义着色器入口函数。stage 为 :vertex, :fragment 等，params 为带类型标注的参数向量。"
@@ -15,6 +15,7 @@
 (defn- texture2D     [] nil)
 (defn- sampler-state [] nil)
 (defn- cbuffer       [] nil)
+(defn  int            [] nil)
 ;; 声明专用类型构造器.
 (defn float          [] nil)
 (defn float2         [] nil)
@@ -25,6 +26,7 @@
 (defn- fully-qualified-ctor [ctor-sym]
   (let [ctor-name (name ctor-sym)]
     (cond
+      (= "int"      ctor-name) `top.kzre.homunculus.backend.shader.dsl/int
       (= "float"    ctor-name) `top.kzre.homunculus.backend.shader.dsl/float
       (= "float2"   ctor-name) `top.kzre.homunculus.backend.shader.dsl/float2
       (= "float3"   ctor-name) `top.kzre.homunculus.backend.shader.dsl/float3

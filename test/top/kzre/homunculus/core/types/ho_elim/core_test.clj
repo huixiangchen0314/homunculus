@@ -23,7 +23,7 @@
 (defn- typed-vec [items]
   (let [elem-ty (t/->TCon :int)
         shape   (t/->FixedLength (count items))
-        ty      (t/->TContainer :vector elem-ty shape)]
+        ty      (t/->TVec :vector elem-ty shape)]
     (m/->VectorNode items {:type ty} nil nil)))
 
 ;; ══════════════════════════════════════════════

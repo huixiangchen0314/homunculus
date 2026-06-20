@@ -1,4 +1,4 @@
-(ns top.kze.homunculus.examples.hlsl-lambert.core
+(ns top.kzre.homunculus.examples.hlsl-lambert.core
   (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]
             [my.shaders.fog]))
 
