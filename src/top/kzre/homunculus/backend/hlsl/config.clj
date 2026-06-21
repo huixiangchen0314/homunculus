@@ -6,6 +6,7 @@
     [top.kzre.homunculus.backend.hlsl.frontend :as hlsl-front]
     [top.kzre.homunculus.core.ir1.api :as ir1]
     [top.kzre.homunculus.core.ir2.api :as ir2]
+    [top.kzre.homunculus.core.types.ho-elim.core :as ho-elim]
     [top.kzre.homunculus.core.types.check.api :as check]
     [top.kzre.homunculus.core.types.alpha-rename :as rename]
     [top.kzre.homunculus.core.types.constraint.api :as solve]
@@ -49,8 +50,17 @@
           ir2-roots' (module/resolve-ns ir2-roots' context)
           _          (module/collect-symbols ir2-roots' context)
 
+
+          ;; 局部类型推导
+          inferred   (infer/infer ir2-roots' (infer/make-context context frontend backend))
+
+          ;; HM(X) 约束求解
+          solved     (solve/process inferred (solve/make-context context frontend backend))
+
+          inlined    (ho-elim/process solved (ho-elim/make-context context frontend backend))
+
           ;; 递归消除
-          no-recur   (mapv recur/eliminate ir2-roots')
+          no-recur   (mapv recur/eliminate inlined)
 
           ;; 闭包消除（提升 + 特化）
           elaborated (lambda-elim/eliminate no-recur lift-cfg)
@@ -58,17 +68,11 @@
           ;; 可变性分析
           mutable    (mut/analyze elaborated)
 
-          ;; 局部类型推导
-          inferred   (infer/infer mutable (infer/make-context context frontend backend))
-
-          ;; HM(X) 约束求解
-          solved     (solve/process inferred (solve/make-context context frontend backend))
-
           ;; 双向检查 + 隐式转换插入
-          checked    (check/check solved (check/make-context context frontend backend))
+          checked    (check/check mutable (check/make-context context frontend backend))
 
           ;; 收集标记了类型的符号表
-          _          (module/collect-symbols ir2-roots' context)]
+          _          (module/collect-symbols mutable context)]
 
       ;; 最终代码生成（HLSL）
       (emit/emit checked (emit/make-context context frontend)))))

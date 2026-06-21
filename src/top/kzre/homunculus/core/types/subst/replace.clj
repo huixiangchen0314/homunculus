@@ -1,7 +1,6 @@
 (ns top.kzre.homunculus.core.types.subst.replace
   "通用表达式变量替换。使用多方法遍历 IR2 节点，将指定变量名替换为给定的节点。"
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
+  (:require [top.kzre.homunculus.core.ir2.node :as n]))
 
 (defmulti replace-expr
           (fn [node _var-name _replacement] (n/kind node)))
@@ -101,6 +100,26 @@
                         (n/access-member node)
                         (mapv #(replace-expr % var-name replacement) (n/access-args node))
                         (n/node-meta node) (n/parent node)))
+
+;; 数组特殊节点
+(defmethod replace-expr :new-array [node var-name replacement]
+  (n/make-new-array (replace-expr (n/new-array-size node) var-name replacement)
+                    (n/node-meta node) (n/parent node)))
+
+(defmethod replace-expr :aget [node var-name replacement]
+  (n/make-aget (replace-expr (n/aget-target node) var-name replacement)
+               (replace-expr (n/aget-idx node) var-name replacement)
+               (n/node-meta node) (n/parent node)))
+
+(defmethod replace-expr :aset [node var-name replacement]
+  (n/make-aset (replace-expr (n/aset-target node) var-name replacement)
+               (replace-expr (n/aset-idx node) var-name replacement)
+               (replace-expr (n/aset-val node) var-name replacement)
+               (n/node-meta node) (n/parent node)))
+
+(defmethod replace-expr :alength [node var-name replacement]
+  (n/make-alength (replace-expr (n/alength-target node) var-name replacement)
+                  (n/node-meta node) (n/parent node)))
 
 ;; 无子节点类型
 (defmethod replace-expr :ns [node _ _] node)

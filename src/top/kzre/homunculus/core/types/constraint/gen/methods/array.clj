@@ -10,19 +10,24 @@
 ;; ── new-array ──────────────────────────────
 (defmethod gen/cg-node-raw :new-array [node context]
   (let [[size-tv size-node size-constrs size-ctx] (gen/cg-node-raw (n/new-array-size node) context)
-        backend (u/backend context)
-        hetero? (when backend (tp/support-hetero-vec backend))]
+        int-ty   (ty/make-tcon (tp/integer-type (u/frontend context)))
+        ;; ★ 约束 size 的类型为 int
+        size-eq  (c/make-cequal size-tv int-ty)
+        backend  (u/backend context)
+        hetero?  (when backend (tp/support-hetero-vec backend))]
     (if hetero?
       (let [tv (ty/make-hetero-vec [])
             new-node (n/make-new-array size-node (n/node-meta node) (n/parent node))]
-        [tv (ty/set-type! new-node tv) size-constrs size-ctx])
-      (let [len (if (and (n/literal-node? size-node) (integer? (n/lit-val size-node)))
-                  (n/lit-val size-node)
-                  (gen/fresh-tvar))
-            elem-tv (gen/fresh-tvar)
-            tv (ty/make-tvec elem-tv len)
+        [tv (ty/set-type! new-node tv) (concat size-constrs [size-eq]) size-ctx])
+      (let [;; 长度：若 size 是字面量整数则直接提取值，否则使用 size-tv 作为长度变量
+            len      (if (and (n/literal-node? size-node) (integer? (n/lit-val size-node)))
+                       (n/lit-val size-node)
+                       size-tv)   ;; 使用与 size 关联的类型变量
+            elem-tv  (gen/fresh-tvar)
+            tv       (ty/make-tvec elem-tv len)
             new-node (n/make-new-array size-node (n/node-meta node) (n/parent node))]
-        [tv (ty/set-type! new-node tv) size-constrs size-ctx]))))
+        [tv (ty/set-type! new-node tv) (concat size-constrs [size-eq]) size-ctx]))))
+
 
 ;; ── aget ───────────────────────────────────
 (defmethod gen/cg-node-raw :aget [node context]

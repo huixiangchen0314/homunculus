@@ -1,115 +1,174 @@
 (ns top.kzre.homunculus.core.types.ho-elim.core
-  "通用高阶函数消除 Pass：通过内联标准库定义并依赖类型信息消除高阶调用。
-   不依赖具体函数名，适用于所有用 first/rest/conj 递归定义的高阶函数。"
+  "基于类型信息的高阶函数内联 Pass。
+   遍历 IR2 树，在 context 内部的 :env 中收集定义；
+   当调用点的实参类型包含函数类型时，利用环境中的定义进行内联。"
   (:require
-    [top.kzre.homunculus.core.ir2.node :as n]))
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.types.protocol :as tp]
+    [top.kzre.homunculus.core.types.subst.api :as subst]
+    [top.kzre.homunculus.core.types.type :as ty]
+    [top.kzre.homunculus.internal.protocol :as ip]
+    [top.kzre.homunculus.internal.symbol :as sym]))
 
-;; ── 多方法分派 ──────────────────────────
-(defmulti eliminate-ho
-          (fn [node _context] (n/kind node)))
+(defmulti eliminate
+          (fn [node depth context] (n/kind node)))
 
-;; ── 辅助函数 ────────────────────────────
-(defn- find-definition
-  "从上下文中查找符号的定义 IR 节点。"
-  [name context]
-  (when-let [def-node (get-in context [:definitions name])]
-    def-node))
+;; 辅助函数
+(defn- env [context] (get context :env {}))
+(defn- add-def [context name def-node]
+  (update context :env assoc name def-node))
 
-(defn- substitute
-  "简单的变量替换（仅处理 VariableNode 的替换），返回新节点。"
-  [node subst-map]
-  (cond
-    (n/variable-node? node)
-    (if-let [replacement (get subst-map (n/var-name node))]
-      replacement
-      node)
-    (n/call-node? node)
-    (n/make-call (substitute (n/call-fn node) subst-map)
-                 (mapv #(substitute % subst-map) (n/call-args node))
-                 (n/attrs node) (n/node-meta node) (n/parent node))
-    ;; 其他复合节点类似处理，此处省略，实际应完整递归
-    :else node))
+;; 叶子节点：返回自身，上下文不变
+(defmethod eliminate :literal   [node _ ctx] [node ctx])
+(defmethod eliminate :variable  [node _ ctx] [node ctx])
 
+;; 定义：将自身加入环境，然后处理值
+(defmethod eliminate :define [node depth ctx]
+  (let [name (n/define-name node)
+        ctx' (add-def ctx name node)]
+    (if-let [val (n/define-val node)]
+      (let [[new-val ctx''] (eliminate val (inc depth) ctx')]
+        [(n/make-define name new-val (n/define-doc node)
+                        (n/attrs node) (n/node-meta node) (n/parent node))
+         ctx''])
+      [node ctx'])))
 
+;; 调用节点：尝试内联
+(defmethod eliminate :call [node depth ctx]
+  (let [max-depth (get ctx :ho-max-depth 20)
+        fn-node (n/call-fn node)
+        fn-name (when (n/variable-node? fn-node) (n/var-name fn-node))
+        ;; 递归处理实参，收集上下文
+        [args' ctx-after-args]
+        (reduce (fn [[processed ctx] arg]
+                  (let [[p c] (eliminate arg (inc depth) ctx)]
+                    [(conj processed p) c]))
+                [[] ctx]
+                (n/call-args node))
+        arg-tys (mapv ty/get-type args')
+        has-fn-arg? (some ty/fun-type? arg-tys)
+        current-env (env ctx-after-args)]
+    (if (and fn-name (contains? current-env fn-name) has-fn-arg? (< depth max-depth))
+      ;; 执行内联
+      (let [def-node (get current-env fn-name)
+            lam      (n/define-val def-node)
+            params   (n/lambda-params lam)
+            param-names (mapv n/var-name params)
+            body     (n/lambda-body lam)
+            inlined  (reduce (fn [b [pname arg]]
+                               (subst/replace-var b pname arg))
+                             body
+                             (map vector param-names args'))]
+        (eliminate inlined (inc depth) ctx-after-args))
+      ;; 普通调用：递归处理函数部分
+      (let [[new-fn ctx''] (eliminate fn-node (inc depth) ctx-after-args)]
+        [(n/make-call new-fn args' (n/attrs node) (n/node-meta node) (n/parent node))
+         ctx'']))))
 
-;; ── 叶子节点 ────────────────────────────
-(defmethod eliminate-ho :literal [node _] node)
-(defmethod eliminate-ho :variable [node _] node)
+;; 容器节点：递归处理子节点，传递上下文
+(defmethod eliminate :if [node depth ctx]
+  (let [[test ctx1] (eliminate (n/if-test node) depth ctx)
+        [then ctx2] (eliminate (n/if-then node) depth ctx1)
+        [else ctx3] (if-let [e (n/if-else node)]
+                      (eliminate e depth ctx2)
+                      [nil ctx2])]
+    [(n/make-if test then else (n/attrs node) (n/node-meta node) (n/parent node))
+     ctx3]))
 
-;; ── 调用节点（通用内联）────────────────
-(defmethod eliminate-ho :call [node context]
-  (let [fn-node (n/call-fn node)
-        fn-name (when (= (n/kind fn-node) :variable)
-                  (n/var-name fn-node))
-        ;; 检查是否为高阶函数（在符号表中标记或通过已知列表）
-        ho-fn? (and fn-name
-                    (contains? (get context :ho-fn-set #{}) fn-name))]
-    (if ho-fn?
-      ;; 获取函数定义（IR2 lambda 节点）
-      (if-let [def-node (find-definition fn-name context)]
-        (let [lam (n/define-val def-node)           ; lambda 节点
-              params (n/lambda-params lam)
-              body (n/lambda-body lam)
-              args (mapv #(eliminate-ho % context) (n/call-args node))
-              ;; 单态化：用实参替换形参
-              subst-map (zipmap (map n/var-name params) args)
-              inlined-body (substitute body subst-map)]
-          (eliminate-ho inlined-body context))
-        ;; 找不到定义，保留原调用（可能是递归，由 recur-elim 处理）
-        (n/make-call fn-node
-                     (mapv #(eliminate-ho % context) (n/call-args node))
-                     (n/attrs node) (n/node-meta node) (n/parent node)))
-      ;; 普通调用，递归处理子节点
-      (n/make-call (eliminate-ho fn-node context)
-                   (mapv #(eliminate-ho % context) (n/call-args node))
-                   (n/attrs node) (n/node-meta node) (n/parent node)))))
+(defmethod eliminate :block [node depth ctx]
+  (let [[stmts ctx'] (reduce (fn [[processed ctx] expr]
+                               (let [[p c] (eliminate expr depth ctx)]
+                                 [(conj processed p) c]))
+                             [[] ctx]
+                             (n/block-exprs node))]
+    [(n/make-block stmts (n/attrs node) (n/node-meta node) (n/parent node)) ctx']))
 
-;; ── 其他结构节点递归处理 ───────────────
-(defmethod eliminate-ho :if [node context]
-  (n/make-if (eliminate-ho (n/if-test node) context)
-             (eliminate-ho (n/if-then node) context)
-             (when-let [e (n/if-else node)] (eliminate-ho e context))
-             (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :let [node depth ctx]
+  (let [[bindings ctx'] (reduce (fn [[processed ctx] [v e]]
+                                  (let [[new-v ctx1] (eliminate v depth ctx)
+                                        [new-e ctx2] (eliminate e depth ctx1)]
+                                    [(conj processed [new-v new-e]) ctx2]))
+                                [[] ctx]
+                                (n/let-bindings node))
+        [body ctx''] (eliminate (n/let-body node) depth ctx')]
+    [(n/make-let bindings body (n/attrs node) (n/node-meta node) (n/parent node)) ctx'']))
 
-(defmethod eliminate-ho :block [node context]
-  (n/make-block (mapv #(eliminate-ho % context) (n/block-exprs node))
-                (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :loop [node depth ctx]
+  (let [[bindings ctx'] (reduce (fn [[processed ctx] [v e]]
+                                  (let [[new-v ctx1] (eliminate v depth ctx)
+                                        [new-e ctx2] (eliminate e depth ctx1)]
+                                    [(conj processed [new-v new-e]) ctx2]))
+                                [[] ctx]
+                                (n/loop-bindings node))
+        [body ctx''] (eliminate (n/loop-body node) depth ctx')]
+    [(n/make-loop bindings body (n/attrs node) (n/node-meta node) (n/parent node)) ctx'']))
 
-(defmethod eliminate-ho :let [node context]
-  (let [new-bindings (mapv (fn [[v e]] [(eliminate-ho v context) (eliminate-ho e context)])
-                           (n/let-bindings node))
-        new-body (eliminate-ho (n/let-body node) context)]
-    (n/make-let new-bindings new-body
-                (n/attrs node) (n/node-meta node) (n/parent node))))
+(defmethod eliminate :lambda [node depth ctx]
+  (let [[params ctx'] (reduce (fn [[processed ctx] p]
+                                (let [[new-p c] (eliminate p depth ctx)]
+                                  [(conj processed new-p) c]))
+                              [[] ctx]
+                              (n/lambda-params node))
+        [body ctx''] (eliminate (n/lambda-body node) depth ctx')]
+    [(n/make-lambda params body (n/lambda-captures node) (n/lambda-fn-name node)
+                    (n/attrs node) (n/node-meta node) (n/parent node))
+     ctx'']))
 
-(defmethod eliminate-ho :loop [node context]
-  ;; 不对 loop 递归体进行内联（会导致无限展开），只处理子节点
-  (n/make-loop (mapv (fn [[v e]] [(eliminate-ho v context) (eliminate-ho e context)])
-                     (n/loop-bindings node))
-               (eliminate-ho (n/loop-body node) context)
-               (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :recur [node depth ctx]
+  (let [[args ctx'] (reduce (fn [[processed ctx] arg]
+                              (let [[p c] (eliminate arg depth ctx)]
+                                [(conj processed p) c]))
+                            [[] ctx]
+                            (n/recur-args node))]
+    [(n/make-recur args (n/attrs node) (n/node-meta node) (n/parent node)) ctx']))
 
-(defmethod eliminate-ho :lambda [node _context]
-  ;; 不对 lambda 体进行内联（除非是顶级定义被调用时）
-  node)
+(defmethod eliminate :while [node depth ctx]
+  (let [[test ctx1] (eliminate (n/while-test node) depth ctx)
+        [body ctx2] (eliminate (n/while-body node) depth ctx1)]
+    [(n/make-while test body (n/attrs node) (n/node-meta node) (n/parent node)) ctx2]))
 
-(defmethod eliminate-ho :define [node context]
-  (if-let [val (n/define-val node)]
-    (n/make-define (n/define-name node)
-                   (eliminate-ho val context)
-                   (n/define-doc node)
-                   (n/attrs node) (n/node-meta node) (n/parent node))
-    node))
+;; 数组特殊节点
+(defmethod eliminate :new-array [node depth ctx]
+  (let [[size ctx'] (eliminate (n/new-array-size node) depth ctx)]
+    [(n/make-new-array size (n/node-meta node) (n/parent node)) ctx']))
+(defmethod eliminate :aget [node depth ctx]
+  (let [[target ctx1] (eliminate (n/aget-target node) depth ctx)
+        [idx ctx2]    (eliminate (n/aget-idx node) depth ctx1)]
+    [(n/make-aget target idx (n/node-meta node) (n/parent node)) ctx2]))
+(defmethod eliminate :aset [node depth ctx]
+  (let [[target ctx1] (eliminate (n/aset-target node) depth ctx)
+        [idx ctx2]    (eliminate (n/aset-idx node) depth ctx1)
+        [val ctx3]    (eliminate (n/aset-val node) depth ctx2)]
+    [(n/make-aset target idx val (n/node-meta node) (n/parent node)) ctx3]))
+(defmethod eliminate :alength [node depth ctx]
+  (let [[target ctx'] (eliminate (n/alength-target node) depth ctx)]
+    [(n/make-alength target (n/node-meta node) (n/parent node)) ctx']))
 
-(defmethod eliminate-ho :recur [node context]
-  (n/make-recur (mapv #(eliminate-ho % context) (n/recur-args node))
-                (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :default [node _ ctx] [node ctx])
 
-(defmethod eliminate-ho :default [node _] node)
-
-
-
-
-;; ── 全局入口 ────────────────────────────
+;; 全局入口：使用 reduce 顺序处理根节点，累积环境
 (defn process [ir2-roots context]
-  (mapv #(eliminate-ho % context) ir2-roots))
+  (let [init-ctx (update context :env #(or % {}))
+        [new-roots _] (reduce (fn [[nodes ctx] root]
+                                (let [[new-root ctx'] (eliminate root 0 ctx)]
+                                  [(conj nodes new-root) ctx']))
+                              [[] init-ctx]
+                              ir2-roots)]
+    new-roots))
+
+(defn make-context
+  "构造约束生成所需的上下文 map。
+   compile-ctx : 编译上下文
+   frontend    : 前端协议实例（必须实现 IFrontendInfo）
+   backend     : 后端协议实例（可选，用于类型转换）"
+  [compile-ctx frontend backend]
+  (let [builtin-table (tp/builtin-symbols frontend)
+        user-table    (ip/symbol-table compile-ctx)
+        symbols       (merge builtin-table user-table)]
+    {:env {}
+     :frontend frontend
+     :ctx compile-ctx
+     :backend backend
+     :ho-max-depth 20
+     :symbol-table symbols
+     :known-types (sym/types-symbols symbols)}))

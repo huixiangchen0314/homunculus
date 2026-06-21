@@ -21,7 +21,6 @@
 
 
 
-
 (defrecord MyInout [^:SV_TARGET ^float a 0.0])
 
 
@@ -37,7 +36,8 @@
            (let [worldPos (mul worldViewProj pos)
                  y (%%aget x 0)
                  w (%%alength x)
-                 x1 (%%aslice x 0 2)]
+                 xxx (let [fa 0]
+                   fa)]
              (float4 (float3 1.0 1.0 1.0) 1.0)))
 
 (defshader :fragment psMain
