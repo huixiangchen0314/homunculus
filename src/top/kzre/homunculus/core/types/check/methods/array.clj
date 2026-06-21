@@ -52,14 +52,3 @@
     (n/make-alength (check/check-node target nil context)
                     (n/node-meta node)
                     (n/parent node))))
-
-(defmethod check/check-node :aslice [node expected context]
-  (let [target (n/aslice-target node)
-        start (n/aslice-start node)
-        end (n/aslice-end node)
-        int-ty (ty/make-tcon (check/integer-type context))]
-    (n/make-aslice (check/check-node target nil context)
-                   (check/check-node start int-ty context)
-                   (check/check-node end int-ty context)
-                   (n/node-meta node)
-                   (n/parent node))))

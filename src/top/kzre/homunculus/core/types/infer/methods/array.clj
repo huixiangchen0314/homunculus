@@ -43,15 +43,3 @@
         int-ty (ty/make-tcon (tp/integer-type (infer/frontend context)))
         new-node (n/make-alength target-node (n/node-meta node) (n/parent node))]
     (infer/success int-ty (ty/set-type! new-node int-ty) target-ctx)))
-
-(defmethod infer/local-infer :aslice [node context]
-  (let [[target-ty target-node target-ctx] (infer/local-infer (n/aslice-target node) context)
-        [start-ty start-node start-ctx] (infer/local-infer (n/aslice-start node) target-ctx)
-        [end-ty end-node end-ctx] (infer/local-infer (n/aslice-end node) start-ctx)
-        new-node (n/make-aslice target-node start-node end-node (n/node-meta node) (n/parent node))]
-    (if-let [elem-ty (when (ty/vec-type? target-ty) (ty/vec-element-type target-ty))]
-      ;; 同构向量切片，长度未知但元素类型已知，可设置类型
-      (infer/success (ty/make-tvec elem-ty (ty/make-tvar (gensym "len")))
-                     (ty/set-type! new-node (ty/make-tvec elem-ty (ty/make-tvar (gensym "len")))) end-ctx)
-      ;; 异构或未知，不设置类型
-      (infer/nothing new-node end-ctx))))

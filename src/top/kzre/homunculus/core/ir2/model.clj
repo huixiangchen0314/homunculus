@@ -265,12 +265,4 @@
   (parent     [this] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord ASliceNode [target start end meta parent]
-  p/INode
-  (kind       [this] :alength)
-  (children   [this] [target start end])
-  (attrs      [this] {})
-  (node-meta  [this] meta)
-  (parent     [this] parent)
-  (set-parent [this p] (assoc this :parent p)))
 

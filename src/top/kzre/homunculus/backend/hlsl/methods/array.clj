@@ -24,6 +24,3 @@
         [:literal len]
         (throw (ex-info "Array length is not a compile-time constant" {})))
       (throw (ex-info "Cannot determine array length" {})))))
-
-(defmethod core/emit-node :aslice [node _context]
-  (throw (ex-info "HLSL does not support array slice" {})))

@@ -6,7 +6,7 @@
 
 ;; ── 特殊的数组操作符号 ──────────────────────
 (def ^:private special-array-ops
-  #{'%%aget '%%aset '%%new-array '%%alength '%%aslice})
+  #{'%%aget '%%aset '%%new-array '%%alength })
 
 (defmethod ir2/lower-ast :call [node env]
   (let [fn-node (first (ir2/lower-ast (n1/call-op node) env))
@@ -28,8 +28,6 @@
           %%alength
           (let [[target] args]
             [(m/->ALengthNode target (n1/node-meta node) nil)])
-          %%aslice
-          (let [[target start end] args]
-            [(m/->ASliceNode target start end (n1/node-meta node) nil)])))
+          ))
       ;; ── 普通调用 ──
       [(n2/make-call fn-node args {} (n1/node-meta node) nil)])))

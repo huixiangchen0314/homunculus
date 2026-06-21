@@ -52,12 +52,7 @@
                   (n/node-meta node)
                   (n/parent node)))
 
-(defmethod annotate :aslice [node mutable-vars]
-  (n/make-aslice (annotate (n/aslice-target node) mutable-vars)
-                 (annotate (n/aslice-start node) mutable-vars)
-                 (annotate (n/aslice-end node) mutable-vars)
-                 (n/node-meta node)
-                 (n/parent node)))
+
 
 ;; ── 以下为所有容器节点，统一模式：递归处理子节点并重建 ──
 

@@ -16,8 +16,3 @@
 
 (defmethod rec/eliminate :alength [node]
   (n/make-alength (rec/eliminate (n/alength-target node))))
-
-(defmethod rec/eliminate :aslice [node]
-  (n/make-aslice (rec/eliminate (n/aslice-target node))
-                 (rec/eliminate (n/aslice-start node))
-                 (rec/eliminate (n/aslice-end node))))

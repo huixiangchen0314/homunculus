@@ -515,14 +515,5 @@
   ([target meta]         (m/->ALengthNode target meta nil))
   ([target meta parent]  (m/->ALengthNode target meta parent)))
 
-;; ASliceNode
-(defn aslice-node? [node] (= (kind node) :aslice))
-(defn aslice-target [node] (:target node))
-(defn aslice-start  [node] (:start node))
-(defn aslice-end    [node] (:end node))
 
-(defn make-aslice
-  ([target start end]              (m/->ASliceNode target start end nil nil))
-  ([target start end meta]         (m/->ASliceNode target start end meta nil))
-  ([target start end meta parent]  (m/->ASliceNode target start end meta parent)))
 

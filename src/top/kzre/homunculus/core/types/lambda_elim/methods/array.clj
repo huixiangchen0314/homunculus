@@ -25,10 +25,3 @@
   (n/make-alength (elim/eliminate (n/alength-target node) roots config defs)
                   (n/node-meta node)
                   (n/parent node)))
-
-(defmethod elim/eliminate :aslice [node roots config defs]
-  (n/make-aslice (elim/eliminate (n/aslice-target node) roots config defs)
-                 (elim/eliminate (n/aslice-start node) roots config defs)
-                 (elim/eliminate (n/aslice-end node) roots config defs)
-                 (n/node-meta node)
-                 (n/parent node)))

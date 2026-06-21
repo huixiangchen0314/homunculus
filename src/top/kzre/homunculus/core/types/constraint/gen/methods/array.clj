@@ -80,27 +80,3 @@
         int-ty (ty/make-tcon (tp/integer-type (u/frontend context)))
         new-node (n/make-alength target-node (n/node-meta node) (n/parent node))]
     [int-ty (ty/set-type! new-node int-ty) target-constrs target-ctx]))
-
-;; ── aslice ─────────────────────────────────
-(defmethod gen/cg-node-raw :aslice [node context]
-  (let [[target-tv target-node target-constrs target-ctx] (gen/cg-node-raw (n/aslice-target node) context)
-        [start-tv start-node start-constrs start-ctx] (gen/cg-node-raw (n/aslice-start node) target-ctx)
-        [end-tv end-node end-constrs end-ctx] (gen/cg-node-raw (n/aslice-end node) start-ctx)
-        new-node (n/make-aslice target-node start-node end-node (n/node-meta node) (n/parent node))
-        elem-tv (cond
-                  (ty/vec-type? target-tv) (ty/vec-element-type target-tv)
-                  (ty/hetero-vec? target-tv) (let [start (when (n/literal-node? start-node) (n/lit-val start-node))]
-                                               ;; 简化：只取第一个元素的类型
-                                               (first (ty/hetero-vec-types target-tv)))
-                  :else (gen/fresh-tvar))
-        len-tv (cond
-                 (ty/vec-type? target-tv) (ty/vec-size target-tv)
-                 :else (gen/fresh-tvar))
-        vec-tv (ty/make-tvec elem-tv len-tv)
-        target-eq (when (and (not (ty/vec-type? target-tv))
-                             (not (ty/hetero-vec? target-tv)))
-                    (c/make-cequal target-tv vec-tv))
-        slice-len-tv (gen/fresh-tvar)
-        slice-tv (ty/make-tvec elem-tv slice-len-tv)
-        constrs (concat target-constrs start-constrs end-constrs (when target-eq [target-eq]))]
-    [slice-tv (ty/set-type! new-node slice-tv) constrs end-ctx]))
