@@ -1,3 +1,4 @@
+
 (ns top.kzre.homunculus.examples.hlsl-lambert.core
   (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]
             [my.shaders.fog]))
@@ -16,9 +17,12 @@
 
 (defstatic accumColor (float4 0.0 0.0 0.0 0.0))
 
+(defn remin-sum [^float a] a)
+
+
+
 (defrecord MyInout [^:SV_TARGET ^float a 0.0])
 
-(def remin-sum (fn [^float a] a))
 
 ;(defrecord MainOutput [^:float4 color])
 

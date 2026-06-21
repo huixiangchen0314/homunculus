@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.core.ir1.preprocess
   "预处理表单"
-  (:require [top.kzre.homunculus.core.ir1.expand-symbols :as ex]))
+  (:require [clojure.walk :as walk]
+            [top.kzre.homunculus.core.ir1.expand-symbols :as ex]))
 
 
 (defonce special-forms
@@ -9,6 +10,7 @@
 
 (defn ns-form?  "判断一个形式是否是 ns."
   [f] (and (seq? f) (= 'ns (first f))))
+
 
 (defn- try-expand-macro [form ns-info]
   (loop [f form, limit 10]
@@ -33,10 +35,38 @@
                 f)))))
       f)))
 
+;; ── 将 Clojure 内部特殊形式转换为编译器可识别的形式 ──
+(defn- normalize-special-forms [form]
+  (walk/prewalk
+    (fn [x]
+      (if (and (seq? x) (symbol? (first x)))
+        (let [op (first x)]
+          (case op
+            fn*  (cons 'fn (rest x))
+            let* (cons 'let (rest x))
+            ;; 可继续添加其他转换
+            x))
+        x))
+    form))
+
+;; ── 将任何被错误限定的特殊形式恢复为短名 ──
+(defn- fix-namespaced-special-forms [form]
+  (walk/postwalk
+    (fn [x]
+      (if (symbol? x)
+        (let [ns (namespace x)
+              n  (name x)]
+          (if (and ns (contains? special-forms (symbol n)))
+            (symbol n)   ; 去掉命名空间，只保留短名
+            x))
+        x))
+    form))
 
 (defn preprocess [forms]
   (let [ns-form (first (filter ns-form? forms))
         _ (when-not ns-form
             (throw (ex-info "ns form is required" {})))
-        ns-info (ex/resolve-ns ns-form)]
-    (mapv #(try-expand-macro % ns-info) forms)))
+        ns-info (ex/resolve-ns ns-form)
+        expanded (mapv #(try-expand-macro % ns-info) forms)
+        normalized (mapv normalize-special-forms expanded)]
+    (mapv fix-namespaced-special-forms normalized)))

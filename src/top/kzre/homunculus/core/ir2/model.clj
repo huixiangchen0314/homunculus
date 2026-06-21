@@ -220,7 +220,57 @@
   p/INode
   (kind       [this] :member-access)
   (children   [this] (into [target] args))
-  (attrs      [this] {})          ; 默认空 attrs，保持协议一致性
+  (attrs      [this] {})
   (node-meta  [this] meta)
   (parent     [this] parent)
   (set-parent [this p] (assoc this :parent p)))
+
+
+;; 特殊形式(非面向用户) =========================================================
+
+;; 数组节点，可以把向量类型用命令式操作
+(defrecord NewArrayNode [size meta parent]
+  p/INode
+  (kind       [this] :new-array)
+  (children   [this] [])
+  (attrs      [this] {})
+  (node-meta  [this] meta)
+  (parent     [this] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+(defrecord AGetNode [target idx meta parent]
+  p/INode
+  (kind       [this] :aget)
+  (children   [this] [target idx])
+  (attrs      [this] {})
+  (node-meta  [this] meta)
+  (parent     [this] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+(defrecord ASetNode [target idx val meta parent]
+  p/INode
+  (kind       [this] :aset)
+  (children   [this] [target idx val])
+  (attrs      [this] {})
+  (node-meta  [this] meta)
+  (parent     [this] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+(defrecord ALengthNode [target meta parent]
+  p/INode
+  (kind       [this] :alength)
+  (children   [this] [target])
+  (attrs      [this] {})
+  (node-meta  [this] meta)
+  (parent     [this] parent)
+  (set-parent [this p] (assoc this :parent p)))
+
+(defrecord ASliceNode [target start end meta parent]
+  p/INode
+  (kind       [this] :alength)
+  (children   [this] [target start end])
+  (attrs      [this] {})
+  (node-meta  [this] meta)
+  (parent     [this] parent)
+  (set-parent [this p] (assoc this :parent p)))
+

@@ -462,3 +462,67 @@
   "创建一个字段描述 map。"
   [name init meta]
   {:name name :init init :meta meta})
+
+
+;; ── 节点类型判断（protocol-based，更安全） ──
+(defn literal-node? [node] (= (kind node) :literal))
+(defn variable-node? [node] (= (kind node) :variable))
+(defn call-node? [node] (= (kind node) :call))
+(defn if-node? [node] (= (kind node) :if))
+(defn loop-node? [node] (= (kind node) :loop))
+(defn vector-node? [node] (= (kind node) :vector))
+(defn map-node? [node] (= (kind node) :map))
+(defn member-access-node? [node] (= (kind node) :member-access))
+(defn protocol-node? [node] (= (kind node) :protocol))
+
+
+;; ── 数组特殊节点 ──────────────────────────
+(defn new-array-node? [node] (= (kind node) :new-array))
+(defn new-array-size [node] (:size node))
+
+(defn make-new-array
+  ([size]                      (m/->NewArrayNode size nil nil))
+  ([size meta]                (m/->NewArrayNode size meta nil))
+  ([size meta parent]         (m/->NewArrayNode size meta parent)))
+
+;; AGetNode
+(defn aget-node? [node] (= (kind node) :aget))
+(defn aget-target [node] (:target node))
+(defn aget-idx    [node] (:idx node))
+
+(defn make-aget
+  ([target idx]              (m/->AGetNode target idx nil nil))
+  ([target idx meta]         (m/->AGetNode target idx meta nil))
+  ([target idx meta parent]  (m/->AGetNode target idx meta parent)))
+
+;; ASetNode
+(defn aset-node? [node] (= (kind node) :aset))
+(defn aset-target [node] (:target node))
+(defn aset-idx    [node] (:idx node))
+(defn aset-val    [node] (:val node))
+
+(defn make-aset
+  ([target idx val]              (m/->ASetNode target idx val nil nil))
+  ([target idx val meta]         (m/->ASetNode target idx val meta nil))
+  ([target idx val meta parent]  (m/->ASetNode target idx val meta parent)))
+
+;; ALengthNode
+(defn alength-node? [node] (= (kind node) :alength))
+(defn alength-target [node] (:target node))
+
+(defn make-alength
+  ([target]              (m/->ALengthNode target nil nil))
+  ([target meta]         (m/->ALengthNode target meta nil))
+  ([target meta parent]  (m/->ALengthNode target meta parent)))
+
+;; ASliceNode
+(defn aslice-node? [node] (= (kind node) :aslice))
+(defn aslice-target [node] (:target node))
+(defn aslice-start  [node] (:start node))
+(defn aslice-end    [node] (:end node))
+
+(defn make-aslice
+  ([target start end]              (m/->ASliceNode target start end nil nil))
+  ([target start end meta]         (m/->ASliceNode target start end meta nil))
+  ([target start end meta parent]  (m/->ASliceNode target start end meta parent)))
+

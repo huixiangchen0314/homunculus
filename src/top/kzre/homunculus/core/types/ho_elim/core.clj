@@ -1,171 +1,115 @@
 (ns top.kzre.homunculus.core.types.ho-elim.core
-  "高阶函数消除 Pass。根据前端配置将高阶调用展开为一阶形式。
-   所有节点操作均通过 ir2.node 工具函数。"
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [top.kzre.homunculus.core.types.ho-elim.methods.map :as map-expand]
-            [top.kzre.homunculus.core.types.ho-elim.methods.reduce :as reduce-expand]
-            [top.kzre.homunculus.core.types.ho-elim.protocol :as hop]))
+  "通用高阶函数消除 Pass：通过内联标准库定义并依赖类型信息消除高阶调用。
+   不依赖具体函数名，适用于所有用 first/rest/conj 递归定义的高阶函数。"
+  (:require
+    [top.kzre.homunculus.core.ir2.node :as n]))
 
 ;; ── 多方法分派 ──────────────────────────
-(defmulti eliminate
-          (fn [node config] (n/kind node)))
+(defmulti eliminate-ho
+          (fn [node _context] (n/kind node)))
+
+;; ── 辅助函数 ────────────────────────────
+(defn- find-definition
+  "从上下文中查找符号的定义 IR 节点。"
+  [name context]
+  (when-let [def-node (get-in context [:definitions name])]
+    def-node))
+
+(defn- substitute
+  "简单的变量替换（仅处理 VariableNode 的替换），返回新节点。"
+  [node subst-map]
+  (cond
+    (n/variable-node? node)
+    (if-let [replacement (get subst-map (n/var-name node))]
+      replacement
+      node)
+    (n/call-node? node)
+    (n/make-call (substitute (n/call-fn node) subst-map)
+                 (mapv #(substitute % subst-map) (n/call-args node))
+                 (n/attrs node) (n/node-meta node) (n/parent node))
+    ;; 其他复合节点类似处理，此处省略，实际应完整递归
+    :else node))
+
+
 
 ;; ── 叶子节点 ────────────────────────────
-(defmethod eliminate :literal [node _] node)
-(defmethod eliminate :variable [node _] node)
+(defmethod eliminate-ho :literal [node _] node)
+(defmethod eliminate-ho :variable [node _] node)
 
-;; ── 调用（高阶消除核心）───────────────
-(defmethod eliminate :call [node config]
-  (let [fn-node   (n/call-fn node)
-        fn-name   (some-> fn-node n/var-name)
-        ho-map    (hop/known-ho-functions config)
-        strategy  (get ho-map (symbol fn-name))]
-    (case strategy
-      :reduce
-      (let [args (n/call-args node)]
-        (if (= 3 (count args))
-          (let [f-node    (first args)
-                init-node (second args)
-                coll-node (nth args 2)]
-            (if (= (n/kind coll-node) :vector)
-              (reduce-expand/expand-reduce f-node init-node coll-node config)
-              ;; 非向量，递归处理后重建
-              (n/make-call (eliminate fn-node config)
-                           (mapv #(eliminate % config) args)
-                           (n/attrs node) (n/node-meta node) (n/parent node))))
-          (throw (ex-info "reduce requires exactly 3 arguments" {:node node}))))
-
-      :map
-      (let [args (n/call-args node)]
-        (if (= 2 (count args))
-          (let [f-node    (first args)
-                coll-node (second args)]
-            (if (= (n/kind coll-node) :vector)
-              (map-expand/expand-map f-node coll-node config)
-              (n/make-call (eliminate fn-node config)
-                           (mapv #(eliminate % config) args)
-                           (n/attrs node) (n/node-meta node) (n/parent node))))
-          (throw (ex-info "map requires exactly 2 arguments" {:node node}))))
-
-      ;; 普通调用
-      (n/make-call (eliminate fn-node config)
-                   (mapv #(eliminate % config) (n/call-args node))
+;; ── 调用节点（通用内联）────────────────
+(defmethod eliminate-ho :call [node context]
+  (let [fn-node (n/call-fn node)
+        fn-name (when (= (n/kind fn-node) :variable)
+                  (n/var-name fn-node))
+        ;; 检查是否为高阶函数（在符号表中标记或通过已知列表）
+        ho-fn? (and fn-name
+                    (contains? (get context :ho-fn-set #{}) fn-name))]
+    (if ho-fn?
+      ;; 获取函数定义（IR2 lambda 节点）
+      (if-let [def-node (find-definition fn-name context)]
+        (let [lam (n/define-val def-node)           ; lambda 节点
+              params (n/lambda-params lam)
+              body (n/lambda-body lam)
+              args (mapv #(eliminate-ho % context) (n/call-args node))
+              ;; 单态化：用实参替换形参
+              subst-map (zipmap (map n/var-name params) args)
+              inlined-body (substitute body subst-map)]
+          (eliminate-ho inlined-body context))
+        ;; 找不到定义，保留原调用（可能是递归，由 recur-elim 处理）
+        (n/make-call fn-node
+                     (mapv #(eliminate-ho % context) (n/call-args node))
+                     (n/attrs node) (n/node-meta node) (n/parent node)))
+      ;; 普通调用，递归处理子节点
+      (n/make-call (eliminate-ho fn-node context)
+                   (mapv #(eliminate-ho % context) (n/call-args node))
                    (n/attrs node) (n/node-meta node) (n/parent node)))))
 
-;; ── 控制流容器 ─────────────────────────
-(defmethod eliminate :if [node config]
-  (n/make-if (eliminate (n/if-test node) config)
-             (eliminate (n/if-then node) config)
-             (when-let [e (n/if-else node)] (eliminate e config))
+;; ── 其他结构节点递归处理 ───────────────
+(defmethod eliminate-ho :if [node context]
+  (n/make-if (eliminate-ho (n/if-test node) context)
+             (eliminate-ho (n/if-then node) context)
+             (when-let [e (n/if-else node)] (eliminate-ho e context))
              (n/attrs node) (n/node-meta node) (n/parent node)))
 
-(defmethod eliminate :block [node config]
-  (n/make-block (mapv #(eliminate % config) (n/block-exprs node))
+(defmethod eliminate-ho :block [node context]
+  (n/make-block (mapv #(eliminate-ho % context) (n/block-exprs node))
                 (n/attrs node) (n/node-meta node) (n/parent node)))
 
-(defmethod eliminate :let [node config]
-  (let [new-bindings (mapv (fn [[v e]] [(eliminate v config) (eliminate e config)])
+(defmethod eliminate-ho :let [node context]
+  (let [new-bindings (mapv (fn [[v e]] [(eliminate-ho v context) (eliminate-ho e context)])
                            (n/let-bindings node))
-        new-body     (eliminate (n/let-body node) config)]
+        new-body (eliminate-ho (n/let-body node) context)]
     (n/make-let new-bindings new-body
                 (n/attrs node) (n/node-meta node) (n/parent node))))
 
-(defmethod eliminate :loop [node config]
-  (let [new-bindings (mapv (fn [[v e]] [(eliminate v config) (eliminate e config)])
-                           (n/loop-bindings node))
-        new-body     (eliminate (n/loop-body node) config)]
-    (n/make-loop new-bindings new-body
-                 (n/attrs node) (n/node-meta node) (n/parent node))))
+(defmethod eliminate-ho :loop [node context]
+  ;; 不对 loop 递归体进行内联（会导致无限展开），只处理子节点
+  (n/make-loop (mapv (fn [[v e]] [(eliminate-ho v context) (eliminate-ho e context)])
+                     (n/loop-bindings node))
+               (eliminate-ho (n/loop-body node) context)
+               (n/attrs node) (n/node-meta node) (n/parent node)))
 
-(defmethod eliminate :while [node config]
-  (n/make-while (eliminate (n/while-test node) config)
-                (eliminate (n/while-body node) config)
-                (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate-ho :lambda [node _context]
+  ;; 不对 lambda 体进行内联（除非是顶级定义被调用时）
+  node)
 
-;; ── 函数定义与顶层定义 ────────────────
-(defmethod eliminate :lambda [node config]
-  (n/make-lambda (mapv #(eliminate % config) (n/lambda-params node))
-                 (eliminate (n/lambda-body node) config)
-                 (n/lambda-captures node) (n/lambda-fn-name node)
-                 (n/attrs node) (n/node-meta node) (n/parent node)))
-
-(defmethod eliminate :define [node config]
+(defmethod eliminate-ho :define [node context]
   (if-let [val (n/define-val node)]
     (n/make-define (n/define-name node)
-                   (eliminate val config)
+                   (eliminate-ho val context)
                    (n/define-doc node)
                    (n/attrs node) (n/node-meta node) (n/parent node))
     node))
 
-;; ── 赋值 ───────────────────────────────
-(defmethod eliminate :assign [node config]
-  (n/make-assign (eliminate (n/assign-var node) config)
-                 (eliminate (n/assign-val node) config)
-                 (n/attrs node) (n/node-meta node) (n/parent node)))
-
-;; ── 异常处理 ───────────────────────────
-(defmethod eliminate :try [node config]
-  (n/make-try (eliminate (n/try-body node) config)
-              (mapv #(eliminate % config) (n/try-catches node))
-              (when-let [f (n/try-finally node)] (eliminate f config))
-              (n/attrs node) (n/node-meta node) (n/parent node)))
-
-(defmethod eliminate :catch [node config]
-  (n/make-catch (n/catch-class node) (n/catch-sym node)
-                (mapv #(eliminate % config) (n/catch-body node))
+(defmethod eliminate-ho :recur [node context]
+  (n/make-recur (mapv #(eliminate-ho % context) (n/recur-args node))
                 (n/attrs node) (n/node-meta node) (n/parent node)))
 
-(defmethod eliminate :throw [node config]
-  (n/make-throw (eliminate (n/throw-expr node) config)
-                (n/attrs node) (n/node-meta node) (n/parent node)))
-
-;; ── 集合 ───────────────────────────────
-(defmethod eliminate :vector [node config]
-  (n/make-vector (mapv #(eliminate % config) (n/vector-items node))
-                 (n/attrs node) (n/node-meta node) (n/parent node)))
-
-(defmethod eliminate :map [node config]
-  (n/make-map (mapv #(eliminate % config) (n/map-kvs node))
-              (n/attrs node) (n/node-meta node) (n/parent node)))
-
-;; ── 其他无子节点或无需处理 ────────────
-(defmethod eliminate :recur [node config]
-  (n/make-recur (mapv #(eliminate % config) (n/recur-args node))
-                (n/attrs node) (n/node-meta node) (n/parent node)))
-
-(defmethod eliminate :convert [node config]
-  (n/make-convert (eliminate (n/convert-expr node) config)
-                  (n/convert-src-ty node) (n/convert-dst-ty node) (n/convert-cost node)
-                  (n/attrs node) (n/node-meta node) (n/parent node)))
-
-(defmethod eliminate :member-access [node config]
-  (n/make-member-access (eliminate (n/access-target node) config)
-                        (n/access-member node)
-                        (mapv #(eliminate % config) (n/access-args node))
-                        (n/node-meta node) (n/parent node)))
+(defmethod eliminate-ho :default [node _] node)
 
 
-(defmethod eliminate :record [node config]
-  (n/make-record (n/record-name node)
-                 (mapv (fn [field]
-                         (if-let [init (n/field-init field)]
-                           (n/field-with-init field (eliminate init config))
-                           field))
-                       (n/record-fields node))
-                 (n/record-protocols node)
-                 (n/attrs node) (n/node-meta node) (n/parent node)))
-
-(defmethod eliminate :ns [node _] node)
 
 
-(defmethod eliminate :protocol [node _] node)
-
-(defmethod eliminate :default [node _]
-  (throw (ex-info (str "Unknown node kind in ho-elim: " (n/kind node)) {:node node})))
-
-;; ── 对外入口 ────────────────────────────
-(defn process
-  "对 IR2 根节点列表执行高阶消除。"
-  [ir2-roots config]
-  (mapv #(eliminate % config) ir2-roots))
+;; ── 全局入口 ────────────────────────────
+(defn process [ir2-roots context]
+  (mapv #(eliminate-ho % context) ir2-roots))

@@ -46,6 +46,13 @@
                       (symbol (str ns-sym) (name sym)))
                     (catch Exception _ nil)))
                 refer-all))
+        ;; 回退：尝试从编译器核心命名空间解析（如 defn, defn-）
+        (when-let [core-ns 'top.kzre.homunculus.core]
+          (try
+            (require core-ns)
+            (when (resolve (symbol (str core-ns) (name sym)))
+              (symbol (str core-ns) (name sym)))
+            (catch Exception _ nil)))
         (throw (ex-info (str "Cannot qualify symbol: " sym)
                         {:sym sym :aliases aliases :refers refers :refer-all refer-all})))))
 
@@ -53,6 +60,7 @@
   "解析 ns 形式, 解析成功返回结果，否则返回nil"
   [ns-form]
   (parse-ns ns-form))
+
 
 (defn expand-sym [sym ns-info]
   (qualify-symbol sym ns-info))
