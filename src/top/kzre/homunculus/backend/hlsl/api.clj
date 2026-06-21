@@ -18,6 +18,7 @@
     [top.kzre.homunculus.backend.hlsl.methods.lambda]
     [top.kzre.homunculus.backend.hlsl.methods.ns]
     [top.kzre.homunculus.backend.hlsl.methods.define]
+    [top.kzre.homunculus.backend.hlsl.methods.array]
     [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.internal.protocol :as ip]
     [top.kzre.homunculus.internal.utils :as iu]

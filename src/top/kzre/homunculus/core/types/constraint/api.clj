@@ -16,6 +16,7 @@
     [top.kzre.homunculus.core.types.constraint.gen.methods.variable]
     [top.kzre.homunculus.core.types.constraint.gen.methods.vector]
     [top.kzre.homunculus.core.types.constraint.gen.methods.while]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.array]
     ;; 从约束核心入口导入所需函数
     [top.kzre.homunculus.core.types.constraint.core :as core]))
 

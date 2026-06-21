@@ -22,6 +22,7 @@
             [top.kzre.homunculus.core.types.recur-elim.methods.record]
             [top.kzre.homunculus.core.types.recur-elim.methods.ns]
             [top.kzre.homunculus.core.types.recur-elim.methods.member-access]
+            [top.kzre.homunculus.core.types.recur-elim.methods.array]
             [top.kzre.homunculus.core.types.recur-elim.methods.default]))
 
 (def eliminate core/eliminate)

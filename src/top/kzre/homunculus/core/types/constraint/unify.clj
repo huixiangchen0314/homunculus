@@ -1,5 +1,5 @@
 (ns top.kzre.homunculus.core.types.constraint.unify
-  "独立的类型统一引擎，支持 TVar、TCon、TFun、THeteroMap。
+  "独立的类型统一引擎，支持 TVar、TCon、TFun、THeteroMap、TVec、THeteroVec。
    不依赖 typed 模块，完全通过 IType 协议操作。"
   (:require [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.protocol :as p]
@@ -14,15 +14,17 @@
   (case (p/type-kind ty)
     :var (= tv ty)
     :fun (or (occur? tv (:arg ty)) (occur? tv (:ret ty)))
+    :vec (or (occur? tv (ty/vec-element-type ty))
+             (when (ty/var-type? (ty/vec-size ty))
+               (occur? tv (ty/vec-size ty))))
+    :hetero-vec (some #(occur? tv %) (ty/hetero-vec-types ty))
     :hetero-map (some #(occur? tv (second %)) (:entries ty))
     false))
 
 ;; ── 类型替换 ──
 (defn substitute
   "根据替换映射 subst（键为 TVar，值为 IType）对类型 ty 应用替换。
-   返回替换后的新类型。如果 ty 为 TVar 且在 subst 中存在映射，则递归替换；
-   对于 TFun，替换其参数和返回类型；对于 THeteroMap，替换每个条目中的值类型；
-   其他类型直接返回自身。"
+   返回替换后的新类型。"
   [ty subst]
   (let [kind (p/type-kind ty)]
     (case kind
@@ -31,6 +33,12 @@
              ty)
       :fun (t/->TFun (substitute (:arg ty) subst)
                      (substitute (:ret ty) subst))
+      :vec (t/->TVec (substitute (ty/vec-element-type ty) subst)
+                     (let [sz (ty/vec-size ty)]
+                       (if (ty/var-type? sz)
+                         (substitute sz subst)
+                         sz)))    ; 长度如果是常量整数，保持不变
+      :hetero-vec (t/->THeteroVec (mapv #(substitute % subst) (ty/hetero-vec-types ty)))
       :hetero-map (t/->THeteroMap
                     (mapv (fn [[k v]] [k (substitute v subst)])
                           (:entries ty)))
@@ -40,19 +48,7 @@
 ;; ── 统一 ──
 (defn unify
   "尝试使类型 t1 和 t2 相等，返回一个替换映射 subst 使得 apply(subst, t1) = apply(subst, t2)。
-   如果不可能统一，则抛出异常。
-   参数：
-     t1, t2 —— 要统一的 IType 实例
-     subst  —— 可选的初始替换（默认为 {}）
-   返回值：一个从 TVar 到 IType 的 map，表示合并后的替换。
-   算法：
-     - 如果 t1 == t2，直接返回当前 subst。
-     - 如果 t1 是类型变量，且不满足 occurs check，则将它绑定到 t2。
-     - 如果 t2 是类型变量，交换参数重试。
-     - 如果两者都是函数类型，统一它们的参数类型和返回类型。
-     - 如果两者都是构造类型（TCon），比较名称，相同则成功，否则失败。
-     - 如果两者都是 THeteroMap，要求大小相同，然后逐字段统一。
-     - 其他情况无法统一。"
+   如果不可能统一，则抛出异常。"
   ([t1 t2] (unify t1 t2 {}))
   ([t1 t2 subst]
    (letfn [(go [t1 t2 subst]
@@ -60,19 +56,41 @@
                    t2 (substitute t2 subst)]
                (cond
                  (= t1 t2) subst
+
                  (ty/var-type? t1)
                  (if (occur? t1 t2)
                    (throw (ex-info "Occurs check failed" {:var t1 :type t2}))
                    (assoc subst t1 t2))
+
                  (ty/var-type? t2)
                  (go t2 t1 subst)
+
                  (and (ty/fun-type? t1) (ty/fun-type? t2))
                  (let [s (go (:arg t1) (:arg t2) subst)]
                    (go (substitute (:ret t1) s) (substitute (:ret t2) s) s))
+
+                 (and (ty/vec-type? t1) (ty/vec-type? t2))
+                 (let [len1 (ty/vec-size t1)
+                       len2 (ty/vec-size t2)]
+                   (if (= len1 len2)  ; 长度必须严格相等（常量或同一类型变量）
+                     (go (ty/vec-element-type t1) (ty/vec-element-type t2) subst)
+                     (throw (ex-info "TVec length mismatch" {:len1 len1 :len2 len2}))))
+
+                 (and (ty/hetero-vec? t1) (ty/hetero-vec? t2))
+                 (let [types1 (ty/hetero-vec-types t1)
+                       types2 (ty/hetero-vec-types t2)]
+                   (if (= (count types1) (count types2))
+                     (reduce (fn [s [e1 e2]] (go e1 e2 s))
+                             subst
+                             (map vector types1 types2))
+                     (throw (ex-info "HeteroVec size mismatch"
+                                     {:size1 (count types1) :size2 (count types2)}))))
+
                  (and (ty/con-type? t1) (ty/con-type? t2))
                  (if (= (:name t1) (:name t2))
                    subst
                    (throw (ex-info "Type mismatch" {:t1 t1 :t2 t2})))
+
                  (and (= (p/type-kind t1) :hetero-map)
                       (= (p/type-kind t2) :hetero-map))
                  (let [entries1 (:entries t1)
@@ -83,6 +101,7 @@
                              (go (second e1) (second e2) s))
                            subst
                            (map vector entries1 entries2)))
+
                  :else
                  (throw (ex-info "Cannot unify" {:t1 t1 :t2 t2})))))]
      (go t1 t2 subst))))

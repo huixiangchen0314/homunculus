@@ -42,6 +42,8 @@
 
 ;; ── 上下文访问工具 ──
 (defn frontend [ctx] (:frontend ctx))
+(defn integer-type [ctx]
+  (tp/integer-type (frontend ctx)))
 (defn backend [ctx] (:backend ctx))
 (defn compile-ctx [ctx] (:ctx ctx))
 (defn symbol-table [ctx] (:symbol-table ctx))

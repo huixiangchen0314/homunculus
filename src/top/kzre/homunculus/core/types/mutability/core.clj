@@ -28,6 +28,37 @@
                    (annotate (n/assign-val node) new-mutable)
                    (n/attrs node) (n/node-meta node) (n/parent node))))
 
+;; ── 数组特殊节点 ──
+(defmethod annotate :new-array [node mutable-vars]
+  (n/make-new-array (annotate (n/new-array-size node) mutable-vars)
+                    (n/node-meta node)
+                    (n/parent node)))
+
+(defmethod annotate :aget [node mutable-vars]
+  (n/make-aget (annotate (n/aget-target node) mutable-vars)
+               (annotate (n/aget-idx node) mutable-vars)
+               (n/node-meta node)
+               (n/parent node)))
+
+(defmethod annotate :aset [node mutable-vars]
+  (n/make-aset (annotate (n/aset-target node) mutable-vars)
+               (annotate (n/aset-idx node) mutable-vars)
+               (annotate (n/aset-val node) mutable-vars)
+               (n/node-meta node)
+               (n/parent node)))
+
+(defmethod annotate :alength [node mutable-vars]
+  (n/make-alength (annotate (n/alength-target node) mutable-vars)
+                  (n/node-meta node)
+                  (n/parent node)))
+
+(defmethod annotate :aslice [node mutable-vars]
+  (n/make-aslice (annotate (n/aslice-target node) mutable-vars)
+                 (annotate (n/aslice-start node) mutable-vars)
+                 (annotate (n/aslice-end node) mutable-vars)
+                 (n/node-meta node)
+                 (n/parent node)))
+
 ;; ── 以下为所有容器节点，统一模式：递归处理子节点并重建 ──
 
 (defmethod annotate :call [node mutable-vars]

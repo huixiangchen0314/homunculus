@@ -25,6 +25,7 @@
     [top.kzre.homunculus.core.types.lambda-elim.methods.record]
     [top.kzre.homunculus.core.types.lambda-elim.methods.protocol]
     [top.kzre.homunculus.core.types.lambda-elim.methods.member-access]
+    [top.kzre.homunculus.core.types.lambda-elim.methods.array]
     [top.kzre.homunculus.core.types.lambda-elim.methods.default]))
 
 ;; 闭包消除pass，这里是最后一个pass，对剩余所有闭包执行单态化提升

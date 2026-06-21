@@ -30,7 +30,13 @@
            [^:POSITION ^float4 pos
             ^:NORMAL ^float3 nrm
             ^:TEXCOORD0 ^float2 uv]
-           (let [worldPos (mul worldViewProj pos)]
+           (def x (%%new-array 3))
+           (%%aset x 0 0)
+
+           (let [worldPos (mul worldViewProj pos)
+                 y (%%aget x 0)
+                 w (%%alength x)
+                 x1 (%%aslice x 0 2)]
              (float4 (float3 1.0 1.0 1.0) 1.0)))
 
 (defshader :fragment psMain

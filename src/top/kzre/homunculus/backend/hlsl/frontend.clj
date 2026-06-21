@@ -153,5 +153,6 @@
   (builtin-symbols [_] symbol-tables)
   ;; 新增语言约束策略方法
   (truly-type [_] 'bool)    ; HLSL 要求 if 条件为 bool
+  (integer-type [_] 'int)
   (dynamic? [_] false)
   (macro-namespaces [_] #{'top.kzre.homunculus.backend.shader.dsl}))

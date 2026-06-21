@@ -9,16 +9,15 @@
     [clojure.walk :as walk]
     [top.kzre.homunculus.core.ir2.protocol :as ir2p]
     [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
-    [top.kzre.homunculus.core.types.constraint.unify :as u]
-    [top.kzre.homunculus.core.types.protocol :as tp]
-    [top.kzre.homunculus.core.types.type :as ty]
-    ;; 三个独立求解器
+    [top.kzre.homunculus.core.types.constraint.solvers.convert :as convert]
     [top.kzre.homunculus.core.types.constraint.solvers.equal :as equal]
     [top.kzre.homunculus.core.types.constraint.solvers.overload :as overload]
-    [top.kzre.homunculus.core.types.constraint.solvers.convert :as convert])
+    ;; 三个独立求解器
+    [top.kzre.homunculus.core.types.constraint.unify :as u]
+    [top.kzre.homunculus.core.types.protocol :as tp]
+    [top.kzre.homunculus.core.types.type :as ty])
   (:import
-    (top.kzre.homunculus.core.types.constraint.model CEqual COverload CConvert)))
+    (top.kzre.homunculus.core.types.constraint.model CConvert CEqual COverload)))
 
 ;; ── 单约束处理 ──────────────────────────
 (defn- apply-constraint

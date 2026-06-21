@@ -19,6 +19,7 @@
             [top.kzre.homunculus.core.types.check.methods.try]
             [top.kzre.homunculus.core.types.check.methods.variable]
             [top.kzre.homunculus.core.types.check.methods.vector]
+            [top.kzre.homunculus.core.types.check.methods.array]
             [top.kzre.homunculus.core.types.check.methods.while]))
 
 (def make-context core/make-context)

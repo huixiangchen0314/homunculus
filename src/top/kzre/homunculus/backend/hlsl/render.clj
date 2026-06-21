@@ -34,6 +34,12 @@
     (let [indent (apply str (repeat (* 4 indent-level) \space))]
       (case (first node)
         :raw       (second node)
+        ;; 数组节点
+        :new-array (let [[_ size] node] (str "[" size "]"))  ; 实际由 define 处理，这里预留
+        :aget      (let [[_ target idx] node] (str (render-node target indent-level) "[" (render-node idx indent-level) "]"))
+        :aset      (let [[_ target idx val] node]
+                     (str (render-node target indent-level) "[" (render-node idx indent-level) "] = " (render-node val indent-level) ";"))
+        :alength   (let [[_ target] node] (str (render-node target indent-level) ".length"))  ; 若使用字面量
         :literal   (str (second node))
         :var-ref   (name (second node))
         :call      (let [[_ fn-name & args] node]

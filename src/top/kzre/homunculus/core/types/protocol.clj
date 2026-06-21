@@ -20,6 +20,7 @@
     "返回内置符号表，符合 ::spec/symbol-table 规范。
      包含所有内置类型、函数、记录、协议、变量的类型信息。")
   (truly-type [this] "返回语言的真值类型，nil 表示无特定真值类型，可能有特殊的真值规则")
+  (integer-type [this] "返回语言的整数类型.")
   (dynamic? [this] "语言是否是动态类型的.")
   (macro-namespaces [this]
     "返回一个集合（符号），表示仅用于编译时宏展开的命名空间，

@@ -16,7 +16,9 @@
 (defn frontend
   "辅助函数，从上下文获取前端协议对象"
   [contex] (:frontend contex))
-
+(defn backend
+  "辅助函数，从上下文获取前端协议对象"
+  [contex] (:backend contex))
 (defn env
   "辅助函数，从上下文获取环境map"
   [context] (:env context))

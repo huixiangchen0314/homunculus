@@ -11,4 +11,5 @@
             [top.kzre.homunculus.core.types.infer.methods.loop]
             [top.kzre.homunculus.core.types.infer.methods.recur]
             [top.kzre.homunculus.core.types.infer.methods.define]
+            [top.kzre.homunculus.core.types.infer.methods.array]
             [top.kzre.homunculus.core.types.infer.methods.default]))
