@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.core.types.constraint.solvers.overload
   "COverload 约束求解器：从候选函数列表中选择最精确匹配的重载。
-   **修复**：不再在匹配过程中创建临时 TVar，避免替换映射无限膨胀。"
+   使用 types.type 提供的工具函数简化类型操作。"
   (:require
     [top.kzre.homunculus.core.types.constraint.constraint :as c]
     [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
@@ -20,31 +20,29 @@
       (scheme/instantiate cand)
       cand)))
 
-(defn- extract-arg-ret [fun-ty]
-  (let [args (take-while some? (map ty/fun-arg (iterate ty/fun-ret fun-ty)))
-        ret  (loop [cur fun-ty]
-               (if (ty/fun-type? cur)
-                 (recur (ty/fun-ret cur))
-                 cur))]
-    [args ret]))
+;; ── 利用 ty/fun-arg / ty/fun-ret 提取候选的参数类型序列 ──
+(defn- fun-args [fn-ty]
+  (when (ty/fun-type? fn-ty)
+    (cons (ty/fun-arg fn-ty) (fun-args (ty/fun-ret fn-ty)))))
 
 (defn- try-match-overload-candidate
-  "返回 [new-subst cand cost] 三元组。
-   不再创建临时 TVar，直接使用传入的 ret-tvar' 构造期望类型。"
+  "返回 [new-subst cand-ret cost] 三元组。
+   直接使用 ret-tvar' 构造期望类型，不再创建临时 TVar。"
   [subst conversion-fn cand arg-tys' ret-tvar']
   (let [cand (instantiate-candidate cand subst)]
     (try
-      ;; ★ 直接使用 ret-tvar'，不创建新 TVar
+      ;; 直接使用 ret-tvar'，构造期望的函数类型
       (let [desired (reduce (fn [ret arg] (ty/make-tfun arg ret))
                             ret-tvar'
                             (reverse arg-tys'))
             new-subst (u/unify cand desired subst)
             substituted-cand (u/substitute cand new-subst)
-            [_ real-ret] (extract-arg-ret substituted-cand)]
+            real-ret (ty/fun-return-type substituted-cand)]  ;; 利用工具函数获取最终返回类型
         [new-subst real-ret 0])
       (catch Exception _
         (when conversion-fn
-          (let [[cand-args cand-ret] (extract-arg-ret cand)]
+          (let [cand-args (fun-args cand)            ;; 获取候选参数列表
+                cand-ret  (ty/fun-return-type cand)] ;; 候选最终返回类型
             (when (= (count cand-args) (count arg-tys'))
               (let [costs (map (fn [carg a]
                                  (if (ty/var-type? a)
@@ -67,18 +65,17 @@
         arg-tys'   (mapv #(u/substitute % subst) arg-tys)
         ret-tvar'  (u/substitute ret-tvar subst)]
 
-    ;; 单候选：立即严格统一，无论实参中是否有 TVar
+    ;; 单候选：立即严格统一
     (if (= 1 (count fn-ty-list))
       (let [cand (instantiate-candidate (first fn-ty-list) subst)
-            ;; ★ 直接使用 ret-tvar'
             desired (reduce (fn [ret arg] (ty/make-tfun arg ret)) ret-tvar' (reverse arg-tys'))
             new-subst (try (u/unify cand desired subst)
                            (catch Exception _ subst))]
         (if (ty/var-type? ret-tvar')
-          (assoc new-subst ret-tvar' (second (extract-arg-ret (u/substitute cand new-subst))))
+          (assoc new-subst ret-tvar' (ty/fun-return-type (u/substitute cand new-subst)))
           new-subst))
 
-      ;; 多候选：实参全部具体化后计算代价，选最优解
+      ;; 多候选：实参全部具体化后计算代价
       (if (some ty/var-type? arg-tys')
         subst   ;; 推迟
         (let [scored (keep #(try-match-overload-candidate subst conversion-fn % arg-tys' ret-tvar')

@@ -4,23 +4,24 @@
   (:require [clojure.core]))
 
 (defmacro defn
-  "定义带类型标注的函数，语法与 Clojure 的 defn 类似。
-   用法：
-     (defn name docstring? [^type param ...] body)
-     (defn name [^type param ...] body)"
+  "定义带类型标注的函数，支持 docstring 和属性映射。"
   [name & args]
   (let [[docstring args] (if (string? (first args))
                            [(first args) (rest args)]
                            [nil args])
+        ;; 跳过可选的属性映射 (如 {:private true})
+        [attr-map args] (if (map? (first args))
+                          [(first args) (rest args)]
+                          [nil args])
         [params body]    (if (vector? (first args))
                            [(first args) (rest args)]
                            (throw (IllegalArgumentException. "Parameter vector expected")))]
     `(def ~name
-       ~(if docstring
-          `(fn ~(vary-meta name assoc :doc docstring) ~params ~@body)
-          `(fn ~params ~@body)))))
+       ~(cond-> `(fn ~params ~@body)
+                docstring (vary-meta assoc :doc docstring)
+                attr-map (vary-meta merge attr-map)))))
 
 (defmacro defn-
-  "与 defn 相同，但生成的函数为私有（如有需要可扩展）。"
+  "与 defn 相同，但生成的函数为私有（通过 :private 元数据）。"
   [name & args]
   `(defn ~name {:private true} ~@args))

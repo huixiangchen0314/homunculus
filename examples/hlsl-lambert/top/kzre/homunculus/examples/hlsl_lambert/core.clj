@@ -21,6 +21,7 @@
 
 
 
+
 (defrecord MyInout [^:SV_TARGET ^float a 0.0])
 
 
