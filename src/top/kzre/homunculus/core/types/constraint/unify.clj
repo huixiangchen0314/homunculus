@@ -23,27 +23,31 @@
 
 ;; ── 类型替换 ──
 (defn substitute
-  "根据替换映射 subst（键为 TVar，值为 IType）对类型 ty 应用替换。
-   返回替换后的新类型。"
+  "根据替换映射 subst 对类型 ty 应用替换。内置循环检测，遇到循环时返回原变量。"
   [ty subst]
-  (let [kind (p/type-kind ty)]
-    (case kind
-      :var (if-let [new (get subst ty)]
-             (recur new subst)
-             ty)
-      :fun (t/->TFun (substitute (:arg ty) subst)
-                     (substitute (:ret ty) subst))
-      :vec (t/->TVec (substitute (ty/vec-element-type ty) subst)
-                     (let [sz (ty/vec-size ty)]
-                       (if (ty/var-type? sz)
-                         (substitute sz subst)
-                         sz)))    ; 长度如果是常量整数，保持不变
-      :hetero-vec (t/->THeteroVec (mapv #(substitute % subst) (ty/hetero-vec-types ty)))
-      :hetero-map (t/->THeteroMap
-                    (mapv (fn [[k v]] [k (substitute v subst)])
-                          (:entries ty)))
-      ;; con, app, container 等其他类型直接返回
-      ty)))
+  (let [visited (atom #{})]
+    (letfn [(sub [t]
+              (let [kind (p/type-kind t)]
+                (case kind
+                  :var (if-let [new (get subst t)]
+                         (if (contains? @visited t)
+                           t   ;; 检测到循环，停止替换
+                           (do (swap! visited conj t)
+                               (sub new)))
+                         t)
+                  :fun (t/->TFun (sub (:arg t)) (sub (:ret t)))
+                  :vec (t/->TVec (sub (ty/vec-element-type t))
+                                 (let [sz (ty/vec-size t)]
+                                   (if (ty/var-type? sz)
+                                     (sub sz)
+                                     sz)))
+                  :hetero-vec (t/->THeteroVec (mapv sub (ty/hetero-vec-types t)))
+                  :hetero-map (t/->THeteroMap
+                                (mapv (fn [[k v]] [k (sub v)])
+                                      (:entries t)))
+                  ;; 其他类型原样返回
+                  t)))]
+      (sub ty))))
 
 ;; ── 统一 ──
 (defn unify

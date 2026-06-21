@@ -11,7 +11,8 @@
 (s/def ::meta map?)
 
 ;; 条目种类
-(s/def ::kind #{:function :record :protocol :variable :primitive})
+(s/def ::kind #{:function :record :protocol :variable :primitive :alias})
+
 
 ;; ── 通用字段（所有条目共有） ──
 (s/def ::common-entry
@@ -63,6 +64,14 @@
 (s/def ::primitive-entry ::common-entry)
 
 
+;; 别名目标符号
+(s/def ::alias-target (s/and symbol? #(or (namespace %) true)))
+
+;; 别名条目
+(s/def ::alias-entry
+  (s/merge ::common-entry
+           (s/keys :req-un [::alias-target])))
+
 ;; ── multi-spec 分发 ──
 (defmulti symbol-entry-kind :kind)
 (defmethod symbol-entry-kind :function [_] ::function-entry)
@@ -70,6 +79,7 @@
 (defmethod symbol-entry-kind :protocol [_] ::protocol-entry)
 (defmethod symbol-entry-kind :variable [_] ::variable-entry)
 (defmethod symbol-entry-kind :primitive [_] ::primitive-entry)
+(defmethod symbol-entry-kind :alias [_] ::alias-entry)
 
 (s/def ::symbol-entry (s/multi-spec symbol-entry-kind :kind))
 

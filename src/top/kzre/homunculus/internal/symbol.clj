@@ -110,6 +110,19 @@
 
 (def make-method-arity make-func-arity)
 
+(defn make-alias
+  [sym target & {:keys [meta]}]
+  (let [entry (cond-> {:kind :alias :sym sym :alias-target target}
+                      meta (assoc :meta meta))]
+    (validate! entry)
+    entry))
+
+;; ── 判断函数 ──
+(defn alias-symbol? [entry] (= (:kind entry) :alias))
+
+;; ── 访问器 ──
+(defn alias-target [entry] (:alias-target entry))
+
 ;; ── 访问函数 ──
 
 (defn get-kind   [entry] (:kind entry))
@@ -154,6 +167,15 @@
                            (make-param (unquote-name n) :type (parse-type t)))
                          param-pairs)]
         (list [sym (make-func sym :params params :ret (make-ret (parse-type ret)))])))))
+
+
+;; ── 解析 :alias ──
+(defmethod parse-table-entry :alias
+  [[_ sym target]]
+  (let [sym (unquote-name sym)
+        target (unquote-name target)]
+    (list [sym (make-alias sym target)])))
+
 
 (defmethod parse-table-entry :record
   [[_ sym & rest]]
@@ -249,7 +271,7 @@
 (defn entry->protocol  [entry] (find-entry-by-kind entry protocol-symbol?))
 (defn entry->variable  [entry] (find-entry-by-kind entry variable-symbol?))
 (defn entry->primitive [entry] (find-entry-by-kind entry primitive-symbol?))
-
+(defn entry->alias [entry] (find-entry-by-kind entry alias-symbol?))
 ;; 任意类型提取（类型包括 :primitive, :record, :protocol）
 (defn entry->type      [entry] (find-entry-by-kind entry #(#{:primitive :record :protocol} (:kind %))))
 
@@ -269,7 +291,17 @@
   [table sym]
   (get table sym))
 
-(defn lookup-func      [table sym] (entry->func      (lookup-sym table sym)))
+(defn lookup-func [table sym]
+  (loop [visited #{}
+         current-sym sym]
+    (when-not (contains? visited current-sym)
+      (let [visited (conj visited current-sym)
+            entry   (lookup-sym table current-sym)
+            func    (entry->func entry)]
+        (if func
+          func
+          (when-let [alias (entry->alias entry)]
+            (recur visited (alias-target alias))))))))
 (defn lookup-record    [table sym] (entry->record    (lookup-sym table sym)))
 (defn lookup-protocol  [table sym] (entry->protocol  (lookup-sym table sym)))
 (defn lookup-variable  [table sym] (entry->variable  (lookup-sym table sym)))
@@ -309,6 +341,16 @@
         (:type ret)))))
 
 (defn lookup-in-tables
-  "按顺序在多个符号表中查找 sym，返回第一个找到的条目（可能为重载条目）。"
+  "按顺序在多个符号表中查找 sym，返回第一个找到的条目（可能为重载条目）。
+   支持别名解析：若条目为 :alias，则继续查找其目标符号，直到非别名条目或无结果。"
   [sym & tables]
-  (some (fn [tbl] (get tbl sym)) tables))
+  (some (fn [tbl]
+          (loop [current-sym sym visited #{}]
+            (when-let [entry (get tbl current-sym)]
+              (if (alias-symbol? entry)
+                (let [target (alias-target entry)]
+                  (if (contains? visited target)
+                    (throw (ex-info "Alias cycle detected" {:sym sym :visited visited}))
+                    (recur target (conj visited target))))
+                entry))))
+        tables))
