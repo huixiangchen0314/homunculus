@@ -16,7 +16,35 @@
       (str (hlsl-type-str (ty/vec-element-type ir-type)) "[" vec-size "]"))
     :else (st/shader-type-str (ty/type-sym ir-type))))
 
-(defmulti emit-node (fn [node _context] (n/kind node)))
+(defmulti emit-node
+          "将 IR2 节点转换为 HLSL AST 节点（带标签的向量或字符串）。
+
+          功能：
+          根据 IR 节点的种类（kind）分派到对应的实现方法，产出规范的 HLSL AST 节点。
+          AST 节点可以是字符串（用于纯文本直出）或形如 [:tag ...] 的向量，标签由 render.clj 中的
+          multimethod 识别并渲染为 HLSL 源代码。
+
+          参数：
+          - node    : IR2 节点（来自 top.kzre.homunculus.core.ir2.node）
+          - context : 编译上下文，可能包含已知类型、命名空间、前端/后端等信息。
+                     具体结构由调用方决定，但至少应包含 :known-types 映射。
+
+          返回值规格：
+          返回一个符合 top.kzre.homunculus.backend.hlsl.spec 规范的 ::node 值，
+          即以下之一：
+          - 字符串（用于 #include 指令、直接嵌入的原始文本等）
+          - 带标签的向量，标签包括：
+            :literal :var-ref :call :sample :binary :member-access :constructor :cast
+            :return :var-decl :assign :expr-stmt :if :while :block
+            :function :entry-wrapper :import :struct-member :struct
+            :texture-decl :sampler-decl :cbuffer-decl :uniform-decl :static-var-decl
+            :comment :new-array :aget :aset :alength :raw
+            等（详见 spec.clj 中的 node-tag 多方法定义）。
+
+          注意：
+          - 如果遇到无法处理的 IR 节点种类，默认实现应抛出异常。
+          - 该多方法不直接产生字符串输出，而是构建 AST，由 render 模块最终渲染。"
+          (fn [node _context] (n/kind node)))
 
 (defmethod emit-node :default [node _context]
   (throw (ex-info (str "HLSL emit not implemented for " (n/kind node)) {:node node})))

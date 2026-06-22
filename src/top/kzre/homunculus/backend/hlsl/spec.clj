@@ -1,15 +1,15 @@
+;; ── spec.clj ─────────────────────────────────────────────
 (ns top.kzre.homunculus.backend.hlsl.spec
   "HLSL 渲染器输入数据的结构规范 (clojure.spec)。
-   用于校验 emit 阶段产生的 HLSL 结构体向量，确保渲染器能正确处理。"
+   无标签向量表示顺序语句序列，极大简化 AST 结构。"
   (:require [clojure.spec.alpha :as s]))
 
-;; ── 分发键：从向量中提取标签（第一个元素）──
 (defn- tag-dispatch [node]
   (if (vector? node) (first node) node))
 
-;; ── 带标签的结构体分派 ──
 (defmulti node-tag (fn [node] (tag-dispatch node)))
 
+;; ── 所有带标签节点的 spec ──
 (defmethod node-tag :raw [_]
   (s/cat :tag #{:raw} :content any?))
 
@@ -44,6 +44,12 @@
 (defmethod node-tag :var-decl [_]
   (s/cat :tag #{:var-decl} :type string? :name (s/or :sym symbol? :str string?) :init ::node))
 
+(defmethod node-tag :array-decl [_]
+  (s/cat :tag #{:array-decl}
+         :elem-type string?
+         :name (s/or :sym symbol? :str string?)
+         :size ::node))
+
 (defmethod node-tag :assign [_]
   (s/cat :tag #{:assign} :target ::node :value ::node))
 
@@ -59,10 +65,9 @@
 (defmethod node-tag :block [_]
   (s/cat :tag #{:block} :stmts (s/* ::node)))
 
-;; ★ 函数节点的参数是普通的二元组或三元组，不是带标签节点
 (defmethod node-tag :function [_]
   (s/cat :tag #{:function} :return-type string? :name (s/or :sym symbol? :str string?)
-         :params (s/coll-of (s/tuple string? (s/or :sym symbol? :str string?))) ;; 只要求二元组
+         :params (s/coll-of (s/tuple string? (s/or :sym symbol? :str string?)))
          :body (s/or :string string? :stmts (s/coll-of ::node))))
 
 (defmethod node-tag :entry-wrapper [_]
@@ -74,7 +79,6 @@
 (defmethod node-tag :import [_]
   (s/cat :tag #{:import} :path string?))
 
-;; ★ struct-member 的 semantic 允许为 nil，spec 中应设为可选
 (defmethod node-tag :struct-member [_]
   (s/cat :tag #{:struct-member} :type string? :name (s/or :sym symbol? :str string?)
          :semantic (s/? (s/nilable string?))))
@@ -88,7 +92,6 @@
 (defmethod node-tag :sampler-decl [_]
   (s/cat :tag #{:sampler-decl} :name string? :register string?))
 
-;; ★ cbuffer-decl 的 members 期望的是 ::node 序列，不是双层向量
 (defmethod node-tag :cbuffer-decl [_]
   (s/cat :tag #{:cbuffer-decl} :name string? :register string?
          :members (s/coll-of ::node)))
@@ -102,7 +105,6 @@
 (defmethod node-tag :comment [_]
   (s/cat :tag #{:comment} :text string?))
 
-;; 数组特殊节点
 (defmethod node-tag :new-array [_]
   (s/cat :tag #{:new-array} :size ::node))
 
@@ -115,12 +117,13 @@
 (defmethod node-tag :alength [_]
   (s/cat :tag #{:alength} :target ::node))
 
-;; ── 标记节点与字符串统一为顶层节点 ──
+;; ★ 关键：无标签向量，表示顺序语句序列
+(defmethod node-tag :default [_]
+  (s/cat :stmts (s/* ::node)))
+
+;; ── 汇总定义 ──
 (s/def ::tagged-node (s/multi-spec node-tag tag-dispatch))
-
 (s/def ::node (s/or :string string? :tagged ::tagged-node))
-
-;; ── 顶层 AST：任意顺序集合 ──
 (s/def ::ast (s/coll-of ::node))
 
 (defn valid-ast? [nodes]

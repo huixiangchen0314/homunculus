@@ -13,9 +13,17 @@
    (core/emit-node (n/aget-idx node) context)])
 
 (defmethod core/emit-node :aset [node context]
-  [:aset (core/emit-node (n/aset-target node) context)
-   (core/emit-node (n/aset-idx node) context)
-   (core/emit-node (n/aset-val node) context)])
+  (let [target-ast (core/emit-node (n/aset-target node) context)
+        idx-ast    (core/emit-node (n/aset-idx node) context)
+        val-ast    (core/emit-node (n/aset-val node) context)]
+    (if (and (vector? val-ast) (not (keyword? (first val-ast))))
+      ;; 值是一个无标签向量（语句序列），提取最后一个表达式作为值，
+      ;; 前置语句放入结果向量的前面
+      (let [val-expr (last val-ast)
+            pre-stmts (butlast val-ast)]
+        (vec (concat pre-stmts [[:aset target-ast idx-ast val-expr]])))
+      ;; 正常单一表达式
+      [:aset target-ast idx-ast val-ast])))
 
 (defmethod core/emit-node :alength [node context]
   (let [target-ty (ty/get-type (n/alength-target node) (:known-types context))]

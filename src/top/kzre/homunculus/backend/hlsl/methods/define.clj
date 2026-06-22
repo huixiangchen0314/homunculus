@@ -1,195 +1,71 @@
 (ns top.kzre.homunculus.backend.hlsl.methods.define
-  "HLSL :define 节点发射。支持 let、block、while、if、assign 以及数组声明。"
+  "HLSL :define 节点发射。所有子结构由分派处理，define 仅做顶层包装。"
   (:require
-    [clojure.string :as str]
     [top.kzre.homunculus.backend.hlsl.core :as core]
-    [top.kzre.homunculus.backend.hlsl.render :as render]
     [top.kzre.homunculus.backend.util.naming :refer [cname]]
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.type :as ty]))
 
-;; ── 将子节点转换为单行表达式字符串 ──
-(defn- expr-str [node context]
-  (render/render-node (core/emit-node node context) 0))
+(defn- array-copy-loop-ast [target-ast val-ast size]
+  (let [idx-name (gensym "i")
+        idx-ref [:var-ref idx-name]]
+    [[:expr-stmt [:var-decl "int" idx-name [:literal 0]]]
+     [:while [:binary "<" idx-ref [:literal size]]
+      [[:expr-stmt [:aset target-ast idx-ref [:aget val-ast idx-ref]]]
+       [:expr-stmt [:binary "++" idx-ref [:literal 1]]]]]]))
 
-;; ── 片段：一组前置声明 + 一个表达式 ──
-(defn- make-fragment [stmts expr]
-  {:stmts (vec stmts) :expr expr})
-
-(defn- fragment-expr [expr]
-  (make-fragment [] expr))
-
-(defn- merge-fragments [& fragments]
-  (let [stmts (mapcat :stmts fragments)
-        last-expr (or (last (keep :expr fragments)) "")]
-    (make-fragment stmts last-expr)))
-
-;; ── 辅助：生成数组逐元素拷贝的 while 循环字符串 ──
-(defn- emit-array-copy-loop [target-str val-str size-str]
-  (let [idx (gensym "i")
-        idx-name (str idx)
-        indent "  "]
-    (str "int " idx-name " = 0;\n"
-         "while (" idx-name " < " size-str ")\n"
-         "{\n"
-         indent target-str "[" idx-name "] = " val-str "[" idx-name "];\n"
-         indent "++" idx-name ";\n"
-         "}")))
-
-;; ── 将 IR 节点转换为片段 ─────────────────
-(defn- node->fragment [node context]
-  (let [kind (n/kind node)]
-    (cond
-      ;; let 节点
-      (= kind :let)
-      (let [bindings (n/let-bindings node)
-            body     (n/let-body node)
-            bind-frags (mapv (fn [[v e]]
-                               (let [ir-type (ty/get-type v)]
-                                 (if (ty/vec-type? ir-type)
-                                   ;; 数组声明
-                                   (let [size (ty/vec-size ir-type)
-                                         elem-ty (core/hlsl-type-str (ty/vec-element-type ir-type))
-                                         name-str (cname (n/var-name v))
-                                         decl (str elem-ty " " name-str "[" size "];")]
-                                     (make-fragment [] decl))
-                                   ;; 普通变量
-                                   (let [v-type (core/hlsl-type-str ir-type)
-                                         name-str (cname (n/var-name v))
-                                         frag-e (node->fragment e context)
-                                         var-decl (str v-type " " name-str " = " (:expr frag-e) ";")]
-                                     (make-fragment (:stmts frag-e) var-decl)))))
-                             bindings)
-            ordered-stmts (mapcat (fn [frag] (conj (vec (:stmts frag)) (:expr frag))) bind-frags)
-            frag-body (node->fragment body context)]
-        (make-fragment (concat ordered-stmts (:stmts frag-body))
-                       (:expr frag-body)))
-
-      (= kind :block)
-      (let [exprs (n/block-exprs node)
-            inits (butlast exprs)
-            last  (last exprs)
-            init-frags (mapv #(node->fragment % context) inits)
-            stmt-stmts (mapcat (fn [frag]
-                                 (concat (:stmts frag)
-                                         (when (not (str/blank? (:expr frag)))
-                                           [(str (:expr frag) ";")])))
-                               init-frags)
-            last-frag (node->fragment last context)]
-        (merge-fragments (make-fragment stmt-stmts "")
-                         last-frag))
-
-      (= kind :while)
-      (let [test-str (expr-str (n/while-test node) context)
-            body-frag (node->fragment (n/while-body node) context)
-            body-stmts (concat (:stmts body-frag)
-                               (when (not (str/blank? (:expr body-frag)))
-                                 [(:expr body-frag)]))
-            while-str (str "while (" test-str ") {\n"
-                           (str/join "\n" (map #(str "  " %) body-stmts))
-                           "\n}")]
-        (make-fragment [while-str] ""))
-
-      (= kind :if)
-      (let [test-str (expr-str (n/if-test node) context)
-            then-frag (node->fragment (n/if-then node) context)
-            else-frag (when-let [e (n/if-else node)]
-                        (node->fragment e context))
-            then-stmts (concat (:stmts then-frag)
-                               (when (not (str/blank? (:expr then-frag)))
-                                 [(:expr then-frag)]))
-            else-stmts (when else-frag
-                         (concat (:stmts else-frag)
-                                 (when (not (str/blank? (:expr else-frag)))
-                                   [(:expr else-frag)])))
-            if-str (str "if (" test-str ") {\n"
-                        (str/join "\n" (map #(str "  " %) then-stmts))
-                        "\n}")
-            full-str (if else-stmts
-                       (str if-str " else {\n"
-                            (str/join "\n" (map #(str "  " %) else-stmts))
-                            "\n}")
-                       if-str)]
-        (make-fragment [full-str] ""))
-
-      (= kind :assign)
-      (let [target-node (n/assign-var node)
-            target-type (ty/get-type target-node)]
-        (if (ty/vec-type? target-type)
-          ;; 数组整体赋值 → 拷贝循环
-          (let [target-str (expr-str target-node context)
-                val-str    (expr-str (n/assign-val node) context)
-                size       (ty/vec-size target-type)
-                loop-str   (emit-array-copy-loop target-str val-str (str size))]
-            (make-fragment [loop-str] ""))
-          ;; 标量赋值
-          (let [var-str (expr-str target-node context)
-                val-str (expr-str (n/assign-val node) context)]
-            (make-fragment [(str var-str " = " val-str ";")] ""))))
-
-      :else
-      (fragment-expr (expr-str node context)))))
-
-;; ── 发射 define 节点 ─────────────────────
 (defmethod core/emit-node :define [node context]
   (let [type (ty/get-type node)]
-    (cond
-      (ty/fun-type? type)
-      (let [lam        (or (n/define-val node)
-                           (throw (ex-info "Define node has no value"
-                                           {:node node :name (n/define-name node)})))
-            fn-ty      (ty/get-type lam)
-            ret-type   (if (ty/fun-type? fn-ty)
-                         (core/hlsl-type-str (ty/fun-return-type fn-ty))
-                         (throw (ex-info "Cannot determine return type"
-                                         {:fn-name (n/define-name node)})))
-            params     (n/lambda-params lam)
+    (if (ty/fun-type? type)
+      ;; 函数定义
+      (let [lam       (n/define-val node)
+            fn-ty     (ty/get-type lam)
+            ret-type  (core/hlsl-type-str (ty/fun-return-type fn-ty))
+            params    (n/lambda-params lam)
             param-vecs (mapv (fn [p]
                                [(core/hlsl-type-str (ty/get-type p))
                                 (cname (n/var-name p))])
                              params)
-            body-frag  (let [f (node->fragment (n/lambda-body lam) context)]
-                         (if (str/blank? (:expr f))
-                           f
-                           (make-fragment (:stmts f) (str "return " (:expr f) ";"))))
-            body-str   (str "{\n"
-                            (->> (concat (:stmts body-frag)
-                                         (when-not (str/blank? (:expr body-frag))
-                                           [(:expr body-frag)]))
-                                 (map #(str "  " %))
-                                 (str/join "\n"))
-                            "\n}")]
-        [:function ret-type (cname (n/define-name node)) param-vecs body-str])
+            raw-body  (core/emit-node (n/lambda-body lam) context)
+            body-vec  (if (and (vector? raw-body) (not (keyword? (first raw-body))))
+                        raw-body
+                        [raw-body])
+            last-elem (last body-vec)
+            ;; 确保最后是 return 语句，并包裹 :expr-stmt
+            body'     (if (and (vector? last-elem) (= :return (first last-elem)))
+                        body-vec   ; 假设已被正确包裹（block/let 会保证）
+                        (conj (vec (butlast body-vec))
+                              [:expr-stmt [:return last-elem]]))]
+        [:function ret-type (cname (n/define-name node)) param-vecs body'])
 
-      :else
-      (let [val (n/define-val node)
-            val-kind (n/kind val)]
-        (if (= val-kind :new-array)
-          ;; 通过 new-array 直接初始化的数组
-          (let [elem-type (core/hlsl-type-str (ty/vec-element-type type))
-                name-str (cname (n/define-name node))
-                size-str (expr-str (n/new-array-size val) context)]
-            [:raw (str elem-type " " name-str "[" size-str "];")])
-          ;; 其他初始化表达式
+      ;; 变量/数组定义
+      (let [val (n/define-val node)]
+        (if (= :new-array (n/kind val))
+          ;; 数组声明作为语句
+          [:expr-stmt
+           [:array-decl
+            (core/hlsl-type-str (ty/vec-element-type type))
+            (cname (n/define-name node))
+            (core/emit-node (n/new-array-size val) context)]]
           (if (ty/vec-type? type)
-            ;; ★ 数组类型但非 new-array：用 node->fragment 递归处理初始化表达式
-            (let [size      (ty/vec-size type)
-                  elem-type (core/hlsl-type-str (ty/vec-element-type type))
-                  name-str  (cname (n/define-name node))
-                  ;; 递归处理 val，得到片段（可能包含 let、block 等前置语句）
-                  val-frag  (node->fragment val context)
-                  val-str   (:expr val-frag)
-                  pre-stmts (:stmts val-frag)
-                  copy-loop (emit-array-copy-loop name-str val-str (str size))
-                  ;; 拼接：前置语句 + 数组声明 + 拷贝循环
-                  body-str  (str/join "\n" (concat (vec pre-stmts)
-                                                   [(str elem-type " " name-str "[" size "];")
-                                                    copy-loop]))]
-              [:raw body-str])
-            ;; 标量/向量/矩阵等普通变量
-            (let [type-str (core/hlsl-type-str (ty/get-type val))
-                  name-str (cname (n/define-name node))
-                  frag     (node->fragment val context)
-                  stmts    (conj (vec (:stmts frag))
-                                 (str type-str " " name-str " = " (:expr frag) ";"))]
-              [:raw (str/join "\n" stmts)])))))))
+            ;; 数组类型（非 new-array）：从右值分离前置语句和最终表达式
+            (let [val-ast   (core/emit-node val context)
+                  [pre-stmts val-expr] (if (and (vector? val-ast) (not (keyword? (first val-ast))))
+                                         [(butlast val-ast) (last val-ast)]
+                                         [[] val-ast])
+                  size      (ty/vec-size type)
+                  decl      [:expr-stmt
+                             [:array-decl
+                              (core/hlsl-type-str (ty/vec-element-type type))
+                              (cname (n/define-name node))
+                              [:literal size]]]
+                  target-ref [:var-ref (cname (n/define-name node))]
+                  copy-loop (array-copy-loop-ast target-ref val-expr size)]
+              ;; 前置语句 + 声明 + 拷贝循环
+              (vec (concat pre-stmts [decl] copy-loop)))
+            ;; 标量/向量声明作为语句
+            [:expr-stmt
+             [:var-decl
+              (core/hlsl-type-str (ty/get-type val))
+              (cname (n/define-name node))
+              (core/emit-node val context)]]))))))
