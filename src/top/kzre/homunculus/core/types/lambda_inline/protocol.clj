@@ -1,5 +1,6 @@
 (ns top.kzre.homunculus.core.types.lambda-inline.protocol)
 
+;; TODO 废弃协议，配置放上下文中
 (defprotocol IInlineConfig
   "Lambda 内联的配置。"
   (should-inline? [this lambda-node call-site]

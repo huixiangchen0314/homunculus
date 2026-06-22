@@ -3,6 +3,7 @@
    确保所有 Pass 对类型的操作一致，避免覆盖错误。"
   (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
             [top.kzre.homunculus.core.types.model :as t]
+            [top.kzre.homunculus.internal.utils :as iu]
             [top.kzre.homunculus.core.types.protocol :as p]))
 
 ;; ── 类型 kind 查询（基于 IType 协议）──
@@ -71,7 +72,7 @@
 ;; ── 类型构造器 ─────────────────────────────
 
 (defn make-tvar [id] (t/->TVar id))
-(defn make-tcon [name] (t/->TCon name))
+(defn make-tcon [name] (t/->TCon (iu/->symbol name)))
 
 ;; 柯里化函数
 (defn make-tfun [arg ret] (t/->TFun arg ret))

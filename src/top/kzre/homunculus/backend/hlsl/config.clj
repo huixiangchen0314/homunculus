@@ -8,6 +8,7 @@
     [top.kzre.homunculus.core.ir2.api :as ir2]
     [top.kzre.homunculus.core.types.ho-elim.core :as ho-elim]
     [top.kzre.homunculus.core.types.check.api :as check]
+    [top.kzre.homunculus.core.types.dc-elim.core :as dce]
     [top.kzre.homunculus.core.types.alpha-rename :as rename]
     [top.kzre.homunculus.core.types.constraint.api :as solve]
     [top.kzre.homunculus.core.types.infer.api :as infer]
@@ -21,7 +22,7 @@
 ;; ── 闭包消除配置 ──────────────────────
 (defn- default-lift-config []
   (reify lambda-elim-p/ILiftConfig
-    (max-iterations [_] 5)
+    (max-iterations [_] 1000)
     (strict-mode? [_] true)
     (on-unresolved [_ lambda _reason]
       (throw (ex-info "Unresolved closure" {:lambda lambda})))
@@ -36,43 +37,34 @@
           backend    (hlsl-backend/->HLSLBackend)
           lift-cfg   (default-lift-config)
 
-          ;; 预处理
           processed (ir1/preprocess forms)
-
-          ;; IR1 -> IR2
           ir1-roots  (mapv ir1/->ir1 processed)
           ir2-roots  (mapcat ir2/->ir2 ir1-roots)
-
-          ;; ★ Alpha 重命名：确保所有变量名唯一，防止后续 Pass 变量捕获
           ir2-roots' (mapv rename/rename ir2-roots)
 
-          ;; 命名空间处理（依赖注册、别名替换）
           ir2-roots' (module/resolve-ns ir2-roots' context)
           _          (module/collect-symbols ir2-roots' context)
 
+          ;; 高阶消除
+          inlined    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
+          ;; 死代码消除
+          no-ho      (dce/eliminate-ho-defs inlined context)
 
-          ;; 局部类型推导
-          inferred   (infer/infer ir2-roots' (infer/make-context context frontend backend))
+          ;; 闭包消除
+          no-closure (lambda-elim/eliminate no-ho lift-cfg)
 
-          ;; HM(X) 约束求解
+          ;; ★ 递归消除提前到类型推导之前
+          no-recur   (mapv recur/eliminate no-closure)
+
+          ;; 类型推导基于已消除递归的 IR
+          inferred   (infer/infer no-recur (infer/make-context context frontend backend))
+          ;; 约束求解
           solved     (solve/process inferred (solve/make-context context frontend backend))
 
-          inlined    (ho-elim/process solved (ho-elim/make-context context frontend backend))
-
-          ;; 递归消除
-          no-recur   (mapv recur/eliminate inlined)
-
-          ;; 闭包消除（提升 + 特化）
-          elaborated (lambda-elim/eliminate no-recur lift-cfg)
-
           ;; 可变性分析
-          mutable    (mut/analyze elaborated)
-
+          mutable    (mut/analyze solved)
           ;; 双向检查 + 隐式转换插入
           checked    (check/check mutable (check/make-context context frontend backend))
-
-          ;; 收集标记了类型的符号表
           _          (module/collect-symbols mutable context)]
 
-      ;; 最终代码生成（HLSL）
       (emit/emit checked (emit/make-context context frontend)))))

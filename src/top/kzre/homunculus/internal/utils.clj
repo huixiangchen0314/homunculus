@@ -3,6 +3,21 @@
   (:require [clojure.string :as str])
   (:import (java.io FileNotFoundException PushbackReader StringReader)))
 
+;; ── 符号转换工具 ────────────────────────
+(defn ->symbol
+  "将字符串、关键字、符号或 (quote sym) 形式统一转换为符号。
+   若 x 是字符串或关键字，取其名称转换为符号；
+   若 x 是符号，直接返回；
+   若 x 是 (quote sym) 形式，提取 sym 并递归转换。
+   其他类型返回 nil。"
+  [x]
+  (cond
+    (symbol? x) x
+    (string? x) (symbol x)
+    (keyword? x) (symbol (name x))
+    (and (seq? x) (= (first x) 'quote) (= (count x) 2))
+    (->symbol (second x))
+    :else nil))
 
 
 (def ^:private module-naming-style-handlers

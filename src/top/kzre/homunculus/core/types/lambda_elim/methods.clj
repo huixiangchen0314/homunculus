@@ -14,5 +14,4 @@
             [top.kzre.homunculus.core.types.elaborate.methods.vector]
             [top.kzre.homunculus.core.types.elaborate.methods.map]
             [top.kzre.homunculus.core.types.elaborate.methods.literal]
-            [top.kzre.homunculus.core.types.elaborate.methods.variable]
-            [top.kzre.homunculus.core.types.elaborate.methods.default]))
+            [top.kzre.homunculus.core.types.elaborate.methods.variable]))

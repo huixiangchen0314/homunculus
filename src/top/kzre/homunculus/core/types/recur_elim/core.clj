@@ -101,8 +101,9 @@
                   (n/attrs node) (n/node-meta node) (n/parent node))
 
       ;; 默认：将表达式赋值给 result，并设置 recur-flag = false
+      ;; ★ 关键修复：对 node 应用 convert-expr 以保留类型信息
       (n/make-block [(n/make-assign (n/make-variable result-var nil nil)
-                                    node
+                                    (convert-expr node ctx)
                                     nil nil nil)
                      (n/make-assign (n/make-variable recur-flag nil nil)
                                     (n/make-literal false nil nil)
@@ -124,7 +125,6 @@
                                (convert-expr init ctx)])
                             bindings)
 
-        ;; 优化：result 初始化为 nil，避免虚假类型
         all-bindings (into loop-bindings
                            [[(n/make-variable result-var nil nil) (n/make-literal nil nil nil)]
                             [(n/make-variable recur-flag nil nil) (n/make-literal true nil nil)]])
@@ -139,3 +139,93 @@
 
 ;; ── 分派入口 ──────────────────────────────
 (defmulti eliminate (fn [node] (n/kind node)))
+
+(defmethod eliminate :literal [node] node)
+(defmethod eliminate :variable [node] node)
+(defmethod eliminate :define [node]
+  (n/make-define (n/define-name node)
+                 (eliminate (n/define-val node))
+                 (n/define-doc node)
+                 (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :lambda [node]
+  (n/make-lambda (mapv eliminate (n/lambda-params node))
+                 (eliminate (n/lambda-body node))
+                 (n/lambda-captures node) (n/lambda-fn-name node)
+                 (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :call [node]
+  (n/make-call (eliminate (n/call-fn node))
+               (mapv eliminate (n/call-args node))
+               (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :if [node]
+  (n/make-if (eliminate (n/if-test node))
+             (eliminate (n/if-then node))
+             (when-let [e (n/if-else node)] (eliminate e))
+             (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :block [node]
+  (n/make-block (mapv eliminate (n/block-exprs node))
+                (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :let [node]
+  (let [bindings (n/let-bindings node)]
+    (n/make-let (mapv (fn [[v e]] [(eliminate v) (eliminate e)]) bindings)
+                (eliminate (n/let-body node))
+                (n/attrs node) (n/node-meta node) (n/parent node))))
+(defmethod eliminate :loop [node]
+  (transform-loop node))
+(defmethod eliminate :recur [node]
+  (throw (ex-info "recur outside loop" {:node node})))
+(defmethod eliminate :while [node]
+  (n/make-while (eliminate (n/while-test node))
+                (eliminate (n/while-body node))
+                (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :assign [node]
+  (n/make-assign (eliminate (n/assign-var node))
+                 (eliminate (n/assign-val node))
+                 (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :vector [node]
+  (n/make-vector (mapv eliminate (n/vector-items node))
+                 (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :map [node]
+  (n/make-map (mapv eliminate (n/map-kvs node))
+              (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :member-access [node]
+  (n/make-member-access (eliminate (n/access-target node))
+                        (n/access-member node)
+                        (mapv eliminate (n/access-args node))
+                        (n/node-meta node) (n/parent node)))
+(defmethod eliminate :try [node]
+  (n/make-try (eliminate (n/try-body node))
+              (mapv eliminate (n/try-catches node))
+              (when-let [f (n/try-finally node)] (eliminate f))
+              (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :catch [node]
+  (n/make-catch (eliminate (n/catch-class node))
+                (eliminate (n/catch-sym node))
+                (mapv eliminate (n/catch-body node))
+                (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :throw [node]
+  (n/make-throw (eliminate (n/throw-expr node))
+                (n/attrs node) (n/node-meta node) (n/parent node)))
+(defmethod eliminate :convert [node]
+  (n/make-convert (eliminate (n/convert-expr node))
+                  (n/convert-src-ty node) (n/convert-dst-ty node) (n/convert-cost node)
+                  (n/attrs node) (n/node-meta node) (n/parent node)))
+;; 数组节点
+(defmethod eliminate :new-array [node]
+  (n/make-new-array (eliminate (n/new-array-size node))
+                    (n/node-meta node) (n/parent node)))
+(defmethod eliminate :aget [node]
+  (n/make-aget (eliminate (n/aget-target node))
+               (eliminate (n/aget-idx node))
+               (n/node-meta node) (n/parent node)))
+(defmethod eliminate :aset [node]
+  (n/make-aset (eliminate (n/aset-target node))
+               (eliminate (n/aset-idx node))
+               (eliminate (n/aset-val node))
+               (n/node-meta node) (n/parent node)))
+(defmethod eliminate :alength [node]
+  (n/make-alength (eliminate (n/alength-target node))
+                  (n/node-meta node) (n/parent node)))
+(defmethod eliminate :default [node] node)
+
+(defn process [ir2-roots]
+  (mapv eliminate ir2-roots))

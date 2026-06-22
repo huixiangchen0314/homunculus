@@ -52,9 +52,9 @@
                         (keep (fn [[arg-ty var-name]]
                                 (when-let [vty (e/lookup-env (u/env context) var-name)]
                                   (c/make-cequal arg-ty vty)))))
-          tv (t/make-tcon 'nil)   ;; recur 本身不产生有意义的值
+
           new-node (n/make-recur (vec arg-nodes)
                                  (n/attrs node) (n/node-meta node) (n/parent node))]
-      [tv (t/set-type! new-node tv)
+      [nil (t/set-type! new-node nil)
        (concat arg-constraints loop-eqs)
        context])))   ;; 返回原上下文

@@ -1,4 +1,3 @@
-
 (ns top.kzre.homunculus.examples.hlsl-lambert.core
   (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]
             [my.shaders.fog]))
@@ -6,7 +5,6 @@
 ;; ── 资源声明 ──────────────────────────────
 (deftexture myTexture :t0)
 (defsampler mySampler :s0)
-
 
 (defcbuffer LightParams :b0
             lightDir float3
@@ -19,27 +17,33 @@
 
 (defn remin-sum [^float a] a)
 
-
-
 (defrecord MyInout [^:SV_TARGET ^float a 0.0])
 
+;; ── 用户自定义高阶函数 (测试用) ──────────
+(defn my-map [f coll]
+  (let [n (%%alength coll)
+        arr (%%new-array n)]
+    (loop [i 0]
+      (if (< i n)
+        (do (%%aset arr i (f (%%aget coll i)))
+            (recur (+ i 1)))
+        arr))))
 
-;(defrecord MainOutput [^:float4 color])
-
+;; ── 顶点着色器 (包含高阶调用测试) ────────
 (defshader :vertex vsMain
            [^:POSITION ^float4 pos
             ^:NORMAL ^float3 nrm
             ^:TEXCOORD0 ^float2 uv]
            (def x (%%new-array 3))
            (%%aset x 0 0)
-
-           (let [worldPos (mul worldViewProj pos)
-                 y (%%aget x 0)
-                 w (%%alength x)
-                 xxx (let [fa 0]
-                   fa)]
+           (%%aset x 1 1)
+           (%%aset x 2 2)
+           ;; 使用 my-map 对 x 的每个元素加 1
+           (def y (my-map (fn [v] (+ v 1)) x))
+           (let [worldPos (mul worldViewProj pos)]
              (float4 (float3 1.0 1.0 1.0) 1.0)))
 
+;; ── 片段着色器 ────────────────────────────
 (defshader :fragment psMain
            [^:SV_POSITION ^float4 pos
             ^:NORMAL ^float3 nrm

@@ -167,7 +167,7 @@
       (integer? val) (ty/make-tcon 'int)
       (true? val)    (ty/make-tcon 'bool)
       (false? val)   (ty/make-tcon 'bool)
-      (nil? val)     (ty/make-tcon 'float)
+      ;(nil? val)     (ty/make-tcon 'float)
       :else          (ty/make-tvar (gensym "lit"))))
 
   (meta->type [_ node]
