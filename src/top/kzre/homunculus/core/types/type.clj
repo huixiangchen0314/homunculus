@@ -129,9 +129,6 @@
 (defn hetero-vec-types [hv] (:types hv))
 ;; THeteroMap
 (defn hetero-map-entries [hm] (:entries hm))
-;; FixedLength
-(defn fixed-length-size [fl] (:size fl))
-;; VariableLength 无字段
 
 
 

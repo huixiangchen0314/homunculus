@@ -11,6 +11,8 @@
     [top.kzre.homunculus.core.types.dc-elim.core :as dce]
     [top.kzre.homunculus.core.types.alpha-rename :as rename]
     [top.kzre.homunculus.core.types.constraint.api :as solve]
+    [top.kzre.homunculus.backend.hlsl.folder :as folder]
+    [top.kzre.homunculus.core.types.fold.core :as fold]
     [top.kzre.homunculus.core.types.infer.api :as infer]
     [top.kzre.homunculus.core.types.lambda-elim.api :as lambda-elim]
     [top.kzre.homunculus.core.types.lambda-elim.protocol :as lambda-elim-p]
@@ -56,9 +58,9 @@
 
           ;; ★ 递归消除提前到类型推导之前
           no-recur   (mapv recur/eliminate no-closure)
-
+          folded     (fold/fold no-recur (fold/make-context context frontend backend (folder/folder)))
           ;; 类型推导基于已消除递归的 IR
-          inferred   (infer/infer no-recur (infer/make-context context frontend backend))
+          inferred   (infer/infer folded (infer/make-context context frontend backend))
           ;; 约束求解
           solved     (solve/process inferred (solve/make-context context frontend backend))
 

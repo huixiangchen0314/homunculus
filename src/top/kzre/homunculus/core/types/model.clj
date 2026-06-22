@@ -34,3 +34,9 @@
 (defrecord THeteroMap [entries]   ;; entries 是 ([:key1 type1] [:key2 type2] ...) 的有序向量
   p/IType
   (type-kind [_] :hetero-map))
+
+
+;; 类型级值, 这个值应当是编译时可知的值.
+(defrecord TValue [val]
+ p/IType
+ (type-kind [_] :value))
