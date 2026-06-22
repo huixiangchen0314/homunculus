@@ -12,7 +12,8 @@
 (defn hlsl-type-str [ir-type]
   (cond
     (ty/vec-type? ir-type)                                  ;; 同构数组类型
-    (str (hlsl-type-str (ty/vec-element-type ir-type)) "[]")
+    (let [vec-size (ty/vec-size ir-type)]
+      (str (hlsl-type-str (ty/vec-element-type ir-type)) "[" vec-size "]"))
     :else (st/shader-type-str (ty/type-sym ir-type))))
 
 (defmulti emit-node (fn [node _context] (n/kind node)))
