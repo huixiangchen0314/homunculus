@@ -49,7 +49,7 @@
                           (render-node sampler indent-level) ", "
                           (render-node uv indent-level) ")"))
         :binary    (let [[_ op left right] node]
-                     (str "(" (render-node left indent-level) " " op " " (render-node right indent-level) ")"))
+                     (str (render-node left indent-level) " " op " " (render-node right indent-level)))
         :member-access (let [[_ target member] node]
                          (str (render-node target indent-level) "." member))
         :constructor (let [[_ type-name & args] node]
