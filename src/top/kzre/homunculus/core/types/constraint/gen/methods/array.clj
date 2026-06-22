@@ -82,6 +82,12 @@
 ;; ── alength ────────────────────────────────
 (defmethod gen/cg-node-raw :alength [node context]
   (let [[target-tv target-node target-constrs target-ctx] (gen/cg-node-raw (n/alength-target node) context)
-        int-ty (ty/make-tcon (tp/integer-type (u/frontend context)))
-        new-node (n/make-alength target-node (n/node-meta node) (n/parent node))]
-    [int-ty (ty/set-type! new-node int-ty) target-constrs target-ctx]))
+        int-ty (ty/make-tcon (tp/integer-type (u/frontend context)))]
+    (if (and (ty/vec-type? target-tv) (integer? (ty/vec-size target-tv)))
+      ;; 长度已知，直接返回整数字面量节点
+      (let [len-val (ty/vec-size target-tv)
+            lit-node (n/make-literal len-val nil nil)]
+        [int-ty (ty/set-type! lit-node int-ty) target-constrs target-ctx])
+      ;; 长度未知，保留原调用
+      (let [new-node (n/make-alength target-node (n/node-meta node) (n/parent node))]
+        [int-ty (ty/set-type! new-node int-ty) target-constrs target-ctx]))))

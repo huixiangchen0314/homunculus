@@ -183,10 +183,15 @@
 
 (defn concrete?
   "判断类型是否为确定的（具体）类型。
-   TCon 是确定的；TFun 的参数和返回值都确定时才是确定的；其他均不确定。"
+   TCon、整数长度同构向量、元素全部具体的异构向量/异构 Map 均为具体。"
   [ty]
   (cond
     (con-type? ty) true
     (fun-type? ty) (and (concrete? (fun-arg ty))
                         (concrete? (fun-ret ty)))
+    (vec-type? ty) (and (concrete? (vec-element-type ty))
+                        (let [sz (vec-size ty)]
+                          (and sz (not (var-type? sz)))))
+    (hetero-vec? ty) (every? concrete? (hetero-vec-types ty))
+    (hetero-map? ty) (every? (fn [[_ v]] (concrete? v)) (hetero-map-entries ty))
     :else false))
