@@ -1,7 +1,10 @@
 (ns top.kzre.homunculus.backend.hlsl.render
   "HLSL 结构体 -> 字符串渲染器。
-   处理顶层结构体，函数体字符串原样输出。"
-  (:require [clojure.string :as str]))
+   处理顶层结构体，函数体字符串原样输出。
+   集成了 hlsl.spec 对输入数据进行校验。"
+  (:require [clojure.string :as str]
+            [top.kzre.homunculus.backend.util.naming :refer [cname]]
+            [top.kzre.homunculus.backend.hlsl.spec :as spec]))
 
 (declare render-node)
 
@@ -18,32 +21,33 @@
                       stmts)))
 
 (defn- render-param [[type name semantic] _]
-  (str type " " name (when semantic (str " : " semantic))))
+  (str type " " (cname name) (when semantic (str " : " semantic))))
 
 (defn- render-struct-member [[type name semantic] _]
-  (str type " " name (when semantic (str " : " semantic)) ";"))
+  (str type " " (cname name) (when semantic (str " : " semantic)) ";"))
 
 (defn render-node [node indent-level]
   (cond
     (string? node) node
     (nil? node) ""
-    (and (sequential? node)
-         (not (keyword? (first node))))
-    (str/join "\n" (map #(render-node % indent-level) node))
     :else
     (let [indent (apply str (repeat (* 4 indent-level) \space))]
       (case (first node)
         :raw       (second node)
         ;; 数组节点
-        :new-array (let [[_ size] node] (str "[" size "]"))  ; 实际由 define 处理，这里预留
-        :aget      (let [[_ target idx] node] (str (render-node target indent-level) "[" (render-node idx indent-level) "]"))
+        :new-array (let [[_ size] node] (str "[" size "]"))
+        :aget      (let [[_ target idx] node]
+                     (str (render-node target indent-level) "[" (render-node idx indent-level) "]"))
         :aset      (let [[_ target idx val] node]
-                     (str (render-node target indent-level) "[" (render-node idx indent-level) "] = " (render-node val indent-level) ";"))
-        :alength   (let [[_ target] node] (str (render-node target indent-level) ".length"))  ; 若使用字面量
+                     (str (render-node target indent-level)
+                          "[" (render-node idx indent-level) "] = "
+                          (render-node val indent-level)))
+        :alength   (let [[_ target] node]
+                     (str (render-node target indent-level) ".length"))
         :literal   (str (second node))
-        :var-ref   (name (second node))
+        :var-ref   (cname (second node))
         :call      (let [[_ fn-name & args] node]
-                     (str fn-name "(" (render-seq args) ")"))
+                     (str (cname fn-name) "(" (render-seq args) ")"))
         :sample    (let [[_ tex sampler uv] node]
                      (str (render-node tex indent-level) ".Sample("
                           (render-node sampler indent-level) ", "
@@ -51,7 +55,7 @@
         :binary    (let [[_ op left right] node]
                      (str (render-node left indent-level) " " op " " (render-node right indent-level)))
         :member-access (let [[_ target member] node]
-                         (str (render-node target indent-level) "." member))
+                         (str (render-node target indent-level) "." (cname member)))
         :constructor (let [[_ type-name & args] node]
                        (str type-name "(" (render-seq args) ")"))
         :cast      (let [[_ type-str expr] node]
@@ -59,9 +63,9 @@
 
         :return    (str "return " (render-node (second node) indent-level) ";")
         :var-decl  (let [[_ type name init] node]
-                     (str type " " name " = " (render-node init indent-level) ";"))
+                     (str type " " (cname name) " = " (render-node init indent-level) ";"))
         :assign    (let [[_ target expr] node]
-                     (str target " = " (render-node expr indent-level) ";"))
+                     (str (render-node target indent-level) " = " (render-node expr indent-level) ";"))
         :expr-stmt (let [[_ expr] node]
                      (str (render-node expr indent-level) ";"))
 
@@ -78,7 +82,7 @@
                           (render-body stmts (inc indent-level))
                           "\n" indent "}"))
         :function  (let [[_ return-type name params body] node]
-                     (str return-type " " name "("
+                     (str return-type " " (cname name) "("
                           (str/join ", " (map #(render-param % indent-level) params))
                           ")\n"
                           (if (string? body)
@@ -86,12 +90,12 @@
                             (render-body body (inc indent-level)))))
         :entry-wrapper (let [[_ stage func-name input-type output-type return-type body] node]
                          (case stage
-                           :vertex   (str output-type " " func-name "(" input-type " input)\n{\n"
+                           :vertex   (str output-type " " (cname func-name) "(" input-type " input)\n{\n"
                                           (if (string? body)
                                             body
                                             (render-body body (inc indent-level)))
                                           "\n}")
-                           :fragment (str return-type " " func-name "(" input-type " input) : SV_TARGET\n{\n"
+                           :fragment (str return-type " " (cname func-name) "(" input-type " input) : SV_TARGET\n{\n"
                                           (if (string? body)
                                             body
                                             (render-body body (inc indent-level)))
@@ -100,27 +104,31 @@
         :import    (let [[_ path] node]
                      (str "#include \"" path "\""))
         ;; 结构体成员（用于 struct 和 cbuffer 内部）
-        :struct-member (let [[_ type name semantic] node]
-                         (str type " " name (when semantic (str " : " semantic)) ";"))
+        :struct-member (render-struct-member (rest node) indent-level)
         ;; 结构体定义
         :struct    (let [[_ name members] node]
-                     (str "struct " name " {\n"
+                     (str "struct " (cname name) " {\n"
                           (render-body members (inc indent-level))
                           "\n" indent "};"))
 
-        :texture-decl   (let [[_ name reg] node] (str "Texture2D " name " : register(" reg ");"))
-        :sampler-decl   (let [[_ name reg] node] (str "SamplerState " name " : register(" reg ");"))
+        :texture-decl   (let [[_ name reg] node] (str "Texture2D " (cname name) " : register(" reg ");"))
+        :sampler-decl   (let [[_ name reg] node] (str "SamplerState " (cname name) " : register(" reg ");"))
         :cbuffer-decl   (let [[_ name reg members] node]
-                          (str "cbuffer " name " : register(" reg ") {\n"
+                          (str "cbuffer " (cname name) " : register(" reg ") {\n"
                                (render-body members (inc indent-level))
                                "\n" indent "};"))
-        :uniform-decl   (let [[_ type name] node] (str "uniform " type " " name ";"))
+        :uniform-decl   (let [[_ type name] node] (str "uniform " type " " (cname name) ";"))
         :static-var-decl (let [[_ type name init] node]
-                           (str "static " type " " name " = " (render-node init indent-level) ";"))
+                           (str "static " type " " (cname name) " = " (render-node init indent-level) ";"))
 
         :comment    (str "// " (second node))
 
         (throw (ex-info (str "Unknown HLSL structure tag: " (first node)) {:node node}))))))
 
-(defn render [nodes]
+(defn render
+  "渲染 HLSL AST 节点列表为字符串。若 nodes 不符合 spec，抛出异常。"
+  [nodes]
+  (when-not (spec/valid-ast? nodes)
+    (throw (ex-info (str "Invalid HLSL AST" (spec/explain-ast nodes))
+                    {:explain (spec/explain-ast nodes)})))
   (str/join "\n\n" (map #(render-node % 0) nodes)))

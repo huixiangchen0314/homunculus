@@ -34,44 +34,38 @@
      table'']))
 
 (defmethod rename-node :let [node table]
+  ;; 顺序处理绑定，避免丢失依赖
   (let [old-bindings (n/let-bindings node)
-        new-names (mapv (fn [[var _]]
-                          (let [old-name (n/var-name var)]
-                            [old-name (u/fresh-name old-name)]))
-                        old-bindings)
-        [new-vals table1]
-        (reduce (fn [[vals t] [_ val]]
-                  (let [[new-val t2] (rename-node val t)]
-                    [(conj vals new-val) t2]))
+        [new-bindings table1]
+        (reduce (fn [[bnds t] [var val]]
+                  ;; 先重命名 val（使用当前表）
+                  (let [[new-val t1] (rename-node val t)
+                        old-name (n/var-name var)
+                        new-name (u/fresh-name old-name)
+                        t2 (assoc t1 old-name new-name)
+                        new-var (n/make-variable new-name (n/attrs var) (n/node-meta var) (n/parent var))]
+                    [(conj bnds [new-var new-val]) t2]))
                 [[] table]
                 old-bindings)
-        table2 (reduce (fn [t [old new]] (assoc t old new)) table1 new-names)
-        new-bindings (mapv (fn [[var] new-val [old new]]
-                             [(n/make-variable new (n/attrs var) (n/node-meta var) (n/parent var)) new-val])
-                           old-bindings new-vals new-names)
-        [new-body table3] (rename-node (n/let-body node) table2)]
+        [new-body table2] (rename-node (n/let-body node) table1)]
     [(n/make-let new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))
-     table3]))
+     table2]))
 
 (defmethod rename-node :loop [node table]
   (let [old-bindings (n/loop-bindings node)
-        new-names (mapv (fn [[var _]]
-                          (let [old-name (n/var-name var)]
-                            [old-name (u/fresh-name old-name)]))
-                        old-bindings)
-        [new-vals table1]
-        (reduce (fn [[vals t] [_ val]]
-                  (let [[new-val t2] (rename-node val t)]
-                    [(conj vals new-val) t2]))
+        [new-bindings table1]
+        (reduce (fn [[bnds t] [var val]]
+                  (let [[new-val t1] (rename-node val t)
+                        old-name (n/var-name var)
+                        new-name (u/fresh-name old-name)
+                        t2 (assoc t1 old-name new-name)
+                        new-var (n/make-variable new-name (n/attrs var) (n/node-meta var) (n/parent var))]
+                    [(conj bnds [new-var new-val]) t2]))
                 [[] table]
                 old-bindings)
-        table2 (reduce (fn [t [old new]] (assoc t old new)) table1 new-names)
-        new-bindings (mapv (fn [[var] new-val [old new]]
-                             [(n/make-variable new (n/attrs var) (n/node-meta var) (n/parent var)) new-val])
-                           old-bindings new-vals new-names)
-        [new-body table3] (rename-node (n/loop-body node) table2)]
+        [new-body table2] (rename-node (n/loop-body node) table1)]
     [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))
-     table3]))
+     table2]))
 
 (defmethod rename-node :catch [node table]
   (let [old-sym (n/catch-sym node)

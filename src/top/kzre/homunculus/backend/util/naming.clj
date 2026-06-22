@@ -24,7 +24,7 @@
    \@ "_at_"
    \' "_quote_"})
 
-(defn safe-name
+(defn cname
   "将符号或字符串转为安全的 C 标识符。
    Clojure 特殊字符按映射表替换，其余非法字符替换为 '_'。"
   [sym-or-str]

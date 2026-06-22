@@ -112,7 +112,7 @@
         defines   (filter n/define-node? flat)
         records   (filter n/record-node? flat)
         {:keys [resources uniforms static-vars global-vars functions]} (sc/classify-defines defines)
-        ns-struct         (when ns-node (emit-node ns-node context))
+        import-structs         (when ns-node (emit-node ns-node context)) ;; 多个import 语句
         resource-structs  (mapv emit-resource-decl resources)
         uniform-structs   (mapv #(emit-uniform-decl % context) uniforms)
         static-var-structs (mapv #(emit-static-var-decl % context) static-vars)
@@ -121,7 +121,7 @@
         fn-structs         (mapv #(emit-node % context) functions)
         entry-fns          (filter #(md/fn-shader-stage %) functions)
         entry-wrapper-structs (mapcat emit-entry-wrapper entry-fns)
-        all-structs (remove nil? (concat (when ns-struct [ns-struct])
+        all-structs (remove nil? (concat  import-structs
                                          resource-structs
                                          uniform-structs
                                          static-var-structs
@@ -129,4 +129,4 @@
                                          struct-structs
                                          fn-structs
                                          entry-wrapper-structs))]
-    (render/render all-structs)))
+    (render/render (vec all-structs))))
