@@ -44,7 +44,10 @@
                           (render-node val indent-level)))
         :alength   (let [[_ target] node]
                      (str (render-node target indent-level) ".length"))
-        :literal   (str (second node))
+        :literal   (let [v (second node)]
+                     (cond
+                       (nil? v) ""
+                       :else (str v)))
         :var-ref   (cname (second node))
         :call      (let [[_ fn-name & args] node]
                      (str (cname fn-name) "(" (render-seq args) ")"))

@@ -1,7 +1,8 @@
 (ns top.kzre.homunculus.core.types.fold.propagate
   "常量传播：基于已折叠的常量信息，将变量引用替换为字面量。
    环境包含 :constants 和 :array-lens 两个映射，不依赖类型推导。
-   对 :alength 节点直接替换为已知长度。"
+   对 :alength 节点直接替换为已知长度。
+   传播时依据 attrs 中的 :mutable 标记，只对不可变变量进行常量传播。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]))
 
 ;; ── 环境操作 ──────────────────────────────
@@ -28,6 +29,12 @@
 
 (defn- env-remove-vars [env var-names]
   (reduce env-remove-var env var-names))
+
+;; ★ 新增：读取变量的可变性标记
+(defn- var-mutable?
+  "判断一个变量节点是否被 mutable/analyze 标记为可变。"
+  [var-node]
+  (true? (:mutable (n/attrs var-node))))
 
 (defn- maybe-subst-constant [node env]
   (if (and (n/variable-node? node)
@@ -64,14 +71,17 @@
 (defmethod propagate-node :literal [node context] [node context])
 (defmethod propagate-node :variable [node context] [node context])
 
-;; ── let：顺序处理绑定，使用 collect-env ──
+;; ── let：根据 :mutable 标记决定是否收集常量 ──
 (defmethod propagate-node :let [node context]
   (let [bindings (n/let-bindings node)
         [new-bindings ctx1]
         (reduce (fn [[bnds ctx] [var val-expr]]
                   (let [subbed (maybe-subst-constant val-expr (:env ctx))
                         [new-val new-ctx] (propagate-node subbed ctx)
-                        env' (collect-env (:env new-ctx) (n/var-name var) new-val)]
+                        ;; ★ 只在变量不可变时才将其值作为常量加入环境
+                        env' (if (var-mutable? var)
+                               (:env new-ctx)
+                               (collect-env (:env new-ctx) (n/var-name var) new-val))]
                     [(conj bnds [var new-val])
                      (assoc new-ctx :env env')]))
                 [[] context]
@@ -80,18 +90,22 @@
     [(n/make-let new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))
      ctx2]))
 
-;; ── loop：循环体内移除循环变量 ─────────────
+;; ── loop：循环变量已由 mutable 分析标记为可变，此处统一按标记处理；同时移除循环变量以遮蔽外层同名常量 ──
 (defmethod propagate-node :loop [node context]
   (let [bindings (n/loop-bindings node)
         [new-bindings ctx1]
         (reduce (fn [[bnds ctx] [var val-expr]]
                   (let [subbed (maybe-subst-constant val-expr (:env ctx))
                         [new-val new-ctx] (propagate-node subbed ctx)
-                        env' (collect-env (:env new-ctx) (n/var-name var) new-val)]
+                        ;; ★ 统一依据 :mutable 决定是否收集（当前循环变量均为可变，因此不会收集）
+                        env' (if (var-mutable? var)
+                               (:env new-ctx)
+                               (collect-env (:env new-ctx) (n/var-name var) new-val))]
                     [(conj bnds [var new-val])
                      (assoc new-ctx :env env')]))
                 [[] context]
                 bindings)
+        ;; 循环体内移除所有循环变量名，实现正确的遮蔽并避免误用外层常量
         loop-var-names (set (map (fn [[v _]] (n/var-name v)) bindings))
         env-body (env-remove-vars (:env ctx1) loop-var-names)
         ctx-body (assoc ctx1 :env env-body)
@@ -99,7 +113,7 @@
     [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))
      (assoc ctx2 :env (:env context))]))
 
-;; ── define：使用 collect-env 收集常量 ──
+;; ── define：顶级定义视为不可变，仍收集常量 ──
 (defmethod propagate-node :define [node context]
   (if-let [val (n/define-val node)]
     (let [subbed (maybe-subst-constant val (:env context))
@@ -110,7 +124,7 @@
        (assoc ctx1 :env env')])
     [node context]))
 
-;; ── assign：左值不替换，右值替换，并移除左值 ──
+;; ── assign：左值不替换，右值替换，并从环境中移除被赋值的变量（因其可变）──
 (defmethod propagate-node :assign [node context]
   (let [new-var (n/assign-var node)
         subbed-val (maybe-subst-constant (n/assign-val node) (:env context))

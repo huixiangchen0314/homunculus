@@ -1,7 +1,9 @@
 (ns top.kzre.homunculus.core.types.fold.core
   "常量折叠与传播的迭代入口。"
-  (:require [top.kzre.homunculus.core.types.fold.fold :as fd]
-            [top.kzre.homunculus.core.types.fold.propagate :as fp]))
+  (:require
+   [top.kzre.homunculus.core.types.fold.fold :as fd]
+   [top.kzre.homunculus.core.types.fold.mutable :as mutable]
+   [top.kzre.homunculus.core.types.fold.propagate :as fp]))
 
 (defn make-context
   [compile-ctx frontend backend folder]
@@ -16,9 +18,9 @@
   (let [folder (:folder context)]
     (loop [roots ir2-roots]
       (let [folded   (fd/fold roots folder context)
+            mutable (mutable/analyze folded)
             prop-ctx (fp/make-context (:ctx context) (:frontend context) (:backend context))
-            ;; ★ 修正：使用 :roots 键获取传播后的根列表
-            propagated (:roots (fp/propagate folded prop-ctx))]
+            propagated (:roots (fp/propagate mutable prop-ctx))]
         (if (= (hash (vec roots)) (hash (vec propagated)))
           propagated
           (recur propagated))))))
