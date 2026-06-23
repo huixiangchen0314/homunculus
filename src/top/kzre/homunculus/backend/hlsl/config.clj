@@ -59,7 +59,7 @@
             ir1-roots (mapv ir1/->ir1 processed)
             ir2-roots (mapcat ir2/->ir2 ir1-roots)
             ir2-roots' (mapv rename/rename ir2-roots)
-            ir2-roots' (module/resolve-ns ir2-roots' context)
+            ir2-roots' (module/resolve-ns ir2-roots' context frontend)
             _          (module/collect-symbols ir2-roots' context)
             inlined    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
             no-closure (lambda-elim/eliminate inlined lift-cfg)

@@ -1,10 +1,7 @@
 (ns top.kzre.homunculus.internal.model
   "编译配置和上下文的默认实现。"
   (:require
-    [clojure.spec.alpha :as s]
-    [top.kzre.homunculus.internal.protocol :as p]
-    [top.kzre.homunculus.internal.spec :as spec]
-    [top.kzre.homunculus.internal.utils :as u]))
+    [top.kzre.homunculus.internal.protocol :as p]))
 
 (defn get-module-unit [context ns-sym]
   (get-in @(:state context) [:modules ns-sym]))
