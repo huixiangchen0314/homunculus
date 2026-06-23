@@ -387,6 +387,33 @@
 (defn protocol-with-name  [node name]  (assoc node :name name))
 (defn protocol-with-funcs [node funcs] (assoc node :funcs funcs))  ;; 原 protocol-with-method-sigs
 
+;; ── ProtocolNode 方法访问器 ────────────────
+(defn protocol-methods
+  "返回协议节点的 funcs 向量，每一项为方法描述 map：
+   {:name method-name, :params [...], :ret type, :meta ...}"
+  [node]
+  (:funcs node))
+
+(defn method-name
+  "返回单个方法描述中的 :name。"
+  [method-desc]
+  (:name method-desc))
+
+(defn method-params
+  "返回单个方法描述中的 :params 向量，元素为形参描述 map：{:name sym, :meta ...}"
+  [method-desc]
+  (:params method-desc))
+
+(defn method-ret
+  "返回单个方法描述中的 :ret 类型。"
+  [method-desc]
+  (:ret method-desc))
+
+(defn method-meta
+  "返回单个方法描述中的 :meta。"
+  [method-desc]
+  (:meta method-desc))
+
 ;; ══════════════════════════════════════════════
 ;; MemberAccessNode
 ;; ══════════════════════════════════════════════

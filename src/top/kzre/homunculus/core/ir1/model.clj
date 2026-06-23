@@ -210,7 +210,7 @@
 ;; funcs 示例: [{:name draw
 ;;               :params [ ;; 不包括this
 ;;                        {:name x, :meta nil}]
-;;               :ret :void
+;;               :ret :nil
 ;;               :meta nil}]
 (defrecord ProtocolNode [name funcs meta parent]
   p/INode

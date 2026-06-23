@@ -62,14 +62,13 @@
             ir2-roots' (module/resolve-ns ir2-roots' context)
             _          (module/collect-symbols ir2-roots' context)
             inlined    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
-            no-ho      (dce/eliminate-ho-defs inlined context)
-            no-closure (lambda-elim/eliminate no-ho lift-cfg)
+            no-closure (lambda-elim/eliminate inlined lift-cfg)
             no-recur   (mapv recur/eliminate no-closure)
             folded     (fold/fold no-recur (fold/make-context context frontend backend (folder/folder)))
             inferred   (infer/infer folded (infer/make-context context frontend backend))
             solved     (solve/process inferred (solve/make-context context frontend backend))
             mutable    (mut/analyze solved)
-
+            _          (module/collect-symbols mutable context)
             unit       (mu/->ModuleUnit ns-sym mutable)]
         (model/set-module-unit! context ns-sym unit)
         unit)))
