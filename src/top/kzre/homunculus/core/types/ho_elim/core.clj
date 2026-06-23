@@ -2,7 +2,8 @@
   "高阶函数内联 Pass（仅处理命名高阶函数）。
    1. 分析阶段：遍历 IR 树，标记高阶函数定义（设置 attrs :ho?）。
    2. 内联阶段：顺序处理根节点，动态构建环境，内联可见的高阶调用。
-      ho-max-depth 控制单次内联的最大展开深度，默认为 20。"
+      ho-max-depth 控制单次内联的最大展开深度，默认为 20。
+   3. 支持跨模块内联：从全局符号表查找被标记为高阶的函数定义。"
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.protocol :as tp]
@@ -26,8 +27,6 @@
 
 (defn- add-def-to-ctx [ctx name lam]
   (assoc ctx :env (add-def (get-env ctx) name lam)))
-
-
 
 ;; ── 多方法分派（返回 [new-node, new-ctx]）────
 (defmulti eliminate-ho
@@ -62,19 +61,42 @@
                 (n/call-args node))
         env (get-env ctx-args)]
     (if (n/variable-node? fn-node)
-      (let [fn-name (n/var-name fn-node)]
-        (if (and (contains? (:ho-set env) fn-name) (< depth max-depth))
-          (if-let [lam (get-in env [:defs fn-name])]
-            (let [params  (n/lambda-params lam)
-                  body    (n/lambda-body lam)
-                  inlined (reduce (fn [b [p a]]
-                                    (replace/replace-var b (n/var-name p) a))
-                                  body
-                                  (map vector params args))]
-              (eliminate-ho inlined (inc depth) ctx-args))  ;; 递归内联
-            [(n/make-call fn-node args (n/attrs node) (n/node-meta node) (n/parent node)) ctx-args])
-          [(n/make-call fn-node args (n/attrs node) (n/node-meta node) (n/parent node)) ctx-args]))
-      ;; 非变量调用（匿名函数调用等）留给 lambda-elim 处理
+      (let [fn-name (n/var-name fn-node)
+            ;; 本地环境查找
+            local-lam (get-in env [:defs fn-name])
+            local-ho? (contains? (:ho-set env) fn-name)]
+        (if (and local-ho? local-lam (< depth max-depth))
+          ;; 本地已有，直接内联
+          (let [params  (n/lambda-params local-lam)
+                body    (n/lambda-body local-lam)
+                inlined (reduce (fn [b [p a]]
+                                  (replace/replace-var b (n/var-name p) a))
+                                body
+                                (map vector params args))]
+            (eliminate-ho inlined (inc depth) ctx-args))
+          ;; 本地没有，尝试从全局符号表查找
+          (if-let [global-table (get ctx :symbol-table)]
+            (let [entry (sym/lookup-func global-table fn-name)]
+              (if (and entry
+                       (:ho? entry)
+                       (:ir2 entry)
+                       (< depth max-depth))
+                ;; 跨模块高阶函数，内联之
+                (let [lam     (:ir2 entry)
+                      params  (n/lambda-params lam)
+                      body    (n/lambda-body lam)
+                      inlined (reduce (fn [b [p a]]
+                                        (replace/replace-var b (n/var-name p) a))
+                                      body
+                                      (map vector params args))
+                      ;; 加入本地环境避免后续重复查找
+                      ctx'' (add-def-to-ctx ctx-args fn-name lam)]
+                  (eliminate-ho inlined (inc depth) ctx''))
+                ;; 非高阶或无 IR，正常生成调用
+                [(n/make-call fn-node args (n/attrs node) (n/node-meta node) (n/parent node)) ctx-args]))
+            ;; 无符号表，正常调用
+            [(n/make-call fn-node args (n/attrs node) (n/node-meta node) (n/parent node)) ctx-args])))
+      ;; 非变量调用（匿名函数等）留待后续处理
       (let [[new-fn ctx-fn] (eliminate-ho fn-node depth ctx-args)]
         [(n/make-call new-fn args (n/attrs node) (n/node-meta node) (n/parent node)) ctx-fn]))))
 
@@ -169,7 +191,7 @@
      :frontend          frontend
      :ctx               compile-ctx
      :backend           backend
-     :ho-max-depth      20   ; 内联深度限制
+     :ho-max-depth      20
      :symbol-table      symbols
      :known-types       (sym/types-symbols symbols)}))
 
@@ -178,9 +200,7 @@
   (let [ctx (-> context
                 (assoc :ho-max-depth (get context :ho-max-depth 20))
                 (assoc :env (or (:env context) (empty-env))))
-        ;; 1. 分析并标记高阶函数
         analyzed-roots (analyze/analyze ir2-roots)
-        ;; 2. 内联，顺序传递上下文
         [new-roots _]
         (reduce (fn [[rs ctx] root]
                   (let [[new-root new-ctx] (eliminate-ho root 0 ctx)]
