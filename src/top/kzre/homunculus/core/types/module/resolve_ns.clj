@@ -159,17 +159,25 @@
 (defmethod resolve-node :variable [node env]
   (let [var-name (n/var-name node)
         new-node (cond
+                   ;; 1. 已有命名空间，可能是别名引用，替换为全限定名
                    (namespace var-name)
                    (if-let [full-ns (get (:aliases env) (symbol (namespace var-name)))]
                      (n/variable-with-name node (symbol (str full-ns) (name var-name)))
                      node)
 
+                   ;; 2. 局部变量（函数参数、let 绑定等）保持原样
                    (contains? (:locals env) var-name)
                    node
 
+                   ;; 3. 别名引入的无命名空间符号（如通过 :refer :all 或标准库别名）
+                   (contains? (:aliases env) var-name)
+                   (n/variable-with-name node (get (:aliases env) var-name))
+
+                   ;; 4. 本模块顶层定义的符号，加上当前命名空间前缀
                    (contains? (:global-defs env) var-name)
                    (n/variable-with-name node (symbol (str (:self-ns env)) (name var-name)))
 
+                   ;; 5. 其他未知符号保持原样
                    :else
                    node)]
     [new-node env]))
@@ -331,9 +339,21 @@
         dep-syms (->> ns-nodes
                       (mapcat ns-info/ns-dependency-syms)
                       (remove macro-ns))
-        aliases (reduce merge {} (map ns-info/ns-reference-aliases ns-nodes))]
+        ;; 自动追加标准库依赖
+        dep-syms (cond-> dep-syms
+                         (not= self-ns 'cljh.core)
+                         (conj 'cljh.core))]
+    ;; ★ 先注册依赖（触发编译，填充符号表）
     (ip/register-deps context dep-syms)
-    (let [env0 {:self-ns self-ns :aliases aliases :locals #{} :global-defs #{} :toplevel? true}
+    ;; ★ 现在符号表已包含依赖模块的符号，再构建别名映射
+    (let [user-aliases (reduce merge {}
+                          (map (fn [ns-node]
+                                 (ns-info/ns-reference-aliases ns-node (ip/symbol-table context)))
+                               ns-nodes))
+          ;; 显式添加标准库 cljh.core 的所有导出符号作为别名
+          std-aliases (ns-info/ns-exported-syms (ip/symbol-table context) 'cljh.core)
+          aliases (merge user-aliases std-aliases)
+          env0 {:self-ns self-ns :aliases aliases :locals #{} :global-defs #{} :toplevel? true}
           [qualified-non-ns _]
           (reduce (fn [[nodes env] root]
                     (let [[new-root new-env] (resolve-node root env)]

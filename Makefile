@@ -9,7 +9,7 @@ clean:
 	clj -T:build clean
 
 compile:
-	clj -T:build compile
+	clj -T:build compile-clj
 
 # test 自动发现 test 目录下所有 *_test.clj 文件
 test: compile

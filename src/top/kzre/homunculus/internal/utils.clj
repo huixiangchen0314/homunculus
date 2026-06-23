@@ -1,7 +1,10 @@
 (ns top.kzre.homunculus.internal.utils
   "编译器内部工具函数"
-  (:require [clojure.string :as str])
-  (:import (java.io FileNotFoundException PushbackReader StringReader)))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.string :as str])
+  (:import
+   (java.io FileNotFoundException PushbackReader StringReader)))
 
 ;; ── 符号转换工具 ────────────────────────
 (defn ->symbol
@@ -66,9 +69,19 @@
                (catch FileNotFoundException _ nil)))
         paths))
 
+;; 新增：将命名空间符号转换为 classpath 资源路径
+(defn- ns->resource-path [ns-sym]
+  (-> (name ns-sym)
+      (str/replace "." "/")
+      (str/replace "-" "_")
+      (str ".clj")))
+
 (defn resolve-module
+  "从 lib-paths 中查找模块源文件，若找不到则尝试从 classpath 资源加载（用于标准库等）。"
   [lib-paths ns-sym]
-  (resolve-file (module-candidates lib-paths ns-sym)))
+  (or (resolve-file (module-candidates lib-paths ns-sym))
+      (when-let [res (io/resource (ns->resource-path ns-sym))]
+        (slurp res))))
 
 
 (defn parse-forms

@@ -3,9 +3,12 @@
             [top.kzre.homunculus.core.types.lambda-elim.core :as elim]))
 
 (defmethod elim/eliminate :define [node config env]
-  (let [[new-val val-defs] (if-let [val (n/define-val node)]
-                             (elim/eliminate val config env)
-                             [nil []])]
-    [(n/make-define (n/define-name node) new-val (n/define-doc node)
-                    (n/attrs node) (n/node-meta node) (n/parent node))
-     val-defs]))
+  (if (-> node n/attrs :ho?)
+    ;; 高阶函数跳过，由 ho-elim 内联展开
+    [node []]
+    (let [[new-val val-defs] (if-let [val (n/define-val node)]
+                               (elim/eliminate val config env)
+                               [nil []])]
+      [(n/make-define (n/define-name node) new-val (n/define-doc node)
+                      (n/attrs node) (n/node-meta node) (n/parent node))
+       val-defs])))

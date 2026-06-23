@@ -30,7 +30,7 @@
            (%%aset x 1 1)
            (%%aset x 2 2)
            ;; 使用 my-map 对 x 的每个元素加 1
-           (def y (l/my-map (fn [v] (+ v 1)) x))
+           (def y (map (fn [v] (+ v 1)) x))
            (let [worldPos (mul worldViewProj pos)]
              (float4 (float3 1.0 1.0 1.0) 1.0)))
 

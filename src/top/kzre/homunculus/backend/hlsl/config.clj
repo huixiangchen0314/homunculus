@@ -6,11 +6,13 @@
    [top.kzre.homunculus.backend.hlsl.frontend :as hlsl-front]
    [top.kzre.homunculus.core.ir1.api :as ir1]
    [top.kzre.homunculus.core.ir2.api :as ir2]
+   [top.kzre.homunculus.core.types.alias :as alias]
    [top.kzre.homunculus.core.ir2.node :as n]
    [top.kzre.homunculus.core.types.alpha-rename :as rename]
    [top.kzre.homunculus.core.types.check.api :as check]
    [top.kzre.homunculus.core.types.constraint.api :as solve]
    [top.kzre.homunculus.core.types.dc-elim.core :as dce]
+   [top.kzre.homunculus.core.types.inline.api :as inline]
    [top.kzre.homunculus.core.types.fold.core :as fold]
    [top.kzre.homunculus.core.types.ho-elim.core :as ho-elim]
    [top.kzre.homunculus.core.types.infer.api :as infer]
@@ -59,10 +61,13 @@
             ir1-roots (mapv ir1/->ir1 processed)
             ir2-roots (mapcat ir2/->ir2 ir1-roots)
             ir2-roots' (mapv rename/rename ir2-roots)
+            ir2-roots' (alias/apply-alias ir2-roots' context frontend)
             ir2-roots' (module/resolve-ns ir2-roots' context frontend)
             _          (module/collect-symbols ir2-roots' context)
-            inlined    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
-            no-closure (lambda-elim/eliminate inlined lift-cfg)
+            ir2-roots' (inline/analyze ir2-roots')   ;; 分析标记
+            ir2-roots' (inline/process ir2-roots' (inline/make-context context frontend backend))  ;; 执行内联
+            no-ho    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
+            no-closure (lambda-elim/eliminate no-ho lift-cfg)
             no-recur   (mapv recur/eliminate no-closure)
             folded     (fold/fold no-recur (fold/make-context context frontend backend (folder/folder)))
             inferred   (infer/infer folded (infer/make-context context frontend backend))
@@ -82,11 +87,14 @@
                   (remove n/ns-node? all-roots)
                   all-roots)
           ;; 全局 DCE（暂用现有函数，或跳过）
-          no-dead   (dce/eliminate-ho-defs roots context)
+          dce-ctx (dce/make-context context)   ;; 使用默认配置
+          roots (dce/eliminate-ho-defs roots dce-ctx)
+          roots (dce/eliminate-inline-defs roots dce-ctx)
+          roots (dce/eliminate-polymorphic-defs roots dce-ctx)
           ;; 最终类型检查
           frontend  (hlsl-front/->HLSLFrontend)
           backend   (hlsl-backend/->HLSLBackend)
-          checked   (check/check no-dead (check/make-context context frontend backend))
+          checked   (check/check roots (check/make-context context frontend backend))
           ;; 代码生成
           result    (emit/emit checked (emit/make-context context frontend))]
       result)))

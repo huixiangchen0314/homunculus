@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.core.types.namespace
   "对命名空间节点的数据处理工具。仅提供业务逻辑，基础访问器由 ir2.node 提供。"
-  (:require [top.kzre.homunculus.core.ir2.node :as n]))
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.internal.symbol :as sym]))
 
 (defn ns-dependency-syms
   "从 ns 节点中提取所有被 require 的外部命名空间符号。
@@ -17,17 +18,37 @@
          (distinct)
          (vec))))
 
-(defn ns-reference-aliases
-  "从 ns 节点中提取 :require 的别名映射，返回 {alias-sym -> full-ns-sym}。
-   references 已解析为向量，元素为符号或 [ns-sym :as alias] 形式。"
-  [ns-node]
-  (let [refs (n/namespace-references ns-node)]
+
+(defn ns-exported-syms
+  "从全局符号表中提取命名空间 ns-sym 的所有公开符号，
+   返回 {short-name -> fully-qualified-sym} 映射。"
+  [symbol-table ns-sym]
+  (let [ns-str (str ns-sym)]
     (into {}
-          (keep (fn [ref]
-                  (when (and (sequential? ref)
-                             (= (count ref) 3)
-                             (symbol? (first ref))
-                             (= :as (second ref))
-                             (symbol? (nth ref 2)))
-                    [(nth ref 2) (first ref)]))
-                refs))))
+          (keep (fn [[sym entry]]
+                  (when (and (symbol? sym)
+                             (= (namespace sym) ns-str)
+                             (not (:private (meta entry))))
+                    [(symbol (name sym)) sym])))
+          symbol-table)))
+
+(defn ns-reference-aliases
+  "从 ns 节点中提取别名映射，包括 :as 别名和 :refer :all 引入的符号。
+   返回 {alias-sym -> full-ns-sym} 映射。"
+  [ns-node symbol-table]
+  (let [refs (n/namespace-references ns-node)]
+    (reduce merge {}
+            (keep (fn [ref]
+                    (cond
+                      ;; [ns :as alias]
+                      (and (vector? ref) (= (count ref) 3) (= :as (second ref)))
+                      {(nth ref 2) (first ref)}
+
+                      ;; [ns :refer :all]
+                      (and (vector? ref) (= (count ref) 3) (= :refer (second ref)) (= :all (nth ref 2)))
+                      (let [ns-sym (first ref)
+                            all-syms (ns-exported-syms symbol-table ns-sym)]
+                        all-syms)
+
+                      :else nil))
+                  refs))))

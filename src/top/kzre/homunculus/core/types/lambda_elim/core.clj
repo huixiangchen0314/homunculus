@@ -23,14 +23,14 @@
   (if (satisfies? ir2p/INode node)
     (let [kind (n/kind node)]
       (case kind
-        :lambda true                           ;; 任何 lambda 都视为闭包（应为已经排除顶层定义）
-        :define (if-let [val (n/define-val node)]
-                  ;; 如果定义的值是 lambda，则检查其 body 内部（不把定义本身算作闭包）
-                  (if (= :lambda (n/kind val))
-                    (has-lambda? (n/lambda-body val))
-                    (has-lambda? val))
-                  false)
-        ;; 其他节点检查 children
+        :lambda true
+        :define (if (-> node n/attrs :ho?)
+                  false   ;; 高阶函数跳过，交给 ho-elim 内联
+                  (if-let [val (n/define-val node)]
+                    (if (= :lambda (n/kind val))
+                      (has-lambda? (n/lambda-body val))
+                      (has-lambda? val))
+                    false))
         (some has-lambda? (n/children node))))
     false))
 

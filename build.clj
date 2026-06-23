@@ -17,8 +17,8 @@
                 :basis basis
                 :javac-opts ["-source" "8" "-target" "8"]}))
 
-;; 编译 src 下所有 Clojure 源文件（确保 defrecord 等生成类）
-(defn compile [_]
+;; 编译 src 下的 Clojure 源文件（标准库已移至 resources，不会被编译）
+(defn compile-clj [_]
       (b/compile-clj {:basis basis
                       :src-dirs ["src"]
                       :class-dir class-dir}))
@@ -33,15 +33,19 @@
                     :scm {:url "https://github.com/your-user/homunculus"
                           :connection "scm:git:git://github.com/your-user/homunculus.git"
                           :developerConnection "scm:git:ssh://git@github.com:your-user/homunculus.git"}})
-      (b/copy-dir {:src-dirs ["src" "resources"]
+      ;; 复制 resources 目录到 classes，标准库作为资源包含
+      (b/copy-dir {:src-dirs ["resources"]
                    :target-dir class-dir})
       (b/jar {:class-dir class-dir
               :jar-file jar-file}))
 
 (defn uberjar [_]
       (clean nil)
-      (compile nil)   ;; 先编译全部
+      (compile-clj nil)
+      ;; 复制 resources 到 class-dir，确保标准库等资源包含在 uberjar 中
+      (b/copy-dir {:src-dirs ["resources"]
+                   :target-dir class-dir})
       (b/uber {:class-dir class-dir
                :uber-file uber-file
                :basis basis
-               :main 'top.kzre.homunculus.core.ir2}))
+               :main 'top.kzre.homunculus.cli.core}))

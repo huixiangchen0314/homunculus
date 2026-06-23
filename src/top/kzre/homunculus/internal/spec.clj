@@ -14,6 +14,8 @@
 (s/def ::kind #{:function :record :protocol :variable :primitive :alias})
 
 (s/def ::ho? boolean?)
+(s/def ::inline boolean?)    ;; 新增：标记函数是否应被内联
+(s/def ::polymorphic  boolean?)
 (s/def ::ir2 any?)   ;; ir2 抽象语法树.
 
 ;; ── 通用字段（所有条目共有） ──
@@ -35,7 +37,7 @@
 ;; 函数条目：支持多重重载 (arities) 或简单单重载 (params + ret)
 (s/def ::function-entry
   (s/merge ::common-entry
-           (s/keys :opt-un [::params ::ret ::arities ::ho? ::ir2])))
+           (s/keys :opt-un [::params ::ret ::arities ::ho? ::ir2 ::inline ::polymorphic])))
 
 ;; ── 记录特有字段 ──
 (s/def ::field-name symbol?)

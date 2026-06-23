@@ -196,4 +196,7 @@
   (truly-type [_] 'bool)    ; HLSL 要求 if 条件为 bool
   (integer-type [_] 'int)
   (dynamic? [_] false)
-  (macro-namespaces [_] #{'top.kzre.homunculus.backend.shader.dsl}))
+  (macro-namespaces [_] #{'top.kzre.homunculus.backend.shader.dsl
+                          'top.kzre.homunculus.core
+                          'cljh.core                        ;; 不编译标准库
+                          }))
