@@ -1,5 +1,5 @@
 (ns top.kzre.homunculus.examples.hlsl-lambert.core
-  (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]
+  (:require [top.kzre.homunculus.backend.shader.dsl :refer :all] ;; 不支持对编译模块用 refer all
             [top.kzre.homunculus.examples.hlsl-lambert.lib :as l]))
 
 ;; ── 资源声明 ──────────────────────────────

@@ -6,20 +6,31 @@
             [top.kzre.homunculus.core.types.type :as t]))
 
 (defmethod gen/cg-node-raw :define [node context]
-  (let [[val-tv val-node val-constr val-ctx] (gen/cg-node-raw (n/define-val node) context)
-        ;; 用户标注类型（若存在则必定为 TCon，无需额外判断）
-        annotated-ty (t/get-type node (u/known-types context))
-        final-tv     (or annotated-ty val-tv)
-        extra-constr (when annotated-ty
-                       [(c/make-cequal val-tv annotated-ty)])
-        new-node     (n/make-define (n/define-name node)
-                                    val-node
-                                    (n/define-doc node)
-                                    (n/attrs node)
-                                    (n/node-meta node)
-                                    (n/parent node))
-        ;; 将定义名与最终类型写入环境
-        new-ctx      (u/extend-env val-ctx (n/define-name node) final-tv)]
-    [final-tv (t/set-type! new-node final-tv)
-     (concat val-constr extra-constr)
-     new-ctx]))
+  (if (true? (:ho? (n/attrs node)))
+    ;; 高阶函数：不处理值节点，分配自由类型变量，不生成约束，不写入环境
+    (let [tv (gen/fresh-tvar)
+          new-node (n/make-define (n/define-name node)
+                                  (n/define-val node)   ; 保持原值不变
+                                  (n/define-doc node)
+                                  (n/attrs node)
+                                  (n/node-meta node)
+                                  (n/parent node))]
+      [tv (t/set-type! new-node tv) nil context])
+
+    (let [[val-tv val-node val-constr val-ctx] (gen/cg-node-raw (n/define-val node) context)
+          ;; 用户标注类型（若存在则必定为 TCon，无需额外判断）
+          annotated-ty (t/get-type node (u/known-types context))
+          final-tv     (or annotated-ty val-tv)
+          extra-constr (when annotated-ty
+                         [(c/make-cequal val-tv annotated-ty)])
+          new-node     (n/make-define (n/define-name node)
+                                      val-node
+                                      (n/define-doc node)
+                                      (n/attrs node)
+                                      (n/node-meta node)
+                                      (n/parent node))
+          ;; 将定义名与最终类型写入环境
+          new-ctx      (u/extend-env val-ctx (n/define-name node) final-tv)]
+      [final-tv (t/set-type! new-node final-tv)
+       (concat val-constr extra-constr)
+       new-ctx])))

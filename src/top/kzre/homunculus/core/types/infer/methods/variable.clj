@@ -6,14 +6,6 @@
     [top.kzre.homunculus.core.types.type :as t]
     [top.kzre.homunculus.internal.symbol :as sym]))
 
-(ns top.kzre.homunculus.core.types.infer.methods.variable
-  (:require
-    [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.types.env :as e]
-    [top.kzre.homunculus.core.types.infer.core :as core]
-    [top.kzre.homunculus.core.types.type :as t]
-    [top.kzre.homunculus.internal.symbol :as sym]))
-
 (defmethod core/local-infer :variable [node context]
   (let [env  (core/env context)
         name (n/var-name node)
