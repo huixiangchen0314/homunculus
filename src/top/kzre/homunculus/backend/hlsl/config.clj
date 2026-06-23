@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.backend.hlsl.config
-  "HLSL 后端的 ICompiler 实现，整合所有 Pass 并输出 HLSL 代码。"
   (:require
+    ;; 原有 require
     [top.kzre.homunculus.backend.hlsl.api :as emit]
     [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
     [top.kzre.homunculus.backend.hlsl.frontend :as hlsl-front]
@@ -19,7 +19,10 @@
     [top.kzre.homunculus.core.types.module.api :as module]
     [top.kzre.homunculus.core.types.mutability.core :as mut]
     [top.kzre.homunculus.core.types.recur-elim.api :as recur]
-    [top.kzre.homunculus.internal.protocol :as p]))
+    [top.kzre.homunculus.internal.protocol :as p]
+    [top.kzre.homunculus.internal.model :as model]
+    [top.kzre.homunculus.internal.utils :as u]
+    [top.kzre.homunculus.internal.module-unit :as mu]))
 
 ;; ── 闭包消除配置 ──────────────────────
 (defn- default-lift-config []
@@ -34,40 +37,54 @@
 
 (defrecord HLSLCompiler []
   p/ICompiler
+
+  ;; 单文件便捷编译（保留现有逻辑，或调用模块化方法）
   (emit [_this forms context]
-    (let [frontend   (hlsl-front/->HLSLFrontend)
-          backend    (hlsl-backend/->HLSLBackend)
-          lift-cfg   (default-lift-config)
+    (let [ns-sym (-> forms first second)]  ;; 获取 ns 表单的命名空间
+      (p/compile-module _this ns-sym context)
+      (p/link _this context)))
 
-          processed (ir1/preprocess forms)
-          ir1-roots  (mapv ir1/->ir1 processed)
-          ir2-roots  (mapcat ir2/->ir2 ir1-roots)
-          ir2-roots' (mapv rename/rename ir2-roots)
+  ;; 模块编译
+  (compile-module [_this ns-sym context]
+    (let [lib-paths (p/lib-paths (p/config context))
+          src       (u/resolve-module lib-paths ns-sym)]
+      (when-not src
+        (throw (ex-info "Module not found" {:module ns-sym :paths lib-paths})))
+      (let [forms     (u/parse-forms src)
+            frontend  (hlsl-front/->HLSLFrontend)
+            backend   (hlsl-backend/->HLSLBackend)
+            lift-cfg  (default-lift-config)
 
-          ir2-roots' (module/resolve-ns ir2-roots' context)
-          _          (module/collect-symbols ir2-roots' context)
+            processed (ir1/preprocess forms)
+            ir1-roots (mapv ir1/->ir1 processed)
+            ir2-roots (mapcat ir2/->ir2 ir1-roots)
+            ir2-roots' (mapv rename/rename ir2-roots)
+            ir2-roots' (module/resolve-ns ir2-roots' context)
+            _          (module/collect-symbols ir2-roots' context)
+            inlined    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
+            no-ho      (dce/eliminate-ho-defs inlined context)
+            no-closure (lambda-elim/eliminate no-ho lift-cfg)
+            no-recur   (mapv recur/eliminate no-closure)
+            folded     (fold/fold no-recur (fold/make-context context frontend backend (folder/folder)))
+            inferred   (infer/infer folded (infer/make-context context frontend backend))
+            solved     (solve/process inferred (solve/make-context context frontend backend))
+            mutable    (mut/analyze solved)
 
-          ;; 高阶消除
-          inlined    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
+            unit       (mu/->ModuleUnit ns-sym mutable)]
+        (model/set-module-unit! context ns-sym unit)
+        unit)))
 
-          ;; 死代码消除
-          no-ho      (dce/eliminate-ho-defs inlined context)
 
-          ;; 闭包消除
-          no-closure (lambda-elim/eliminate no-ho lift-cfg)
-
-          ;; ★ 递归消除提前到类型推导之前
-          no-recur   (mapv recur/eliminate no-closure)
-          folded     (fold/fold no-recur (fold/make-context context frontend backend (folder/folder)))
-          ;; 类型推导基于已消除递归的 IR
-          inferred   (infer/infer folded (infer/make-context context frontend backend))
-          ;; 约束求解
-          solved     (solve/process inferred (solve/make-context context frontend backend))
-
-          ;; 可变性分析
-          mutable    (mut/analyze solved)
-          ;; 双向检查 + 隐式转换插入
-          checked    (check/check mutable (check/make-context context frontend backend))
-          _          (module/collect-symbols mutable context)]
-
-      (emit/emit checked (emit/make-context context frontend)))))
+  ;; 全局链接
+  (link [_this context]
+    (let [all-units (vals (get-in @(:state context) [:modules]))
+          all-roots (mapcat :ir2-roots all-units)
+          ;; 全局 DCE（暂用现有函数，或跳过）
+          no-dead   (dce/eliminate-ho-defs all-roots context)
+          ;; 最终类型检查
+          frontend  (hlsl-front/->HLSLFrontend)
+          backend   (hlsl-backend/->HLSLBackend)
+          checked   (check/check no-dead (check/make-context context frontend backend))
+          ;; 代码生成
+          result    (emit/emit checked (emit/make-context context frontend))]
+      result)))

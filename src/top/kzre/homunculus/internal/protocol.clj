@@ -19,6 +19,16 @@
   (register-sym [this sym-entry] "注册一个符号表项")
   (symbol-table      [this ] "返回全局符号表"))
 
+
 (defprotocol ICompiler
-  "完整的编译器后端：接收合并后的表单序列，产出目标代码。"
-  (emit [this forms context] "编译表单序列，返回目标代码字符串。"))
+  "编译器后端。支持模块化编译与链接。"
+  (compile-module [this ns-sym context]
+    "编译单个命名空间模块，返回 ModuleUnit。
+     会递归编译依赖，执行 IR 构建、类型推断及约束求解，
+     但不执行全局死代码消除、最终类型检查及代码生成。")
+  (link [this context]
+    "收集所有已编译的 ModuleUnit，执行全局优化和检查，
+     最终生成目标代码字符串。")
+  ;; 保留单文件便捷方法
+  (emit [this forms context]
+    "单文件全流程编译，通常用于测试。"))

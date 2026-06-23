@@ -14,7 +14,7 @@
 (s/def ::kind #{:function :record :protocol :variable :primitive :alias})
 
 (s/def ::ho? boolean?)
-(s/def ::ir2 any?)   ;; ir2 抽象语法数.
+(s/def ::ir2 any?)   ;; ir2 抽象语法树.
 
 ;; ── 通用字段（所有条目共有） ──
 (s/def ::common-entry
