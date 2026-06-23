@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.examples.hlsl-lambert.core
   (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]
-            [my.shaders.fog]))
+            [top.kzre.homunculus.examples.hlsl-lambert.lib :as l]))
 
 ;; ── 资源声明 ──────────────────────────────
 (deftexture myTexture :t0)
@@ -19,15 +19,6 @@
 
 (defrecord MyInout [^:SV_TARGET ^float a 0.0])
 
-;; ── 用户自定义高阶函数 (测试用) ──────────
-(defn my-map [f coll]
-  (let [n (%%alength coll)
-        arr (%%new-array n)]
-    (loop [i 0]
-      (if (< i n)
-        (do (%%aset arr i (f (%%aget coll i)))
-            (recur (+ i 1)))
-        arr))))
 
 ;; ── 顶点着色器 (包含高阶调用测试) ────────
 (defshader :vertex vsMain
@@ -39,7 +30,7 @@
            (%%aset x 1 1)
            (%%aset x 2 2)
            ;; 使用 my-map 对 x 的每个元素加 1
-           (def y (my-map (fn [v] (+ v 1)) x))
+           (def y (l/my-map (fn [v] (+ v 1)) x))
            (let [worldPos (mul worldViewProj pos)]
              (float4 (float3 1.0 1.0 1.0) 1.0)))
 

@@ -16,3 +16,18 @@
                        [ns-sym]))))
          (distinct)
          (vec))))
+
+(defn ns-reference-aliases
+  "从 ns 节点中提取 :require 的别名映射，返回 {alias-sym -> full-ns-sym}。
+   references 已解析为向量，元素为符号或 [ns-sym :as alias] 形式。"
+  [ns-node]
+  (let [refs (n/namespace-references ns-node)]
+    (into {}
+          (keep (fn [ref]
+                  (when (and (sequential? ref)
+                             (= (count ref) 3)
+                             (symbol? (first ref))
+                             (= :as (second ref))
+                             (symbol? (nth ref 2)))
+                    [(nth ref 2) (first ref)]))
+                refs))))
