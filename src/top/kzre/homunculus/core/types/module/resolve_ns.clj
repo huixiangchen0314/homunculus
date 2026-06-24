@@ -6,7 +6,7 @@
     [top.kzre.homunculus.core.ir2.protocol :as ir2p]
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.protocol :as types]
-    [top.kzre.homunculus.core.types.namespace :as ns-info]
+    [top.kzre.homunculus.core.types.namespace :as namespace]
     [top.kzre.homunculus.internal.protocol :as ip]))
 
 ;; ── 环境操作 ──
@@ -337,7 +337,7 @@
         macro-ns      (when frontend (types/macro-namespaces frontend))
         macro-ns      (or macro-ns #{})
         dep-syms (->> ns-nodes
-                      (mapcat ns-info/ns-dependency-syms)
+                      (mapcat namespace/ns-dependency-syms)
                       (remove macro-ns))
         ;; 自动追加标准库依赖
         dep-syms (cond-> dep-syms
@@ -348,10 +348,10 @@
     ;; ★ 现在符号表已包含依赖模块的符号，再构建别名映射
     (let [user-aliases (reduce merge {}
                           (map (fn [ns-node]
-                                 (ns-info/ns-reference-aliases ns-node (ip/symbol-table context)))
+                                 (namespace/ns-reference-aliases ns-node (ip/symbol-table context)))
                                ns-nodes))
           ;; 显式添加标准库 cljh.core 的所有导出符号作为别名
-          std-aliases (ns-info/ns-exported-syms (ip/symbol-table context) 'cljh.core)
+          std-aliases (namespace/ns-exported-syms (ip/symbol-table context) 'cljh.core)
           aliases (merge user-aliases std-aliases)
           env0 {:self-ns self-ns :aliases aliases :locals #{} :global-defs #{} :toplevel? true}
           [qualified-non-ns _]

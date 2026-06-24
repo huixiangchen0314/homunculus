@@ -3,9 +3,11 @@
 
 (defprotocol ICompileConfig
   "一次编译指令所需的静态配置。"
+  (options [this] "原始 options map")
   (source-paths [this] "入口源文件路径列表")
   (lib-paths    [this] "库文件的搜索路径列表")
   (output-dir   [this] "编译输出目录")
+  (target       [this] "目标平台，如 :hlsl :glsl")
   (module-naming-style [this]
     "模块命名风格：:default、:flat 或 :flat-snake。
      :default - Java 风格，点分隔目录，例如 a.b.c -> a/b/c.hlsl
@@ -22,7 +24,7 @@
 
 (defprotocol ICompiler
   "编译器后端。支持模块化编译与链接。"
-  (compile-module [this ns-sym context]
+  (compile-module [this forms context]
     "编译单个命名空间模块，返回 ModuleUnit。
      会递归编译依赖，执行 IR 构建、类型推断及约束求解，
      但不执行全局死代码消除、最终类型检查及代码生成。")
@@ -30,5 +32,5 @@
     "收集所有已编译的 ModuleUnit，执行全局优化和检查，
      最终生成目标代码字符串。")
   ;; 保留单文件便捷方法
-  (emit [this forms context]
-    "单文件全流程编译，通常用于测试。"))
+  (emit [this unit context]
+    "发射单个 ModuleUnit，执行最终类型检查，返回生成代码."))

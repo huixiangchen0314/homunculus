@@ -1,14 +1,20 @@
 (ns top.kzre.homunculus.cli.core
-  "Homunculus 编译器命令行入口。"
   (:gen-class)
-  (:require [top.kzre.homunculus.backend.hlsl.config :as hlsl]
-            [top.kzre.homunculus.internal.model :as model]
-            [top.kzre.homunculus.internal.protocol :as p]
-            [top.kzre.homunculus.internal.utils :as u]
-            [top.kzre.homunculus.cli.options :as opts]))
+  (:require
+    [top.kzre.homunculus.backend.hlsl.config :as hlsl]
+    [top.kzre.homunculus.internal.model :as model]
+    [top.kzre.homunculus.internal.protocol :as p]
+    [top.kzre.homunculus.internal.utils :as u]
+    [top.kzre.homunculus.cli.options :as opts]
+    [clojure.java.io :as io]))
 
-(defn -main
-  [& args]
+(defn- compiler-for-target [target]
+  (case target
+    :hlsl (hlsl/->HLSLCompiler)
+    ;; 未来可添加其他后端
+    (throw (ex-info (str "Unsupported target: " target) {:target target}))))
+
+(defn -main [& args]
   (let [parsed (opts/parse-opts args)
         {:keys [options files errors]} parsed]
     (when (seq errors)
@@ -25,23 +31,38 @@
       (println (opts/usage-string))
       (System/exit 1))
 
-    (let [compiler   (hlsl/->HLSLCompiler)
-          lib-paths  (if-let [libs (not-empty (:lib options))]
-                       libs
-                       ["."])   ;; 默认当前目录为库搜索路径
-          config     (model/->CompileConfig (or (:include options) [])
-                                            lib-paths
-                                            (:output options))
-          state      (atom {:compiling #{} :modules {} :symbol-table {}})
-          context    (model/->DefaultCompileContext config compiler state)]
-      ;; 逐个文件编译模块
+    (let [target   (keyword (get options :target "hlsl"))
+          compiler (compiler-for-target target)
+          lib-paths (or (not-empty (:lib options)) ["."])
+          config   (model/->CompileConfig options
+                                          (or (:include options) [])
+                                          lib-paths
+                                          (:output options)
+                                          target
+                                          (:style options))
+          state    (atom {:compiling #{} :modules {} :symbol-table {}})
+          context  (model/->DefaultCompileContext config compiler state)]
+
+      ;; 编译所有输入文件
       (doseq [file-path files]
-        (let [src    (slurp file-path)
-              forms  (u/parse-forms src)
-              ns-sym (second (first forms))]   ; 从 (ns ...) 提取命名空间符号
-          (when-not ns-sym
-            (throw (ex-info "无法确定命名空间" {:file file-path})))
-          (p/compile-module compiler ns-sym context)))
-      ;; 链接并输出
-      (let [code (p/link compiler context)]
-        (println code)))))
+        (let [src   (slurp file-path)
+              forms (u/parse-forms src)]
+          (p/compile-module compiler forms context )))
+
+      ;; 输出
+      (if (:split-modules options)
+        ;; 分割输出：每个模块单独生成文件，使用配置的命名风格
+        (let [all-units (vals (get-in @state [:modules]))
+              out-dir   (:output options "out")
+              style     (p/module-naming-style config)]   ;; 从配置获取风格
+          (doseq [unit all-units]
+            (let [code     (p/emit compiler unit context)
+                  ns-sym   (:ns-sym unit)
+                  filename (u/ns->module-path ns-sym style ".hlsl")
+                  f (io/file out-dir filename)]  ;; 根据风格生成文件名
+              (io/make-parents f)
+              (spit f code)
+              (println "生成文件:" (str out-dir "/" filename)))))
+        ;; 合并输出（单文件链接）
+        (let [code (p/link compiler context)]
+          (println code))))))

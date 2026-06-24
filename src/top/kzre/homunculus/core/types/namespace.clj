@@ -1,7 +1,8 @@
 (ns top.kzre.homunculus.core.types.namespace
   "对命名空间节点的数据处理工具。仅提供业务逻辑，基础访问器由 ir2.node 提供。"
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.internal.symbol :as sym]))
+  (:require
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.types.protocol :as p]))
 
 (defn ns-dependency-syms
   "从 ns 节点中提取所有被 require 的外部命名空间符号。
