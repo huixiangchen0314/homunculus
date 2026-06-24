@@ -27,26 +27,31 @@
   [ty subst]
   (let [visited (atom #{})]
     (letfn [(sub [t]
-              (let [kind (p/type-kind t)]
-                (case kind
-                  :var (if-let [new (get subst t)]
-                         (if (contains? @visited t)
-                           t   ;; 检测到循环，停止替换
-                           (do (swap! visited conj t)
-                               (sub new)))
-                         t)
-                  :fun (t/->TFun (sub (:arg t)) (sub (:ret t)))
-                  :vec (t/->TVec (sub (ty/vec-element-type t))
-                                 (let [sz (ty/vec-size t)]
-                                   (if (ty/var-type? sz)
-                                     (sub sz)
-                                     sz)))
-                  :hetero-vec (t/->THeteroVec (mapv sub (ty/hetero-vec-types t)))
-                  :hetero-map (t/->THeteroMap
-                                (mapv (fn [[k v]] [k (sub v)])
-                                      (:entries t)))
-                  ;; 其他类型原样返回
-                  t)))]
+              (when t
+                (let [kind (p/type-kind t)]
+                  (case kind
+                    :var (if-let [new (get subst t)]
+                           (if (contains? @visited t)
+                             t   ;; 检测到循环，停止替换
+                             (do (swap! visited conj t)
+                                 (sub new)))
+                           t)
+                    :fun (let [new-arg (sub (:arg t))
+                               new-ret (sub (:ret t))]
+                           (if (and new-arg new-ret)
+                             (t/->TFun new-arg new-ret)
+                             t))
+                    :vec (let [elem-ty (sub (ty/vec-element-type t))
+                               sz       (ty/vec-size t)
+                               new-sz   (if (and sz (ty/var-type? sz)) (sub sz) sz)]
+                           (if elem-ty
+                             (t/->TVec elem-ty new-sz)
+                             t))
+                    :hetero-vec (let [new-types (mapv sub (ty/hetero-vec-types t))]
+                                  (t/->THeteroVec new-types))
+                    :hetero-map (let [new-entries (mapv (fn [[k v]] [k (sub v)]) (:entries t))]
+                                  (t/->THeteroMap new-entries))
+                    t))))]
       (sub ty))))
 
 ;; ── 统一 ──

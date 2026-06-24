@@ -99,27 +99,27 @@
   (n/make-member-access (replace-expr (n/access-target node) var-name replacement)
                         (n/access-member node)
                         (mapv #(replace-expr % var-name replacement) (n/access-args node))
-                        (n/node-meta node) (n/parent node)))
+                        (n/attrs node) (n/node-meta node) (n/parent node)))
 
-;; 数组特殊节点
+;; 数组特殊节点（补充 attrs）
 (defmethod replace-expr :new-array [node var-name replacement]
   (n/make-new-array (replace-expr (n/new-array-size node) var-name replacement)
-                    (n/node-meta node) (n/parent node)))
+                    (n/attrs node) (n/node-meta node) (n/parent node)))
 
 (defmethod replace-expr :aget [node var-name replacement]
   (n/make-aget (replace-expr (n/aget-target node) var-name replacement)
                (replace-expr (n/aget-idx node) var-name replacement)
-               (n/node-meta node) (n/parent node)))
+               (n/attrs node) (n/node-meta node) (n/parent node)))
 
 (defmethod replace-expr :aset [node var-name replacement]
   (n/make-aset (replace-expr (n/aset-target node) var-name replacement)
                (replace-expr (n/aset-idx node) var-name replacement)
                (replace-expr (n/aset-val node) var-name replacement)
-               (n/node-meta node) (n/parent node)))
+               (n/attrs node) (n/node-meta node) (n/parent node)))
 
 (defmethod replace-expr :alength [node var-name replacement]
   (n/make-alength (replace-expr (n/alength-target node) var-name replacement)
-                  (n/node-meta node) (n/parent node)))
+                  (n/attrs node) (n/node-meta node) (n/parent node)))
 
 ;; 无子节点类型
 (defmethod replace-expr :ns [node _ _] node)

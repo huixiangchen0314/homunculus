@@ -186,25 +186,25 @@
 
 (defmethod resolve-node :new-array [node env]
   (let [[new-size env'] (resolve-node (n/new-array-size node) env)]
-    [(n/make-new-array new-size (n/node-meta node) (n/parent node))
+    [(n/make-new-array new-size (n/attrs node) (n/node-meta node) (n/parent node))
      env']))
 
 (defmethod resolve-node :aget [node env]
   (let [[new-target env1] (resolve-node (n/aget-target node) env)
         [new-idx env2] (resolve-node (n/aget-idx node) env1)]
-    [(n/make-aget new-target new-idx (n/node-meta node) (n/parent node))
+    [(n/make-aget new-target new-idx (n/attrs node) (n/node-meta node) (n/parent node))
      env2]))
 
 (defmethod resolve-node :aset [node env]
   (let [[new-target env1] (resolve-node (n/aset-target node) env)
         [new-idx env2] (resolve-node (n/aset-idx node) env1)
         [new-val env3] (resolve-node (n/aset-val node) env2)]
-    [(n/make-aset new-target new-idx new-val (n/node-meta node) (n/parent node))
+    [(n/make-aset new-target new-idx new-val (n/attrs node) (n/node-meta node) (n/parent node))
      env3]))
 
 (defmethod resolve-node :alength [node env]
   (let [[new-target env'] (resolve-node (n/alength-target node) env)]
-    [(n/make-alength new-target (n/node-meta node) (n/parent node))
+    [(n/make-alength new-target (n/attrs node) (n/node-meta node) (n/parent node))
      env']))
 
 (defmethod resolve-node :vector [node env]
@@ -238,7 +238,7 @@
                                 [[] env1]
                                 args)]
     [(n/make-member-access new-target (n/access-member node) new-args
-                           (n/node-meta node) (n/parent node))
+                           (n/attrs node) (n/node-meta node) (n/parent node))
      env2]))
 
 (defmethod resolve-node :convert [node env]

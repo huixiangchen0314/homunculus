@@ -431,13 +431,16 @@
   (keyword? (access-member node)))
 
 ;; 构造函数
+;; top.kzre.homunculus.core.ir2.node
 (defn make-member-access
   ([target accessor args]
-   (m/->MemberAccessNode target accessor args nil nil))
-  ([target accessor args meta]
-   (m/->MemberAccessNode target accessor args meta nil))
-  ([target accessor args meta parent]
-   (m/->MemberAccessNode target accessor args meta parent)))
+   (m/->MemberAccessNode target accessor args {} nil nil))
+  ([target accessor args attrs]
+   (m/->MemberAccessNode target accessor args attrs nil nil))
+  ([target accessor args attrs meta]
+   (m/->MemberAccessNode target accessor args attrs meta nil))
+  ([target accessor args attrs meta parent]
+   (m/->MemberAccessNode target accessor args attrs meta parent)))
 
 ;; 更新器
 (defn member-access-with-target   [node target]   (assoc node :target target))
@@ -508,9 +511,10 @@
 (defn new-array-size [node] (:size node))
 
 (defn make-new-array
-  ([size]                      (m/->NewArrayNode size nil nil))
-  ([size meta]                (m/->NewArrayNode size meta nil))
-  ([size meta parent]         (m/->NewArrayNode size meta parent)))
+  ([size]                      (m/->NewArrayNode size {} nil nil))
+  ([size attrs]                (m/->NewArrayNode size attrs nil nil))
+  ([size attrs meta]           (m/->NewArrayNode size attrs meta nil))
+  ([size attrs meta parent]    (m/->NewArrayNode size attrs meta parent)))
 
 ;; AGetNode
 (defn aget-node? [node] (= (kind node) :aget))
@@ -518,9 +522,10 @@
 (defn aget-idx    [node] (:idx node))
 
 (defn make-aget
-  ([target idx]              (m/->AGetNode target idx nil nil))
-  ([target idx meta]         (m/->AGetNode target idx meta nil))
-  ([target idx meta parent]  (m/->AGetNode target idx meta parent)))
+  ([target idx]              (m/->AGetNode target idx {} nil nil))
+  ([target idx attrs]        (m/->AGetNode target idx attrs nil nil))
+  ([target idx attrs meta]   (m/->AGetNode target idx attrs meta nil))
+  ([target idx attrs meta parent] (m/->AGetNode target idx attrs meta parent)))
 
 ;; ASetNode
 (defn aset-node? [node] (= (kind node) :aset))
@@ -529,18 +534,19 @@
 (defn aset-val    [node] (:val node))
 
 (defn make-aset
-  ([target idx val]              (m/->ASetNode target idx val nil nil))
-  ([target idx val meta]         (m/->ASetNode target idx val meta nil))
-  ([target idx val meta parent]  (m/->ASetNode target idx val meta parent)))
+  ([target idx val]              (m/->ASetNode target idx val {} nil nil))
+  ([target idx val attrs]        (m/->ASetNode target idx val attrs nil nil))
+  ([target idx val attrs meta]   (m/->ASetNode target idx val attrs meta nil))
+  ([target idx val attrs meta parent] (m/->ASetNode target idx val attrs meta parent)))
 
 ;; ALengthNode
 (defn alength-node? [node] (= (kind node) :alength))
 (defn alength-target [node] (:target node))
 
 (defn make-alength
-  ([target]              (m/->ALengthNode target nil nil))
-  ([target meta]         (m/->ALengthNode target meta nil))
-  ([target meta parent]  (m/->ALengthNode target meta parent)))
-
+  ([target]              (m/->ALengthNode target {} nil nil))
+  ([target attrs]        (m/->ALengthNode target attrs nil nil))
+  ([target attrs meta]   (m/->ALengthNode target attrs meta nil))
+  ([target attrs meta parent] (m/->ALengthNode target attrs meta parent)))
 
 

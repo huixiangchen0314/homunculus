@@ -75,9 +75,9 @@
           folded     (fold/fold no-recur (fold/make-context context frontend backend (folder/folder)))
           inferred   (infer/infer folded (infer/make-context context frontend backend))
           solved     (solve/process inferred (solve/make-context context frontend backend))
-          mutable    (mut/analyze solved)
-          _          (module/collect-symbols mutable context)
-          unit       (mu/->ModuleUnit ns-sym mutable)]
+          ;mutable    (mut/analyze solved)
+          _          (module/collect-symbols solved context)
+          unit       (mu/->ModuleUnit ns-sym solved)]
       (model/set-module-unit! context ns-sym unit)
       unit))
 

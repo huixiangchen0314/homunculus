@@ -165,19 +165,22 @@
 ;; 数组特殊节点
 (defmethod eliminate-ho :new-array [node depth ctx]
   (let [[size ctx1] (eliminate-ho (n/new-array-size node) depth ctx)]
-    [(n/make-new-array size (n/node-meta node) (n/parent node)) ctx1]))
+    [(n/make-new-array size (n/attrs node) (n/node-meta node) (n/parent node)) ctx1]))
+
 (defmethod eliminate-ho :aget [node depth ctx]
   (let [[target ctx1] (eliminate-ho (n/aget-target node) depth ctx)
         [idx ctx2] (eliminate-ho (n/aget-idx node) depth ctx1)]
-    [(n/make-aget target idx (n/node-meta node) (n/parent node)) ctx2]))
+    [(n/make-aget target idx (n/attrs node) (n/node-meta node) (n/parent node)) ctx2]))
+
 (defmethod eliminate-ho :aset [node depth ctx]
   (let [[target ctx1] (eliminate-ho (n/aset-target node) depth ctx)
         [idx ctx2] (eliminate-ho (n/aset-idx node) depth ctx1)
         [val ctx3] (eliminate-ho (n/aset-val node) depth ctx2)]
-    [(n/make-aset target idx val (n/node-meta node) (n/parent node)) ctx3]))
+    [(n/make-aset target idx val (n/attrs node) (n/node-meta node) (n/parent node)) ctx3]))
+
 (defmethod eliminate-ho :alength [node depth ctx]
   (let [[target ctx1] (eliminate-ho (n/alength-target node) depth ctx)]
-    [(n/make-alength target (n/node-meta node) (n/parent node)) ctx1]))
+    [(n/make-alength target (n/attrs node) (n/node-meta node) (n/parent node)) ctx1]))
 
 (defmethod eliminate-ho :default [node _ ctx] [node ctx])
 

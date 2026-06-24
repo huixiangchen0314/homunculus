@@ -15,7 +15,12 @@
     [top.kzre.homunculus.core.types.constraint.gen.methods.try]
     [top.kzre.homunculus.core.types.constraint.gen.methods.variable]
     [top.kzre.homunculus.core.types.constraint.gen.methods.vector]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.member-access]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.protocol]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.convert]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.ns]
     [top.kzre.homunculus.core.types.constraint.gen.methods.while]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.record]
     [top.kzre.homunculus.core.types.constraint.gen.methods.array]
     ;; 从约束核心入口导入所需函数
     [top.kzre.homunculus.core.types.constraint.core :as core]))

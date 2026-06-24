@@ -118,22 +118,22 @@
 ;; 数组操作节点
 (defmethod apply-alias-node :new-array [node alias-map]
   (let [new-size (apply-alias-node (n/new-array-size node) alias-map)]
-    (n/make-new-array new-size (n/node-meta node) (n/parent node))))
+    (n/make-new-array new-size (n/attrs node) (n/node-meta node) (n/parent node))))
 
 (defmethod apply-alias-node :aget [node alias-map]
   (let [new-target (apply-alias-node (n/aget-target node) alias-map)
         new-idx    (apply-alias-node (n/aget-idx node) alias-map)]
-    (n/make-aget new-target new-idx (n/node-meta node) (n/parent node))))
+    (n/make-aget new-target new-idx (n/attrs node) (n/node-meta node) (n/parent node))))
 
 (defmethod apply-alias-node :aset [node alias-map]
   (let [new-target (apply-alias-node (n/aset-target node) alias-map)
         new-idx    (apply-alias-node (n/aset-idx node) alias-map)
         new-val    (apply-alias-node (n/aset-val node) alias-map)]
-    (n/make-aset new-target new-idx new-val (n/node-meta node) (n/parent node))))
+    (n/make-aset new-target new-idx new-val (n/attrs node) (n/node-meta node) (n/parent node))))
 
 (defmethod apply-alias-node :alength [node alias-map]
   (let [new-target (apply-alias-node (n/alength-target node) alias-map)]
-    (n/make-alength new-target (n/node-meta node) (n/parent node))))
+    (n/make-alength new-target (n/attrs node) (n/node-meta node) (n/parent node))))
 
 ;; vector
 (defmethod apply-alias-node :vector [node alias-map]
@@ -150,7 +150,7 @@
   (let [new-target (apply-alias-node (n/access-target node) alias-map)
         new-args   (mapv #(apply-alias-node % alias-map) (n/access-args node))]
     (n/make-member-access new-target (n/access-member node) new-args
-                          (n/node-meta node) (n/parent node))))
+                          (n/attrs node) (n/node-meta node) (n/parent node))))
 
 ;; convert
 (defmethod apply-alias-node :convert [node alias-map]

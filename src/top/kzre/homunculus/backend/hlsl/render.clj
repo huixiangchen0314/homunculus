@@ -72,8 +72,15 @@
                      (if (and (= op "++") (= right [:literal 1]))
                        (str "++" (render-node left indent-level))
                        (str (render-node left indent-level) " " op " " (render-node right indent-level))))
-        :member-access (let [[_ target member] node]
-                         (str (render-node target indent-level) "." (cname member)))
+        :member-access (let [[_ target member & args] node]
+                         (if (keyword? member)
+                           ;; 字段访问：target.field
+                           (str (render-node target indent-level) "." (name member))
+                           ;; 方法调用：target.method(args)
+                           (let [args-vec (first args)]  ; args 是向量，取第一个元素作为参数列表
+                             (str (render-node target indent-level) "."
+                                  (cname member)
+                                  "(" (render-seq args-vec ", " indent-level) ")"))))
         :constructor (let [[_ type-name & args] node]
                        (str type-name "(" (render-seq args) ")"))
         :cast      (let [[_ type-str expr] node]

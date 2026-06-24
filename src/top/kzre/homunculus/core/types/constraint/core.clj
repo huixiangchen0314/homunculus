@@ -29,6 +29,6 @@
   (let [{:keys [roots constraints]} (gen/generate-constraints ir2-roots context)
         conversion-fn (when-let [be (:backend context)]
                         (fn [s d] (tp/type-conversion be s d)))
-        subst (solve/solve-constraints constraints conversion-fn)
+        subst (solve/solve-constraints constraints conversion-fn context)
         typed-roots (mapv #(solve/apply-subst % subst) roots)]
     typed-roots))

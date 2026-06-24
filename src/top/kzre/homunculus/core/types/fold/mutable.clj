@@ -118,19 +118,19 @@
 ;; 数组节点 size 不变，但 target/idx/val 需要递归
 (defmethod mutable-node :new-array [node env]
   (let [[size env1] (mutable-node (n/new-array-size node) env)]
-    [(n/make-new-array size (n/node-meta node) (n/parent node)) env1]))
+    [(n/make-new-array size (n/attrs node) (n/node-meta node) (n/parent node)) env1]))
 (defmethod mutable-node :aget [node env]
   (let [[target env1] (mutable-node (n/aget-target node) env)
         [idx env2] (mutable-node (n/aget-idx node) env1)]
-    [(n/make-aget target idx (n/node-meta node) (n/parent node)) env2]))
+    [(n/make-aget target idx (n/attrs node) (n/node-meta node) (n/parent node)) env2]))
 (defmethod mutable-node :aset [node env]
   (let [[target env1] (mutable-node (n/aset-target node) env)
         [idx env2] (mutable-node (n/aset-idx node) env1)
         [val env3] (mutable-node (n/aset-val node) env2)]
-    [(n/make-aset target idx val (n/node-meta node) (n/parent node)) env3]))
+    [(n/make-aset target idx val (n/attrs node) (n/node-meta node) (n/parent node)) env3]))
 (defmethod mutable-node :alength [node env]
   (let [[target env1] (mutable-node (n/alength-target node) env)]
-    [(n/make-alength target (n/node-meta node) (n/parent node)) env1]))
+    [(n/make-alength target (n/attrs node) (n/node-meta node) (n/parent node)) env1]))
 
 (defmethod mutable-node :default [node env] [node env])
 

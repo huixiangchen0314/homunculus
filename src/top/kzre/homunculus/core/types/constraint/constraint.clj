@@ -28,4 +28,10 @@
 (defn cconvert-cost   [ccv] (:cost ccv))
 
 
-
+;; CProject
+(defn make-cproject [node target-tv member ret-tvar]
+  (cm/->CProject node target-tv member ret-tvar))
+(defn cproject-node       [cp] (:node cp))
+(defn cproject-target-tv  [cp] (:target-tv cp))
+(defn cproject-member     [cp] (:member cp))
+(defn cproject-ret-tvar   [cp] (:ret-tvar cp))

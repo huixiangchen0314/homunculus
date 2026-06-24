@@ -11,5 +11,5 @@
                 [[] []]
                 (n/access-args node))]
     [(n/make-member-access new-target (n/access-member node) new-args
-                           (n/node-meta node) (n/parent node))
+                           (n/attrs node) (n/node-meta node) (n/parent node))
      (into target-defs args-defs)]))

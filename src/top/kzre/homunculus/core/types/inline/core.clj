@@ -160,25 +160,33 @@
 ;; 数组特殊节点
 (defmethod inline-node :new-array [node ctx]
   (n/make-new-array (inline-node (n/new-array-size node) ctx)
+                    (n/attrs node)
                     (n/node-meta node)
                     (n/parent node)))
+
 (defmethod inline-node :aget [node ctx]
   (n/make-aget (inline-node (n/aget-target node) ctx)
                (inline-node (n/aget-idx node) ctx)
+               (n/attrs node)
                (n/node-meta node)
                (n/parent node)))
+
 (defmethod inline-node :aset [node ctx]
   (n/make-aset (inline-node (n/aset-target node) ctx)
                (inline-node (n/aset-idx node) ctx)
                (inline-node (n/aset-val node) ctx)
+               (n/attrs node)
                (n/node-meta node)
                (n/parent node)))
+
 (defmethod inline-node :alength [node ctx]
   (n/make-alength (inline-node (n/alength-target node) ctx)
+                  (n/attrs node)
                   (n/node-meta node)
                   (n/parent node)))
 
 ;; 默认：其他节点直接返回
+;; TODO 继续展开
 (defmethod inline-node :default [node _] node)
 
 ;; ── 入口 ──

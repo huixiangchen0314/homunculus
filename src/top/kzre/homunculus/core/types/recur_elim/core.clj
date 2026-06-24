@@ -38,7 +38,7 @@
     :member-access (n/make-member-access (convert-expr (n/access-target node) ctx)
                                          (n/access-member node)
                                          (mapv #(convert-expr % ctx) (n/access-args node))
-                                         (n/node-meta node) (n/parent node))
+                                         (n/attrs node) (n/node-meta node) (n/parent node))
     :try     (n/make-try (convert-expr (n/try-body node) ctx)
                          (mapv (fn [c] (n/make-catch (convert-expr (n/catch-class c) ctx)
                                                      (convert-expr (n/catch-sym c) ctx)
@@ -61,14 +61,14 @@
       :recur
       (let [args   (n/recur-args node)
             assigns (mapv (fn [var-name arg]
-                            (n/make-assign (n/make-variable var-name nil nil)
+                            (n/make-assign (n/make-variable var-name {} nil nil)
                                            (convert-expr arg ctx)
-                                           nil nil nil))
+                                           {} nil nil))
                           var-names args)
-            set-flag (n/make-assign (n/make-variable recur-flag nil nil)
-                                    (n/make-literal true nil nil)
-                                    nil nil nil)]
-        (n/make-block (conj assigns set-flag) nil nil nil))
+            set-flag (n/make-assign (n/make-variable recur-flag {} nil nil)
+                                    (n/make-literal true {} nil nil)
+                                    {} nil nil)]
+        (n/make-block (conj assigns set-flag) {} nil nil))
 
       :if
       (n/make-if (convert-expr (n/if-test node) ctx)
@@ -101,14 +101,13 @@
                   (n/attrs node) (n/node-meta node) (n/parent node))
 
       ;; 默认：将表达式赋值给 result，并设置 recur-flag = false
-      ;; ★ 关键修复：对 node 应用 convert-expr 以保留类型信息
-      (n/make-block [(n/make-assign (n/make-variable result-var nil nil)
+      (n/make-block [(n/make-assign (n/make-variable result-var {} nil nil)
                                     (convert-expr node ctx)
-                                    nil nil nil)
-                     (n/make-assign (n/make-variable recur-flag nil nil)
-                                    (n/make-literal false nil nil)
-                                    nil nil nil)]
-                    nil nil nil))))
+                                    {} nil nil)
+                     (n/make-assign (n/make-variable recur-flag {} nil nil)
+                                    (n/make-literal false {} nil nil)
+                                    {} nil nil)]
+                    {} nil nil))))
 
 ;; ── 主转换函数 ────────────────────────────
 (defn transform-loop [loop-node]
@@ -121,21 +120,20 @@
 
         ;; 初始绑定：loop 变量 + result + recur-flag
         loop-bindings (mapv (fn [[var init]]
-                              [(n/make-variable (n/var-name var) nil nil)
+                              [(n/make-variable (n/var-name var) {} nil nil)
                                (convert-expr init ctx)])
                             bindings)
 
         all-bindings (into loop-bindings
-                           [[(n/make-variable result-var nil nil) (n/make-literal nil nil nil)]
-                            [(n/make-variable recur-flag nil nil) (n/make-literal true nil nil)]])
+                           [[(n/make-variable result-var {} nil nil) (n/make-literal nil {} nil nil)]
+                            [(n/make-variable recur-flag {} nil nil) (n/make-literal true {} nil nil)]])
 
         ;; 转换后的循环体
         tail-body  (convert-tail body ctx)
-        while-test (n/make-variable recur-flag nil nil)
-        while-node (n/make-while while-test tail-body nil nil nil)
-        let-body   (n/make-block [while-node (n/make-variable result-var nil nil)]
-                                 nil nil nil)]
-    (n/make-let all-bindings let-body nil nil nil)))
+        while-test (n/make-variable recur-flag {} nil nil)
+        while-node (n/make-while while-test tail-body {} nil nil)
+        let-body   (n/make-block [while-node (n/make-variable result-var {} nil nil)] {} nil nil)]
+    (n/make-let all-bindings let-body {} nil nil)))
 
 ;; ── 分派入口 ──────────────────────────────
 (defmulti eliminate (fn [node] (n/kind node)))
@@ -191,7 +189,7 @@
   (n/make-member-access (eliminate (n/access-target node))
                         (n/access-member node)
                         (mapv eliminate (n/access-args node))
-                        (n/node-meta node) (n/parent node)))
+                        (n/attrs node) (n/node-meta node) (n/parent node)))
 (defmethod eliminate :try [node]
   (n/make-try (eliminate (n/try-body node))
               (mapv eliminate (n/try-catches node))
@@ -212,19 +210,19 @@
 ;; 数组节点
 (defmethod eliminate :new-array [node]
   (n/make-new-array (eliminate (n/new-array-size node))
-                    (n/node-meta node) (n/parent node)))
+                    (n/attrs node) (n/node-meta node) (n/parent node)))
 (defmethod eliminate :aget [node]
   (n/make-aget (eliminate (n/aget-target node))
                (eliminate (n/aget-idx node))
-               (n/node-meta node) (n/parent node)))
+               (n/attrs node) (n/node-meta node) (n/parent node)))
 (defmethod eliminate :aset [node]
   (n/make-aset (eliminate (n/aset-target node))
                (eliminate (n/aset-idx node))
                (eliminate (n/aset-val node))
-               (n/node-meta node) (n/parent node)))
+               (n/attrs node) (n/node-meta node) (n/parent node)))
 (defmethod eliminate :alength [node]
   (n/make-alength (eliminate (n/alength-target node))
-                  (n/node-meta node) (n/parent node)))
+                  (n/attrs node) (n/node-meta node) (n/parent node)))
 (defmethod eliminate :default [node] node)
 
 (defn process [ir2-roots]

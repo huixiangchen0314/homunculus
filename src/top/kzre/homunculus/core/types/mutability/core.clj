@@ -31,12 +31,14 @@
 ;; ── 数组特殊节点 ──
 (defmethod annotate :new-array [node mutable-vars]
   (n/make-new-array (annotate (n/new-array-size node) mutable-vars)
+                    (n/attrs node)
                     (n/node-meta node)
                     (n/parent node)))
 
 (defmethod annotate :aget [node mutable-vars]
   (n/make-aget (annotate (n/aget-target node) mutable-vars)
                (annotate (n/aget-idx node) mutable-vars)
+               (n/attrs node)
                (n/node-meta node)
                (n/parent node)))
 
@@ -44,11 +46,13 @@
   (n/make-aset (annotate (n/aset-target node) mutable-vars)
                (annotate (n/aset-idx node) mutable-vars)
                (annotate (n/aset-val node) mutable-vars)
+               (n/attrs node)
                (n/node-meta node)
                (n/parent node)))
 
 (defmethod annotate :alength [node mutable-vars]
   (n/make-alength (annotate (n/alength-target node) mutable-vars)
+                  (n/attrs node)
                   (n/node-meta node)
                   (n/parent node)))
 
@@ -140,7 +144,7 @@
   (n/make-member-access (annotate (n/access-target node) mutable-vars)
                         (n/access-member node)
                         (mapv #(annotate % mutable-vars) (n/access-args node))
-                        (n/node-meta node) (n/parent node)))
+                        (n/attrs node) (n/node-meta node) (n/parent node)))
 
 ;; ── 无子节点的声明节点 ──
 (defmethod annotate :ns [node _] node)

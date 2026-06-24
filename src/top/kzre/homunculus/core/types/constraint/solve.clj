@@ -6,18 +6,18 @@
      阶段2 – 一次性处理 COverload
    若阶段2产生新替换，则回到阶段1重新迭代，直到整体不动点。"
   (:require
-    [clojure.walk :as walk]
-    [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-    [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.types.constraint.solvers.convert :as convert]
-    [top.kzre.homunculus.core.types.constraint.solvers.equal :as equal]
-    [top.kzre.homunculus.core.types.constraint.solvers.overload :as overload]
-    ;; 三个独立求解器
-    [top.kzre.homunculus.core.types.constraint.unify :as u]
-    [top.kzre.homunculus.core.types.protocol :as tp]
-    [top.kzre.homunculus.core.types.type :as ty])
+   [clojure.walk :as walk]
+   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+   [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
+   [top.kzre.homunculus.core.types.constraint.solvers.convert :as convert]
+   [top.kzre.homunculus.core.types.constraint.solvers.equal :as equal]
+   [top.kzre.homunculus.core.types.constraint.solvers.overload :as overload] ;; 三个独立求解器
+   [top.kzre.homunculus.core.types.constraint.solvers.project :as project]
+   [top.kzre.homunculus.core.types.constraint.unify :as u]
+   [top.kzre.homunculus.core.types.protocol :as tp]
+   [top.kzre.homunculus.core.types.type :as ty])
   (:import
-    (top.kzre.homunculus.core.types.constraint.model CConvert CEqual COverload)))
+    (top.kzre.homunculus.core.types.constraint.model CConvert CEqual COverload CProject)))
 
 ;; ── 单约束处理 ──────────────────────────
 (defn- apply-constraint
@@ -31,19 +31,25 @@
 
 ;; ── 主求解循环 ──────────────────────────
 (defn solve-constraints
-  "求解约束集合，返回替换映射。
-   conversion-fn 可选，用于隐式转换。"
-  ([constraints] (solve-constraints constraints nil))
-  ([constraints conversion-fn]
+  ([constraints context] (solve-constraints constraints nil context))
+  ([constraints conversion-fn context]
    (let [subst (atom {})
-         simple-constraints (filter #(or (instance? CEqual %) (instance? CConvert %)) constraints)
+         simple-constraints (filter #(or (instance? CEqual %)
+                                         (instance? CConvert %)
+                                         (instance? CProject %))
+                                    constraints)
          overload-constraints (filter #(instance? COverload %) constraints)]
      (loop []
-       ;; 阶段1：迭代 CEqual / CConvert 直到收敛
+       ;; 阶段1：迭代 CEqual/CConvert/CProject 直到收敛
        (loop []
          (let [old @subst]
            (doseq [c simple-constraints]
-             (swap! subst apply-constraint conversion-fn c))
+             (swap! subst (fn [s]
+                            (cond
+                              (instance? CEqual c) (equal/solve c s conversion-fn)
+                              (instance? CConvert c) (convert/solve c s conversion-fn)
+                              (instance? CProject c) (project/solve c s context)
+                              :else s))))
            (when (not= old @subst)
              (recur))))
        ;; 阶段2：一次性处理 COverload
@@ -52,7 +58,6 @@
            (swap! subst apply-constraint conversion-fn c))
          (when (not= old @subst)
            (recur))))
-     ;; 构建最终替换并传播
      (let [final-subst @subst]
        (into {} (map (fn [[k v]] [k (u/substitute v final-subst)]) final-subst))))))
 
@@ -77,6 +82,6 @@
   (let [{:keys [roots constraints]} (gen/generate-constraints ir2-roots context)
         conversion-fn (when-let [be (:backend context)]
                         (fn [s d] (tp/type-conversion be s d)))
-        subst (solve-constraints constraints conversion-fn)
+        subst (solve-constraints constraints conversion-fn context)
         typed-roots (mapv #(apply-subst % subst) roots)]
     typed-roots))

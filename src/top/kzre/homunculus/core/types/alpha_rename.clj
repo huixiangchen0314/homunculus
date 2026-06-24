@@ -198,31 +198,31 @@
                 [[] table1]
                 (n/access-args node))]
     [(n/make-member-access new-target (n/access-member node) new-args
-                           (n/node-meta node) (n/parent node))
+                           (n/attrs node) (n/node-meta node) (n/parent node))
      table2]))
 
 ;; ── 数组特殊节点 ────────────────────────
 (defmethod rename-node :new-array [node table]
   (let [[new-size table2] (rename-node (n/new-array-size node) table)]
-    [(n/make-new-array new-size (n/node-meta node) (n/parent node))
+    [(n/make-new-array new-size (n/attrs node) (n/node-meta node) (n/parent node))
      table2]))
 
 (defmethod rename-node :aget [node table]
   (let [[new-target table1] (rename-node (n/aget-target node) table)
         [new-idx table2] (rename-node (n/aget-idx node) table1)]
-    [(n/make-aget new-target new-idx (n/node-meta node) (n/parent node))
+    [(n/make-aget new-target new-idx (n/attrs node) (n/node-meta node) (n/parent node))
      table2]))
 
 (defmethod rename-node :aset [node table]
   (let [[new-target table1] (rename-node (n/aset-target node) table)
         [new-idx table2] (rename-node (n/aset-idx node) table1)
         [new-val table3] (rename-node (n/aset-val node) table2)]
-    [(n/make-aset new-target new-idx new-val (n/node-meta node) (n/parent node))
+    [(n/make-aset new-target new-idx new-val (n/attrs node) (n/node-meta node) (n/parent node))
      table3]))
 
 (defmethod rename-node :alength [node table]
   (let [[new-target table2] (rename-node (n/alength-target node) table)]
-    [(n/make-alength new-target (n/node-meta node) (n/parent node))
+    [(n/make-alength new-target (n/attrs node) (n/node-meta node) (n/parent node))
      table2]))
 
 (defmethod rename-node :ns [node table] [node table])

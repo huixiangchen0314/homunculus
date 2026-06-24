@@ -10,15 +10,13 @@
         backend (infer/backend context)
         hetero? (when backend (tp/support-hetero-vec backend))]
     (if hetero?
-      ;; 异构向量：初始类型为空，无法确定元素，直接 nothing
-      (infer/nothing (n/make-new-array size-node (n/node-meta node) (n/parent node)) size-ctx)
-      ;; 同构向量：无法确定元素类型，nothing
-      (infer/nothing (n/make-new-array size-node (n/node-meta node) (n/parent node)) size-ctx))))
+      (infer/nothing (n/make-new-array size-node (n/attrs node) (n/node-meta node) (n/parent node)) size-ctx)
+      (infer/nothing (n/make-new-array size-node (n/attrs node) (n/node-meta node) (n/parent node)) size-ctx))))
 
 (defmethod infer/local-infer :aget [node context]
   (let [[target-ty target-node target-ctx] (infer/local-infer (n/aget-target node) context)
         [idx-ty idx-node idx-ctx] (infer/local-infer (n/aget-idx node) target-ctx)
-        new-node (n/make-aget target-node idx-node (n/node-meta node) (n/parent node))]
+        new-node (n/make-aget target-node idx-node (n/attrs node) (n/node-meta node) (n/parent node))]
     (if-let [elem-ty (cond
                        (ty/vec-type? target-ty)
                        (ty/vec-element-type target-ty)
@@ -34,12 +32,11 @@
   (let [[target-ty target-node target-ctx] (infer/local-infer (n/aset-target node) context)
         [idx-ty idx-node idx-ctx] (infer/local-infer (n/aset-idx node) target-ctx)
         [val-ty val-node val-ctx] (infer/local-infer (n/aset-val node) idx-ctx)
-        new-node (n/make-aset target-node idx-node val-node (n/node-meta node) (n/parent node))]
-    ;; aset 无返回值
+        new-node (n/make-aset target-node idx-node val-node (n/attrs node) (n/node-meta node) (n/parent node))]
     (infer/nothing new-node val-ctx)))
 
 (defmethod infer/local-infer :alength [node context]
   (let [[target-ty target-node target-ctx] (infer/local-infer (n/alength-target node) context)
         int-ty (ty/make-tcon (tp/integer-type (infer/frontend context)))
-        new-node (n/make-alength target-node (n/node-meta node) (n/parent node))]
+        new-node (n/make-alength target-node (n/attrs node) (n/node-meta node) (n/parent node))]
     (infer/success int-ty (ty/set-type! new-node int-ty) target-ctx)))

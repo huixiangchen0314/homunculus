@@ -8,4 +8,5 @@
     (n/make-member-access new-target
                           (n/access-member node)
                           new-args
+                          (n/attrs node)
                           (n/node-meta node) (n/parent node))))

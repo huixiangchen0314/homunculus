@@ -10,8 +10,9 @@
   ;; 通用递归：不直接处理，而是留给 inline-call 专门使用
   (throw (ex-info "inline-expr should not be called directly; use inline-call" {})))
 
-(defn inline-call [call-node lambda-node _config]
+(defn inline-call
   "将 lambda 形参替换为 call 实参，返回展开后的 body。"
+  [call-node lambda-node _config]
   (let [params (n/lambda-params lambda-node)
         args   (n/call-args call-node)
         body   (n/lambda-body lambda-node)]

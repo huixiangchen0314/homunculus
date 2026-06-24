@@ -30,7 +30,9 @@
   (s/cat :tag #{:binary} :op string? :left ::node :right ::node))
 
 (defmethod node-tag :member-access [_]
-  (s/cat :tag #{:member-access} :target ::node :member (s/or :sym symbol? :str string?)))
+  (s/cat :tag #{:member-access} :target ::node
+         :member (s/or :sym symbol? :str string? :kw keyword?)
+         :args (s/* ::node)))
 
 (defmethod node-tag :constructor [_]
   (s/cat :tag #{:constructor} :type-name string? :args (s/* ::node)))

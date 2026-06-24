@@ -216,52 +216,52 @@
   (set-parent [this p] (assoc this :parent p)))
 
 ;; ── 成员访问节点 ──
-(defrecord MemberAccessNode [target accessor args meta parent]
+;; MemberAccessNode 已有 attrs，无需改动（但构造器默认 nil，需改为 {}）
+(defrecord MemberAccessNode [target accessor args attrs meta parent]
   p/INode
-  (kind       [this] :member-access)
-  (children   [this] (into [target] args))
-  (attrs      [this] {})
-  (node-meta  [this] meta)
-  (parent     [this] parent)
+  (kind [_] :member-access)
+  (children [_] (into [target] args))
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-
-;; 特殊形式(非面向用户) =========================================================
-
-;; 数组节点，可以把向量类型用命令式操作
-(defrecord NewArrayNode [size meta parent]
+;; NewArrayNode 增加 attrs
+(defrecord NewArrayNode [size attrs meta parent]
   p/INode
-  (kind       [this] :new-array)
-  (children   [this] [])
-  (attrs      [this] {})
-  (node-meta  [this] meta)
-  (parent     [this] parent)
+  (kind [_] :new-array)
+  (children [_] [])
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord AGetNode [target idx meta parent]
+;; AGetNode 增加 attrs
+(defrecord AGetNode [target idx attrs meta parent]
   p/INode
-  (kind       [this] :aget)
-  (children   [this] [target idx])
-  (attrs      [this] {})
-  (node-meta  [this] meta)
-  (parent     [this] parent)
+  (kind [_] :aget)
+  (children [_] [target idx])
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord ASetNode [target idx val meta parent]
+;; ASetNode 增加 attrs
+(defrecord ASetNode [target idx val attrs meta parent]
   p/INode
-  (kind       [this] :aset)
-  (children   [this] [target idx val])
-  (attrs      [this] {})
-  (node-meta  [this] meta)
-  (parent     [this] parent)
+  (kind [_] :aset)
+  (children [_] [target idx val])
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
 
-(defrecord ALengthNode [target meta parent]
+;; ALengthNode 增加 attrs
+(defrecord ALengthNode [target attrs meta parent]
   p/INode
-  (kind       [this] :alength)
-  (children   [this] [target])
-  (attrs      [this] {})
-  (node-meta  [this] meta)
-  (parent     [this] parent)
+  (kind [_] :alength)
+  (children [_] [target])
+  (attrs [_] attrs)
+  (node-meta [_] meta)
+  (parent [_] parent)
   (set-parent [this p] (assoc this :parent p)))
-

@@ -36,17 +36,37 @@
                          :meta (n/node-meta node)))))
 
 (defn- collect-record [node context]
-  (let [s        (n/record-name node)
-        fields   (mapv (fn [f]
-                         (sym/make-field (n/field-name f)
-                                         :type (ty/get-type f)
-                                         :meta (n/field-meta f)))
-                       (n/record-fields node))
-        protocols (n/record-protocols node)
-        entry    (sym/make-record s :fields fields :protocols protocols
-                                  :type (ty/get-type node)
-                                  :meta (n/node-meta node))]
-    entry))
+  (let [s          (n/record-name node)
+        fields     (mapv (fn [f]
+                           (sym/make-field (n/field-name f)
+                                           :type (ty/get-type f)
+                                           :meta (n/field-meta f)))
+                         (n/record-fields node))
+        protocols  (n/record-protocols node)
+        record-entry (sym/make-record s :fields fields :protocols protocols
+                                      :type (ty/get-type node)
+                                      :meta (n/node-meta node))
+        ;; 构造构造器条目 ->RecordName
+        ctor-name   (symbol (str "->" (name s)))
+        field-tys   (mapv :type fields)
+        record-ty   (ty/make-tcon s)   ;; 修正：记录类型是 TCon
+        ctor-type   (reduce (fn [ret arg] (ty/make-tfun arg ret))
+                            record-ty
+                            (reverse field-tys))
+        ctor-params (mapv (fn [f]
+                            (sym/make-param (:field-name f)
+                                            :type (:type f)
+                                            :meta (:meta f)))
+                          fields)
+        ctor-entry  (sym/make-func ctor-name
+                                   :params ctor-params
+                                   :ret (sym/make-ret record-ty)
+                                   :type ctor-type
+                                   :meta {})]
+    ;; 注册记录条目和构造器条目
+    (p/register-sym context record-entry)
+    (p/register-sym context ctor-entry)
+    record-entry))
 
 (defn- collect-protocol [node context]
   (let [s       (n/protocol-name node)
@@ -72,12 +92,12 @@
   [ir2-roots context]
   (doseq [root ir2-roots]
     (try
-      (let [entry (case (n/kind root)
-                    :define   (collect-define root context)
-                    :record   (collect-record root context)
-                    :protocol (collect-protocol root context)
-                    nil)]
-        (when entry
-          (p/register-sym context entry)))
+      (case (n/kind root)
+        :define   (when-let [entry (collect-define root context)]
+                    (p/register-sym context entry))
+        :record   (collect-record root context)   ; 内部注册
+        :protocol (when-let [entry (collect-protocol root context)]
+                    (p/register-sym context entry))
+        nil)
       (catch Throwable t
         (println "[WARN] collect-symbols failed for" (n/kind root) ":" (.getMessage t))))))

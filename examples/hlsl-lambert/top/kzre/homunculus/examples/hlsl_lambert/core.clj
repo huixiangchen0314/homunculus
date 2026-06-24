@@ -24,13 +24,16 @@
 (defshader :vertex vsMain
            [^:POSITION ^float4 pos
             ^:NORMAL ^float3 nrm
-            ^:TEXCOORD0 ^float2 uv]
+            ^:TEXCOORD0 ^float2 uv
+            ]
            (def x (%%new-array 3))
            (%%aset x 0 0)
            (%%aset x 1 1)
            (%%aset x 2 2)
            ;; 使用 my-map 对 x 的每个元素加 1
            (def y (map (fn [v] (+ v 1)) x))
+           (def io (->MyInout 1.0))
+           (def local-a (:a io))
            (let [worldPos (mul worldViewProj pos)]
              (float4 (float3 1.0 1.0 1.0) 1.0)))
 

@@ -23,6 +23,7 @@
     [top.kzre.homunculus.core.types.infer.methods.try]
     [top.kzre.homunculus.core.types.infer.methods.variable]
     [top.kzre.homunculus.core.types.infer.methods.vector]
+    [top.kzre.homunculus.core.types.infer.methods.array]
     [top.kzre.homunculus.core.types.infer.methods.while]))
 
 (def make-context core/make-context)

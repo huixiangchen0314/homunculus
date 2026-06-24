@@ -313,7 +313,12 @@
 (defn lookup-field-type
   [record-entry field-name]
   (when-let [fields (:fields record-entry)]
-    (some (fn [f] (when (= (:field-name f) field-name) (:type f))) fields)))
+    (some (fn [f]
+            (when (= (:field-name f) field-name)
+              (or (:type f)
+                  (when-let [tag (:tag (:meta f))]
+                    (ty/make-tcon (symbol (name tag)))))))
+          fields)))
 
 (defn list-arities
   [func-entry]

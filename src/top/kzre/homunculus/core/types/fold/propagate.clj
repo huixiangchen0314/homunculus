@@ -201,13 +201,15 @@
 ;; 数组节点 size 替换
 (defmethod propagate-node :new-array [node context]
   (let [[size ctx1] (propagate-node (maybe-subst-constant (n/new-array-size node) (:env context)) context)]
-    [(n/make-new-array size (n/node-meta node) (n/parent node)) ctx1]))
+    [(n/make-new-array size (n/attrs node) (n/node-meta node) (n/parent node)) ctx1]))
+
 (defmethod propagate-node :aget [node context]
   (let [subbed-target (maybe-subst-constant (n/aget-target node) (:env context))
         [target ctx1] (propagate-node subbed-target context)
         subbed-idx (maybe-subst-constant (n/aget-idx node) (:env ctx1))
         [idx ctx2] (propagate-node subbed-idx ctx1)]
-    [(n/make-aget target idx (n/node-meta node) (n/parent node)) ctx2]))
+    [(n/make-aget target idx (n/attrs node) (n/node-meta node) (n/parent node)) ctx2]))
+
 (defmethod propagate-node :aset [node context]
   (let [subbed-target (maybe-subst-constant (n/aset-target node) (:env context))
         [target ctx1] (propagate-node subbed-target context)
@@ -215,7 +217,7 @@
         [idx ctx2] (propagate-node subbed-idx ctx1)
         subbed-val (maybe-subst-constant (n/aset-val node) (:env ctx2))
         [val ctx3] (propagate-node subbed-val ctx2)]
-    [(n/make-aset target idx val (n/node-meta node) (n/parent node)) ctx3]))
+    [(n/make-aset target idx val (n/attrs node) (n/node-meta node) (n/parent node)) ctx3]))
 
 (defmethod propagate-node :default [node context] [node context])
 

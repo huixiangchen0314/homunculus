@@ -5,5 +5,6 @@
 
 (defmethod core/emit-node :member-access [node context]
   (let [target (core/emit-node (n/access-target node) context)
-        member (n/access-member node)]
-    [:member-access target member]))
+        member (n/access-member node)          ; 关键字或符号
+        args   (mapv #(core/emit-node % context) (n/access-args node))]
+    [:member-access target member args]))
