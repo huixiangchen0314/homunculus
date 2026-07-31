@@ -16,5 +16,4 @@
               (when-let [d (n/def-doc node)] (ir1/->ir1 d))
               (when-let [a (n/def-attr node)] (ir1/->ir1 a))
               (when-let [v (n/def-val node)] (ir1/->ir1 v))
-              (n/node-meta node)
-              (n/parent node)))
+              (n/node-meta node)))

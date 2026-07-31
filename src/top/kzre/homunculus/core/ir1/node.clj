@@ -41,9 +41,8 @@
 (defn sym-name [node] (:name node))
 
 (defn make-symbol
-  ([name] (m/->SymbolNode name nil nil))
-  ([name meta] (m/->SymbolNode name meta nil))
-  ([name meta parent] (m/->SymbolNode name meta parent)))
+  ([name] (m/->SymbolNode name nil ))
+  ([name meta] (m/->SymbolNode name meta )))
 
 (defn symbol-with-name [node name] (assoc node :name name))
 
@@ -54,9 +53,8 @@
 (defn map-pairs [node] (:pairs node))
 
 (defn make-vector
-  ([items] (m/->VectorNode items nil nil))
-  ([items meta] (m/->VectorNode items meta nil))
-  ([items meta parent] (m/->VectorNode items meta parent)))
+  ([items] (m/->VectorNode items nil))
+  ([items meta] (m/->VectorNode items meta)))
 
 (defn make-map
   ([pairs] (m/->MapNode pairs nil nil))
@@ -73,9 +71,8 @@
 (defn call-args [node] (:args node))
 
 (defn make-call
-  ([op args] (m/->CallNode op args nil nil))
-  ([op args meta] (m/->CallNode op args meta nil))
-  ([op args meta parent] (m/->CallNode op args meta parent)))
+  ([op args] (m/->CallNode op args nil))
+  ([op args meta] (m/->CallNode op args meta)))
 
 (defn call-with-op   [node op]   (assoc node :op op))
 (defn call-with-args [node args] (assoc node :args args))
@@ -88,9 +85,8 @@
 (defn if-else [node] (:else node))
 
 (defn make-if
-  ([test then else] (m/->IfNode test then else nil nil))
-  ([test then else meta] (m/->IfNode test then else meta nil))
-  ([test then else meta parent] (m/->IfNode test then else meta parent)))
+  ([test then else] (m/->IfNode test then else nil ))
+  ([test then else meta] (m/->IfNode test then else meta )))
 
 (defn if-with-test [node test] (assoc node :test test))
 (defn if-with-then [node then] (assoc node :then then))
@@ -102,9 +98,8 @@
 (defn do-exprs [node] (:exprs node))
 
 (defn make-do
-  ([exprs] (m/->DoNode exprs nil nil))
-  ([exprs meta] (m/->DoNode exprs meta nil))
-  ([exprs meta parent] (m/->DoNode exprs meta parent)))
+  ([exprs] (m/->DoNode exprs nil))
+  ([exprs meta] (m/->DoNode exprs meta)))
 
 (defn do-with-exprs [node exprs] (assoc node :exprs exprs))
 
@@ -116,11 +111,9 @@
 
 (defn make-let
   ([bindings body]
-   (m/->LetNode bindings body (/ (count bindings) 2) nil nil))
+   (m/->LetNode bindings body (/ (count bindings) 2) nil))
   ([bindings body meta]
-   (m/->LetNode bindings body (/ (count bindings) 2) meta nil))
-  ([bindings body meta parent]
-   (m/->LetNode bindings body (/ (count bindings) 2) meta parent)))
+   (m/->LetNode bindings body (/ (count bindings) 2) meta)))
 (def binding-pairs kv-pairs)
 (def make-binding make-pair)
 
@@ -135,8 +128,8 @@
 (defn fn-body   [node] (:body node))
 
 (defn make-fn
-  ([name params body] (m/->FnNode name params body nil nil))
-  ([name params body meta] (m/->FnNode name params body meta nil)))
+  ([name params body] (m/->FnNode name params body nil ))
+  ([name params body meta] (m/->FnNode name params body meta )))
 
 (defn fn-with-name   [node name]   (assoc node :name name))
 (defn fn-with-params [node params] (assoc node :params params))
@@ -158,10 +151,9 @@
 (defn def-val  [node] (:val node))
 
 (defn make-def
-  ([name val] (m/->DefNode name nil nil val nil nil))
-  ([name val meta] (m/->DefNode name nil nil val meta nil))
-  ([name doc attr val meta] (m/->DefNode name doc attr val meta nil))
-  ([name doc attr val meta parent] (m/->DefNode name doc attr val meta parent)))
+  ([name val] (m/->DefNode name nil nil val nil ))
+  ([name val meta] (m/->DefNode name nil nil val meta ))
+  ([name doc attr val meta] (m/->DefNode name doc attr val meta )))
 
 (defn def-with-name [node name] (assoc node :name name))
 (defn def-with-doc  [node doc]  (assoc node :doc doc))

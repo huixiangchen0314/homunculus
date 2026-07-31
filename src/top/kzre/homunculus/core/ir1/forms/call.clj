@@ -9,5 +9,4 @@
 (defmethod ir1/build-tree :call [node]
   (n/make-call (ir1/->ir1 (n/call-op node))
                (mapv ir1/->ir1 (n/call-args node))
-               (n/node-meta node)
-               (n/parent node)))
+               (n/node-meta node)))

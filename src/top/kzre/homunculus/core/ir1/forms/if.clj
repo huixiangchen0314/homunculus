@@ -10,5 +10,4 @@
   (n/make-if (ir1/->ir1 (n/if-test node))
              (ir1/->ir1 (n/if-then node))
              (when-let [else (n/if-else node)] (ir1/->ir1 else))
-             (n/node-meta node)
-             (n/parent node)))
+             (n/node-meta node)))

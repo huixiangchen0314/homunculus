@@ -5,42 +5,6 @@
     [top.kzre.homunculus.core.ir1.model :as m]
    [top.kzre.homunculus.core.ir1.protocol :as p]))
 
-
-(defn attach-parents
-  "递归设置 node 及其子节点的 parent 指针，返回全新的树。
-   对于非 INode 子节点（如字面量、nil）保持原样。"
-  [node parent]
-  (if (satisfies? p/INode node)
-    (let [with-parent (p/set-parent node parent)
-          childs      (p/children with-parent)
-          new-children (mapv (fn [c]
-                               (if (satisfies? p/INode c)
-                                 (attach-parents c with-parent)
-                                 c))
-                             childs)]
-      ;; 重新构造节点，使所有字段保持一致（尤其 parent 更新）
-      (case (p/kind with-parent)
-        :literal with-parent
-        :symbol  with-parent
-        :vector  (m/->VectorNode (:items with-parent) (:meta with-parent) (:parent with-parent))
-        :map     (m/->MapNode (:pairs with-parent) (:meta with-parent) (:parent with-parent))
-        :call    (m/->CallNode (:op with-parent) (:args with-parent) (:meta with-parent) (:parent with-parent))
-        :if      (m/->IfNode (:test with-parent) (:then with-parent) (:else with-parent) (:meta with-parent) (:parent with-parent))
-        :do      (m/->DoNode (:exprs with-parent) (:meta with-parent) (:parent with-parent))
-        :let     (m/->LetNode (:bindings with-parent) (:body with-parent) (:bindings-count with-parent) (:meta with-parent) (:parent with-parent))
-        :fn      (m/->FnNode (:name with-parent) (:params with-parent) (:body with-parent) (:meta with-parent) (:parent with-parent))
-        :def     (m/->DefNode (:name with-parent) (:doc with-parent) (:attr with-parent) (:val with-parent) (:meta with-parent) (:parent with-parent))
-        :loop    (m/->LoopNode (:bindings with-parent) (:body with-parent) (:bindings-count with-parent) (:meta with-parent) (:parent with-parent))
-        :recur   (m/->RecurNode (:exprs with-parent) (:meta with-parent) (:parent with-parent))
-        :quote   (m/->QuoteNode (:expr with-parent) (:meta with-parent) (:parent with-parent))
-        :var     (m/->VarNode (:var-sym with-parent) (:meta with-parent) (:parent with-parent))
-        :throw   (m/->ThrowNode (:expr with-parent) (:meta with-parent) (:parent with-parent))
-        :set!    (m/->SetNode (:var with-parent) (:val with-parent) (:meta with-parent) (:parent with-parent))
-        :try     (m/->TryNode (:body with-parent) (:catches with-parent) (:finally with-parent) (:meta with-parent) (:parent with-parent))
-        :catch   (m/->CatchNode (:class with-parent) (:sym with-parent) (:body with-parent) (:meta with-parent) (:parent with-parent))
-        with-parent))
-    node))
-
 (declare ->ir1)
 
 ;; ── 表单 → 节点记录 分派器 ──────────────
@@ -61,7 +25,7 @@
 (defmethod form->node :default [form]
   (if (seq? form)
     (let [[op & args] form]
-      (m/->CallNode op args nil nil))
+      (m/->CallNode op args nil ))
     (throw (ex-info (str "Unsupported form: " form) {:form form}))))
 
 
@@ -73,4 +37,4 @@
 (defn ->ir1 [form]
   (let [raw-node (form->node form)
         tree     (build-tree raw-node)]
-    (attach-parents tree nil)))
+    tree))

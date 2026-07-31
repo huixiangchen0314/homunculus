@@ -8,5 +8,4 @@
 
 (defmethod ir1/build-tree :do [node]
   (n/make-do (mapv ir1/->ir1 (n/do-exprs node))
-             (n/node-meta node)
-             (n/parent node)))
+             (n/node-meta node)))
