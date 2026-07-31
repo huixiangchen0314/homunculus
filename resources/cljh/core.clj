@@ -1,5 +1,5 @@
 (ns cljh.core
-  "Clojure DSL 运行时标准库（命令式，无闭包，直接展开）")
+  "Clojure DSL 编译时标准库，所有函数在编译时静态展开.")
 
 (defn map [f coll]
   (let [n (%%alength coll)

@@ -230,3 +230,4 @@
   (node-meta  [this] meta)
   (parent     [this] parent)
   (set-parent [this p] (assoc this :parent p)))
+

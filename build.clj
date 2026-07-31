@@ -23,8 +23,7 @@
                       :src-dirs ["src"]
                       :class-dir class-dir}))
 
-(defn jar [_]
-      (clean nil)
+(defn copy-resources [_]
       (b/write-pom {:class-dir class-dir
                     :lib lib
                     :version version
@@ -34,17 +33,20 @@
                           :connection "scm:git:git://github.com/your-user/homunculus.git"
                           :developerConnection "scm:git:ssh://git@github.com:your-user/homunculus.git"}})
       ;; 复制 resources 目录到 classes，标准库作为资源包含
-      (b/copy-dir {:src-dirs ["resources"]
-                   :target-dir class-dir})
+      (b/copy-dir {:src-dirs ["resources"] :target-dir class-dir})
+      (b/copy-dir {:src-dirs ["runtime"] :target-dir class-dir}))
+
+(defn jar [_]
+      (clean nil)
+      (compile-clj nil)
+      (copy-resources nil)
       (b/jar {:class-dir class-dir
               :jar-file jar-file}))
 
 (defn uberjar [_]
       (clean nil)
       (compile-clj nil)
-      ;; 复制 resources 到 class-dir，确保标准库等资源包含在 uberjar 中
-      (b/copy-dir {:src-dirs ["resources"]
-                   :target-dir class-dir})
+      (copy-resources nil)
       (b/uber {:class-dir class-dir
                :uber-file uber-file
                :basis basis

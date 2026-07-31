@@ -70,7 +70,7 @@
         paths))
 
 ;; 新增：将命名空间符号转换为 classpath 资源路径
-(defn- ns->resource-path [ns-sym]
+(defn- ns->classpath [ns-sym]
   (-> (name ns-sym)
       (str/replace "." "/")
       (str/replace "-" "_")
@@ -80,7 +80,8 @@
   "从 lib-paths 中查找模块源文件，若找不到则尝试从 classpath 资源加载（用于标准库等）。"
   [lib-paths ns-sym]
   (or (resolve-file (module-candidates lib-paths ns-sym))
-      (when-let [res (io/resource (ns->resource-path ns-sym))]
+      ;; TODO 区分是静态编译与否分发到不同类型的标准库中.
+      (when-let [res (io/resource (ns->classpath ns-sym))]
         (slurp res))))
 
 

@@ -3,13 +3,10 @@
   "着色器 DSL 语法糖。提供统一的资源/入口声明，通过元数据传递给后端。"
   (:refer-clojure :exclude [float int]))
 
-(defmacro defshader
-  "定义着色器入口函数。stage 为 :vertex, :fragment 等，params 为带类型标注的参数向量。"
-  [stage name params & body]
-  `(def ~name
-     ~(with-meta (list* 'fn params body)
-                 {:shader-stage stage
-                  :shader/entry? true})))
+(defmacro defshader [stage name params & body]
+  (let [meta-map {:shader-stage stage :shader/entry? true}
+        fn-form (list* 'fn params body)]
+    `(def ~(vary-meta name merge meta-map) ~fn-form)))
 
 ;; 类型构造器（运行时无操作，仅用于类型标记）
 (defn- texture2D     [] nil)

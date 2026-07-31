@@ -12,7 +12,6 @@
   (try
     (case op
       +   (+ lv rv)
-      %%+ (+ lv rv)
       -   (- lv rv)
       *   (* lv rv)
       /   (if (zero? rv) (throw (ex-info "Division by zero" {})) (/ lv rv))

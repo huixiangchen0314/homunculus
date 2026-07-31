@@ -40,10 +40,7 @@
   "从上下文中提取约束策略协议实例。"
   [ctx]
   (:constraint-policy ctx))
-(defn truthy-type-requirement [ctx]
+(defn truthy-type-requirement
   "从上下文中获取前端的真值类型要求。"
+  [ctx]
   (p/truly-type (frontend ctx)))
-
-(defn dynamic-branch-types? [ctx]
-  "从上下文中获取前端是否支持动态分支类型。"
-  (p/dynamic? (frontend ctx)))

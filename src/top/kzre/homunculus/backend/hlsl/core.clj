@@ -1,7 +1,6 @@
 (ns top.kzre.homunculus.backend.hlsl.core
   "HLSL 代码发射核心：多方法分派与公共辅助。"
   (:require
-    [clojure.string :as str]
     [top.kzre.homunculus.backend.hlsl.render :as render]
     [top.kzre.homunculus.backend.shader.core :as sc]
     [top.kzre.homunculus.backend.shader.types :as st]
@@ -52,50 +51,56 @@
 ;; ── 入口包装 ──
 (defn- emit-entry-wrapper [define-node]
   (let [stage (md/fn-shader-stage define-node)
-        {:keys [input-params output-params]} (sc/entry-spec stage define-node hlsl-type-str)
-        func-name (name (n/define-name define-node))
+        lam   (n/define-val define-node)
+        params (n/lambda-params lam)
+        param-infos (mapv (fn [p]
+                            {:name     (name (n/var-name p))
+                             :type     (hlsl-type-str (ty/get-type p))
+                             :semantic (sc/extract-semantic p)})
+                          params)
+        input-params param-infos
+        output-params (if (= stage :vertex)
+                        (let [passthrough (filterv #(and (:semantic %)
+                                                         (not= "POSITION" (:semantic %)))
+                                                   input-params)
+                              ret-ty      (hlsl-type-str (ty/fun-return-type (ty/get-type lam)))]
+                          (conj passthrough {:name "pos" :type ret-ty :semantic "SV_POSITION"}))
+                        [{:name "pos"
+                          :type (hlsl-type-str (ty/fun-return-type (ty/get-type lam)))
+                          :semantic "SV_TARGET"}])
+
+        func-name          (name (n/define-name define-node))
         input-struct-name  (str func-name "_Input")
         output-struct-name (str func-name "_Output")
 
-        output-params (if (= stage :vertex)
-                        (let [passthrough (mapv (fn [in]
-                                                  {:name     (:name in)
-                                                   :type     (:type in)
-                                                   :semantic (:semantic in)})
-                                                (filter #(and (:semantic %)
-                                                              (not= "POSITION" (:semantic %)))
-                                                        input-params))]
-                          (concat passthrough output-params))
-                        output-params)
-
-        ;; 成员必须用 :struct-member 标签
         input-members  (mapv (fn [p] [:struct-member (:type p) (:name p) (:semantic p)]) input-params)
         output-members (mapv (fn [p] [:struct-member (:type p) (:name p) (:semantic p)]) output-params)
 
         input-struct  [:struct input-struct-name input-members]
         output-struct [:struct output-struct-name output-members]
 
-        call-args (str/join ", " (mapv (fn [p] (str "input." (:name p))) input-params))
-        core-call (str func-name "(" call-args ")")
+        call-args-ast (mapv (fn [p] [:member-access [:var-ref "input"] (keyword (:name p))]) input-params)
+        core-call-ast [:call (symbol func-name) call-args-ast]
 
-        ;; 包装体：顶点着色器需要声明输出变量并赋值
-        body-stmts (if (= stage :vertex)
-                     (let [out-decl [:raw (str output-struct-name " out;")]
-                           assignments (mapv (fn [p]
-                                               (if (= "SV_POSITION" (:semantic p))
-                                                 [:assign (str "out." (:name p)) [:literal core-call]]
-                                                 [:assign (str "out." (:name p)) [:member-access [:var-ref "input"] (:name p)]]))
-                                             output-params)
-                           return-stmt [:return [:var-ref "out"]]]
-                       (into [out-decl] (conj assignments return-stmt)))
-                     [[:return [:literal core-call]]])
+        ;; 使用 :expr-stmt 包裹所有语句，确保分号
+        body-stmts
+        (if (= stage :vertex)
+          (let [out-decl    [:expr-stmt [:raw (str output-struct-name " out;")]]
+                assignments (mapv (fn [p]
+                                    [:expr-stmt
+                                     (if (= "SV_POSITION" (:semantic p))
+                                       [:assign (str "out." (:name p)) core-call-ast]
+                                       [:assign (str "out." (:name p)) [:member-access [:var-ref "input"] (keyword (:name p))]])])
+                                  output-params)
+                return-stmt [:expr-stmt [:return [:var-ref "out"]]]]
+            (into [out-decl] (conj assignments return-stmt)))
+          ;; fragment 返回语句也包裹
+          [[:expr-stmt [:return core-call-ast]]])
 
-        wrapper-fn (if (= stage :vertex)
-                     [:entry-wrapper :vertex func-name input-struct-name output-struct-name output-struct-name
-                      body-stmts]
-                     [:entry-wrapper :fragment func-name input-struct-name output-struct-name
-                      (-> output-params first :type)
-                      body-stmts])]
+        wrapper-fn
+        (if (= stage :vertex)
+          [:entry-wrapper :vertex func-name input-struct-name output-struct-name output-struct-name body-stmts]
+          [:entry-wrapper :fragment func-name input-struct-name output-struct-name (-> output-params first :type) body-stmts])]
     [input-struct output-struct wrapper-fn]))
 
 ;; ── 资源声明 ──

@@ -3,6 +3,7 @@
 
 (defprotocol INode
   (kind       [this] "返回节点类型关键字")
+  ;; deprecated, 按结构重建，优先于通用访问
   (children   [this] "返回直接子节点的向量（每个元素是 INode）")
   (node-meta  [this] "返回元数据 map")
   (parent     [this] "返回父节点，根节点为 nil")

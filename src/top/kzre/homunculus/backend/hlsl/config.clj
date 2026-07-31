@@ -19,7 +19,6 @@
     [top.kzre.homunculus.core.types.lambda-elim.api :as lambda-elim]
     [top.kzre.homunculus.core.types.lambda-elim.protocol :as lambda-elim-p]
     [top.kzre.homunculus.core.types.module.api :as module]
-    [top.kzre.homunculus.core.types.mutability.core :as mut]
     [top.kzre.homunculus.core.types.recur-elim.api :as recur]
     [top.kzre.homunculus.internal.model :as model]
     [top.kzre.homunculus.internal.module-unit :as mu]
