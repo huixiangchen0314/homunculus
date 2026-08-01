@@ -60,17 +60,10 @@
           _         (when (nil? ns-sym)
                       (throw (ex-info "No ns form found" {:forms forms})))
           processed (ir1/preprocess forms)
-          parsed (let [b (ir1/parse processed)]
-              (println b)
-              b)
           ir1-roots (mapv ir1/->ir1 processed)
-          _ (println ir1-roots)
-          lowered (let [b (ir2/lower parsed)]
-                   (println b)
-                   b)
           ir2-roots (mapcat ir2/->ir2 ir1-roots)
           ir2-roots' (rename/rename-nodes ir2-roots)
-          ir2-roots' (alias/apply-alias ir2-roots' context frontend)
+          ir2-roots' (alias/alias-nodes ir2-roots' context frontend)
           ir2-roots' (module/resolve-ns ir2-roots' context frontend)
           _          (module/collect-symbols ir2-roots' context)
           ir2-roots' (inline/analyze ir2-roots')   ;; 分析标记

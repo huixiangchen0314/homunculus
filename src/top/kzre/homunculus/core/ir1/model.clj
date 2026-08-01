@@ -4,7 +4,6 @@
    注意：多表达式体（如 let/loop/fn/try 的 body）会被展开为多个子节点。"
   (:require [top.kzre.homunculus.core.ir1.protocol :as p]))
 
-
 ;; ── 基础节点 ──────────────────────────────
 (defrecord LiteralNode [val meta parent]
   p/INode
@@ -163,8 +162,8 @@
 ;; }... ]
 (defrecord RecordNode [name fields protocols meta parent]
   p/INode
-  (kind     [this] :record)
-  (node-meta  [this] meta)
+  (kind     [_] :record)
+  (node-meta  [_] meta)
   )
 
 ;; ProtocolNode: 表示 defprotocol 定义
@@ -175,8 +174,8 @@
 ;;               :meta nil}]
 (defrecord ProtocolNode [name funcs meta parent]
   p/INode
-  (kind       [this] :protocol)
-  (node-meta  [this] meta)
+  (kind       [_] :protocol)
+  (node-meta  [_] meta)
   )
 
 ;; :关键字 表示属性访问，不支持设置
@@ -184,7 +183,7 @@
 ;; 不支持Clojure 风格 assoc 设置
 (defrecord MemberAccessNode [target accessor args meta parent]
   p/INode
-  (kind       [this] :member-access)
-  (node-meta  [this] meta)
+  (kind       [_] :member-access)
+  (node-meta  [_] meta)
   )
 
