@@ -9,10 +9,10 @@
   [ir2-roots]
   (analyze/analyze ir2-roots))
 
-(defn process
+(defn inline-nodes
   "根据标记执行内联，消除多态函数调用。"
   [ir2-roots context]
-  (inline-core/process ir2-roots context))
+  (inline-core/inline-nodes ir2-roots context))
 
 (defn make-context
   "构造内联 Pass 的上下文。"

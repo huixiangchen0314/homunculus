@@ -1,7 +1,6 @@
 (ns top.kzre.homunculus.core.types.infer.api
   "局部类型推断的公共入口。加载所有 defmethod 并重导出核心函数。"
   (:require
-    [top.kzre.homunculus.core.types.infer.core :as c]
     [top.kzre.homunculus.core.types.infer.core :as core]
     [top.kzre.homunculus.core.types.infer.methods.assign]
     [top.kzre.homunculus.core.types.infer.methods.block]
@@ -29,4 +28,4 @@
 (def make-context core/make-context)
 
 ;; re-export 核心入口
-(def infer c/infer)
+(def infer core/infer)

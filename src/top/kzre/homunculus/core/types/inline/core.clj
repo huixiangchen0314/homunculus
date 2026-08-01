@@ -103,7 +103,7 @@
   (p/reduce-children node inline-fn ctx))
 
 ;; ── 入口 ──
-(defn process
+(defn inline-nodes
   "对 IR2 根节点列表执行内联。"
   [ir2-roots context]
   (let [ctx (assoc context :local-inline-defs {})]

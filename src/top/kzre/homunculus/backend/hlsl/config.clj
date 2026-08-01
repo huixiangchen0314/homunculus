@@ -67,7 +67,7 @@
           ir2-roots' (module/resolve-ns ir2-roots' context frontend)
           _          (module/collect-symbols ir2-roots' context)
           ir2-roots' (inline/analyze ir2-roots')   ;; 分析标记
-          ir2-roots' (inline/process ir2-roots' (inline/make-context context frontend backend))  ;; 执行内联
+          ir2-roots' (inline/inline-nodes ir2-roots' (inline/make-context context frontend backend))  ;; 执行内联
           no-ho    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
           no-closure (lambda-elim/eliminate no-ho lift-cfg)
           no-recur   (mapv recur/eliminate no-closure)
