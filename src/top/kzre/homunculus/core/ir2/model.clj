@@ -4,7 +4,7 @@
   (:require [top.kzre.homunculus.core.ir2.protocol :as p]))
 
 ;; ── LambdaNode ──────────────────────────────
-(defrecord LambdaNode [params body captures fn-name attrs meta parent]
+(defrecord Lambda [params body captures fn-name attrs meta parent]
   p/INode
   (kind [_] :lambda)
   (children [_] (into (vec params) [body]))
@@ -16,7 +16,7 @@
   (node-meta [_] meta))
 
 ;; ── LiteralNode ─────────────────────────────
-(defrecord LiteralNode [val attrs meta parent]
+(defrecord Literal [val attrs meta parent]
   p/INode
   (kind [_] :literal)
   (children [_] [])
@@ -26,7 +26,7 @@
 )
 
 ;; ── VariableNode ────────────────────────────
-(defrecord VariableNode [name attrs meta parent]
+(defrecord Variable [name attrs meta parent]
   p/INode
   (kind [_] :variable)
   (children [_] [])
@@ -36,7 +36,7 @@
 )
 
 ;; ── CallNode ────────────────────────────────
-(defrecord CallNode [fn args attrs meta parent]
+(defrecord Call [fn args attrs meta parent]
   p/INode
   (kind [_] :call)
   (children [_] (into (if fn [fn] []) (remove nil? args)))
@@ -49,7 +49,7 @@
 )
 
 ;; ── IfNode ──────────────────────────────────
-(defrecord IfNode [test then else attrs meta parent]
+(defrecord If [test then else attrs meta parent]
   p/INode
   (kind [_] :if)
   (children [_] (into [test then] (if else [else] [])))
@@ -63,7 +63,7 @@
 )
 
 ;; ── BlockNode ───────────────────────────────
-(defrecord BlockNode [exprs attrs meta parent]
+(defrecord Block [exprs attrs meta parent]
   p/INode
   (kind [_] :block)
   (children [_] (vec exprs))
@@ -76,7 +76,7 @@
 )
 
 ;; ── LetNode ─────────────────────────────────
-(defrecord LetNode [bindings body attrs meta parent]
+(defrecord Let [bindings body attrs meta parent]
   p/INode
   (kind [_] :let)
   (children [_] (into (mapcat (fn [[v e]] [v e]) bindings) [body]))
@@ -94,7 +94,7 @@
 )
 
 ;; ── LoopNode ────────────────────────────────
-(defrecord LoopNode [bindings body attrs meta parent]
+(defrecord Loop [bindings body attrs meta parent]
   p/INode
   (kind [_] :loop)
   (children [_] (into (mapcat (fn [[v e]] [v e]) bindings) [body]))
@@ -112,7 +112,7 @@
 )
 
 ;; ── RecurNode ───────────────────────────────
-(defrecord RecurNode [args attrs meta parent]
+(defrecord Recur [args attrs meta parent]
   p/INode
   (kind [_] :recur)
   (children [_] (vec args))
@@ -124,7 +124,7 @@
 )
 
 ;; ── DefineNode ──────────────────────────────
-(defrecord DefineNode [name val doc attrs meta parent]
+(defrecord Define [name val doc attrs meta parent]
   p/INode
   (kind [_] :define)
   (children [_] (if val [val] []))
@@ -138,7 +138,7 @@
 )
 
 ;; ── VectorNode ──────────────────────────────
-(defrecord VectorNode [items attrs meta parent]
+(defrecord Vector [items attrs meta parent]
   p/INode
   (kind [_] :vector)
   (children [_] (vec items))
@@ -150,7 +150,7 @@
 )
 
 ;; ── MapNode ─────────────────────────────────
-(defrecord MapNode [kvs attrs meta parent]
+(defrecord Map [kvs attrs meta parent]
   p/INode
   (kind [_] :map)
   (children [_] (vec kvs))
@@ -162,7 +162,7 @@
 )
 
 ;; ── TryNode ─────────────────────────────────
-(defrecord TryNode [body catches finally attrs meta parent]
+(defrecord Try [body catches finally attrs meta parent]
   p/INode
   (kind [_] :try)
   (children [_] (into (if body [body] [])
@@ -178,7 +178,7 @@
 )
 
 ;; ── CatchNode ───────────────────────────────
-(defrecord CatchNode [class sym body attrs meta parent]
+(defrecord Catch [class sym body attrs meta parent]
   p/INode
   (kind [_] :catch)
   (children [_] (into [class sym] body))
@@ -192,7 +192,7 @@
 )
 
 ;; ── ThrowNode ───────────────────────────────
-(defrecord ThrowNode [expr attrs meta parent]
+(defrecord Throw [expr attrs meta parent]
   p/INode
   (kind [_] :throw)
   (children [_] [expr])
@@ -204,7 +204,7 @@
 )
 
 ;; ── AssignNode ──────────────────────────────
-(defrecord AssignNode [var val attrs meta parent]
+(defrecord Assign [var val attrs meta parent]
   p/INode
   (kind [_] :assign)
   (children [_] [var val])
@@ -217,7 +217,7 @@
 )
 
 ;; ── WhileNode ───────────────────────────────
-(defrecord WhileNode [test body attrs meta parent]
+(defrecord While [test body attrs meta parent]
   p/INode
   (kind [_] :while)
   (children [_] [test body])
@@ -230,7 +230,7 @@
 )
 
 ;; ── ConvertNode ─────────────────────────────
-(defrecord ConvertNode [expr src-ty dst-ty cost attrs meta parent]
+(defrecord Convert [expr src-ty dst-ty cost attrs meta parent]
   p/INode
   (kind [_] :convert)
   (children [_] [expr])
@@ -242,7 +242,7 @@
 )
 
 ;; ── NsNode ──────────────────────────────────
-(defrecord NsNode [name docstring attr-map references attrs meta parent]
+(defrecord Ns [name docstring attr-map references attrs meta parent]
   p/INode
   (kind [_] :ns)
   (children [_] [])
@@ -252,7 +252,7 @@
 )
 
 ;; ── RecordNode ──────────────────────────────
-(defrecord RecordNode [name fields protocols attrs meta parent]
+(defrecord Record [name fields protocols attrs meta parent]
   p/INode
   (kind [_] :record)
   (children [_] (keep :init fields))
@@ -273,7 +273,7 @@
 )
 
 ;; ── ProtocolNode ────────────────────────────
-(defrecord ProtocolNode [name funcs attrs meta parent]
+(defrecord Protocol [name funcs attrs meta parent]
   p/INode
   (kind [_] :protocol)
   (children [_] [])
@@ -283,7 +283,7 @@
 )
 
 ;; ── MemberAccessNode ────────────────────────
-(defrecord MemberAccessNode [target accessor args attrs meta parent]
+(defrecord MemberAccess [target accessor args attrs meta parent]
   p/INode
   (kind [_] :member-access)
   (children [_] (into [target] args))
@@ -296,7 +296,7 @@
 )
 
 ;; ── NewArrayNode ────────────────────────────
-(defrecord NewArrayNode [size attrs meta parent]
+(defrecord NewArray [size attrs meta parent]
   p/INode
   (kind [_] :new-array)
   (children [_] [])
@@ -306,7 +306,7 @@
 )
 
 ;; ── AGetNode ────────────────────────────────
-(defrecord AGetNode [target idx attrs meta parent]
+(defrecord AGet [target idx attrs meta parent]
   p/INode
   (kind [_] :aget)
   (children [_] [target idx])
@@ -319,7 +319,7 @@
 )
 
 ;; ── ASetNode ────────────────────────────────
-(defrecord ASetNode [target idx val attrs meta parent]
+(defrecord ASet [target idx val attrs meta parent]
   p/INode
   (kind [_] :aset)
   (children [_] [target idx val])
@@ -333,7 +333,7 @@
 )
 
 ;; ── ALengthNode ─────────────────────────────
-(defrecord ALengthNode [target attrs meta parent]
+(defrecord ALength [target attrs meta parent]
   p/INode
   (kind [_] :alength)
   (children [_] [target])

@@ -5,35 +5,35 @@
   (:require [top.kzre.homunculus.core.ir1.protocol :as p]))
 
 ;; ── 基础节点 ──────────────────────────────
-(defrecord LiteralNode [val meta parent]
+(defrecord Literal [val meta parent]
   p/INode
   (kind [_] :literal)
 
   (node-meta [_] meta)
   )
 
-(defrecord SymbolNode [name meta]
+(defrecord Symbol [name meta]
   p/INode
   (kind [_] :symbol)
 
   (node-meta [_] meta)
   )
 
-(defrecord VectorNode [items meta]
+(defrecord Vector [items meta]
   p/INode
   (kind [_] :vector)
 
   (node-meta [_] meta)
   )
 
-(defrecord MapNode [pairs meta parent]
+(defrecord Map [pairs meta parent]
   p/INode
   (kind [_] :map)
 
   (node-meta [_] meta)
   )
 
-(defrecord CallNode [op args meta]
+(defrecord Call [op args meta]
   p/INode
   (kind [_] :call)
 
@@ -41,14 +41,14 @@
   )
 
 ;; ── 特殊形式 ──────────────────────────────
-(defrecord IfNode [test then else meta ]
+(defrecord If [test then else meta ]
   p/INode
   (kind [_] :if)
 
   (node-meta [_] meta)
   )
 
-(defrecord DoNode [exprs meta ]
+(defrecord Do [exprs meta ]
   p/INode
   (kind [_] :do)
 
@@ -56,7 +56,7 @@
   )
 
 
-(defrecord LetNode [bindings body bindings-count meta]
+(defrecord Let [bindings body bindings-count meta]
   p/INode
   (kind [_] :let)
 
@@ -64,41 +64,41 @@
   )
 
 
-(defrecord FnNode [name params body meta ]
+(defrecord Fn [name params body meta ]
   p/INode
   (kind [_] :fn)
   (node-meta [_] meta)
   )
 
-(defrecord DefNode [name doc attr val meta ]
+(defrecord Def [name doc attr val meta ]
   p/INode
   (kind [_] :def)
 
   (node-meta [_] meta)
   )
 
-(defrecord LoopNode [bindings body bindings-count meta parent]
+(defrecord Loop [bindings body bindings-count meta parent]
   p/INode
   (kind [_] :loop)
 
   (node-meta [_] meta)
   )
 
-(defrecord RecurNode [exprs meta parent]
+(defrecord Recur [exprs meta parent]
   p/INode
   (kind [_] :recur)
 
   (node-meta [_] meta)
   )
 
-(defrecord QuoteNode [expr meta parent]
+(defrecord Quote [expr meta parent]
   p/INode
   (kind [_] :quote)
 
   (node-meta [_] meta)
   )
 
-(defrecord VarNode [var-sym meta parent]
+(defrecord Var [var-sym meta parent]
   p/INode
   (kind [_] :var)
 
@@ -107,36 +107,36 @@
 
 
 
-(defrecord SetNode [var val meta parent]
+(defrecord Set [var val meta parent]
   p/INode
-  (kind [_] :set!)
+  (kind [_] :set)
 
   (node-meta [_] meta)
   )
 
 
-(defrecord TryNode [body catches finally meta parent]
+(defrecord Try [body catches finally meta parent]
   p/INode
   (kind [_] :try)
   (node-meta [_] meta)
   )
 
 
-(defrecord CatchNode [class sym body meta parent]
+(defrecord Catch [class sym body meta parent]
   p/INode
   (kind [_] :catch)
 
   (node-meta [_] meta)
   )
 
-(defrecord ThrowNode [expr meta parent]
+(defrecord Throw [expr meta parent]
   p/INode
   (kind [_] :throw)
 
   (node-meta [_] meta)
   )
 
-(defrecord NsNode [name docstring attr-map references meta parent]
+(defrecord Ns [name docstring attr-map references meta parent]
   p/INode
   (kind [_] :ns)
 
@@ -160,7 +160,7 @@
 ;; :body <block-node>
 ;; }]
 ;; }... ]
-(defrecord RecordNode [name fields protocols meta parent]
+(defrecord Record [name fields protocols meta parent]
   p/INode
   (kind     [_] :record)
   (node-meta  [_] meta)
@@ -172,7 +172,7 @@
 ;;                        {:name x, :meta nil}]
 ;;               :ret :nil
 ;;               :meta nil}]
-(defrecord ProtocolNode [name funcs meta parent]
+(defrecord Protocol [name funcs meta parent]
   p/INode
   (kind       [_] :protocol)
   (node-meta  [_] meta)
@@ -181,7 +181,7 @@
 ;; :关键字 表示属性访问，不支持设置
 ;; .xyz 表示方法调用
 ;; 不支持Clojure 风格 assoc 设置
-(defrecord MemberAccessNode [target accessor args meta parent]
+(defrecord MemberAccess [target accessor args meta parent]
   p/INode
   (kind       [_] :member-access)
   (node-meta  [_] meta)

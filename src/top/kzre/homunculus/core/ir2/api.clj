@@ -16,7 +16,7 @@
     [top.kzre.homunculus.core.ir2.forms.loop]             ;; :loop
     [top.kzre.homunculus.core.ir2.forms.quote]            ;; :quote
     [top.kzre.homunculus.core.ir2.forms.variable]         ;; :var → VariableNode 展开
-    [top.kzre.homunculus.core.ir2.forms.assign]           ;; :set! → AssignNode
+    [top.kzre.homunculus.core.ir2.forms.assign]           ;; :set → AssignNode
     [top.kzre.homunculus.core.ir2.forms.try]              ;; :try, :catch, :throw
     [top.kzre.homunculus.core.ir2.forms.ns]               ;; :ns
     [top.kzre.homunculus.core.ir2.forms.record]           ;; :record

@@ -13,6 +13,7 @@
           new-node 为重建后的当前节点(包括子节点)."
           (fn [node _context] (ir2p/kind node)))
 
+
 (defn frontend
   "辅助函数，从上下文获取前端协议对象"
   [contex] (:frontend contex))
@@ -49,6 +50,9 @@
   "辅助函数, 表示推断失败"
   [node context] [nil node context])
 
+
+(defmethod local-infer :default [node context]
+  (nothing node context))
 
 (defn make-context
   "构建局部推断所需的上下文 map。合并前端内置符号表与编译上下文用户符号表。"

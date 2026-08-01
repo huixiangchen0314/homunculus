@@ -6,7 +6,6 @@
     [top.kzre.homunculus.core.types.infer.methods.block]
     [top.kzre.homunculus.core.types.infer.methods.call]
     [top.kzre.homunculus.core.types.infer.methods.convert]
-    [top.kzre.homunculus.core.types.infer.methods.default]
     [top.kzre.homunculus.core.types.infer.methods.define]
     [top.kzre.homunculus.core.types.infer.methods.if]
     [top.kzre.homunculus.core.types.infer.methods.lambda]

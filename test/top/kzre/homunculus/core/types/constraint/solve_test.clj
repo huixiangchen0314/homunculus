@@ -59,7 +59,7 @@
 ;; ── 应用到 IR2 树测试 ──
 (deftest test-apply-subst
   (let [tv (t/->TVar "x")
-        node (m/->LiteralNode 42 {:type tv} nil nil)
+        node (m/->Literal 42 {:type tv} nil nil)
         subst {tv (t/->TCon :int)}
         result (solve/apply-subst node subst)]
     (is (tcon? (get-in result [:attrs :type]) :int))))
@@ -67,7 +67,7 @@
 ;; ── 完整流程测试（生成约束 + 求解 + 应用）──
 (deftest test-process-simple
   (let [env {:frontend nil :env {"x" (t/->TCon :float)}}
-        node (m/->VariableNode "x" nil nil nil)
+        node (m/->Variable "x" nil nil nil)
         result (solve/process [node] env)]
     (is (= 1 (count result)))
     (let [processed (first result)]

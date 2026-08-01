@@ -6,20 +6,20 @@
             [top.kzre.homunculus.core.types.protocol :as p]))
 
 ;; ── 辅助构造函数 ──
-(defn- vref [name] (m/->VariableNode name nil nil nil))
-(defn- lit [val] (m/->LiteralNode val nil nil nil))
-(defn- lam [params body] (m/->LambdaNode params body [] nil nil nil nil))
-(defn- call [fn-node & args] (m/->CallNode fn-node (vec args) nil nil nil))
-(defn- let-node [bindings body] (m/->LetNode (vec bindings) body nil nil nil))
-(defn- define [name val] (m/->DefineNode name val nil nil nil nil))
-(defn- block [& exprs] (m/->BlockNode (vec exprs) nil nil nil))
-(defn- assign [var val] (m/->AssignNode var val nil nil nil))
-(defn- while-node [test body] (m/->WhileNode test body nil nil nil))
-(defn- if-node [test then else] (m/->IfNode test then else nil nil nil))
-(defn- try-node [body catches finally] (m/->TryNode body catches finally nil nil nil))
+(defn- vref [name] (m/->Variable name nil nil nil))
+(defn- lit [val] (m/->Literal val nil nil nil))
+(defn- lam [params body] (m/->Lambda params body [] nil nil nil nil))
+(defn- call [fn-node & args] (m/->Call fn-node (vec args) nil nil nil))
+(defn- let-node [bindings body] (m/->Let (vec bindings) body nil nil nil))
+(defn- define [name val] (m/->Define name val nil nil nil nil))
+(defn- block [& exprs] (m/->Block (vec exprs) nil nil nil))
+(defn- assign [var val] (m/->Assign var val nil nil nil))
+(defn- while-node [test body] (m/->While test body nil nil nil))
+(defn- if-node [test then else] (m/->If test then else nil nil nil))
+(defn- try-node [body catches finally] (m/->Try body catches finally nil nil nil))
 (defn- catch-node [class sym body]
-  (m/->CatchNode (vref class) (vref sym) body nil nil nil))   ;; class, sym 用 vref
-(defn- throw-node [expr] (m/->ThrowNode expr nil nil nil))
+  (m/->Catch (vref class) (vref sym) body nil nil nil))   ;; class, sym 用 vref
+(defn- throw-node [expr] (m/->Throw expr nil nil nil))
 
 ;; 虚拟配置（用于 lift-lambda 测试）
 (defrecord DummyConfig []

@@ -32,7 +32,7 @@
 
 ;; ── 字面量测试 ──
 (deftest test-literal
-  (let [[tv node constrs] (gen/cg-node (m/->LiteralNode 42 nil nil nil) base-context)]
+  (let [[tv node constrs] (gen/cg-node (m/->Literal 42 nil nil nil) base-context)]
     (is (tcon? tv :int))
     (is (tcon? (get-in node [:attrs :type]) :int))
     (is (= 1 (count constrs)))
@@ -43,20 +43,20 @@
 ;; ── 变量测试 ──
 (deftest test-variable-bound
   (let [ctx (assoc base-context :env {"x" (t/->TCon :float)})
-        [tv node constrs] (gen/cg-node (m/->VariableNode "x" nil nil nil) ctx)]
+        [tv node constrs] (gen/cg-node (m/->Variable "x" nil nil nil) ctx)]
     (is (tcon? tv :float))
     (is (nil? constrs))))
 
 (deftest test-variable-unbound
-  (let [[tv node constrs] (gen/cg-node (m/->VariableNode "y" nil nil nil) base-context)]
+  (let [[tv node constrs] (gen/cg-node (m/->Variable "y" nil nil nil) base-context)]
     (is (tvar? tv))
     (is (nil? constrs))))
 
 ;; ── 调用测试 ──
 (deftest test-call-simple
-  (let [fn-node (m/->VariableNode "+" nil nil nil)
+  (let [fn-node (m/->Variable "+" nil nil nil)
         ctx (assoc base-context :env {"+" (t/->TFun (t/->TCon :int) (t/->TFun (t/->TCon :int) (t/->TCon :int)))})
-        [tv node constrs] (gen/cg-node (m/->CallNode fn-node [(m/->LiteralNode 1 nil nil nil) (m/->LiteralNode 2 nil nil nil)] nil nil nil) ctx)]
+        [tv node constrs] (gen/cg-node (m/->Call fn-node [(m/->Literal 1 nil nil nil) (m/->Literal 2 nil nil nil)] nil nil nil) ctx)]
     (is (tvar? tv))
     ;; 约束列表中应存在一个包含函数类型的等式约束
     (let [eq-constrs (filter #(instance? CEqual %) constrs)
@@ -64,10 +64,10 @@
       (is (some? fn-eq) "应存在一个包含函数类型的等式约束"))))
 
 (deftest test-call-overload-candidates
-  (let [fn-node (m/->VariableNode "float3" {:builtin-fn [(t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float3))))
+  (let [fn-node (m/->Variable "float3" {:builtin-fn [(t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TFun (t/->TCon :float) (t/->TCon :float3))))
                                                          (t/->TFun (t/->TCon :float2) (t/->TFun (t/->TCon :float) (t/->TCon :float3)))]}
                                   nil nil)
-        [tv node constrs] (gen/cg-node (m/->CallNode fn-node [(m/->LiteralNode 1.0 nil nil nil) (m/->LiteralNode 2.0 nil nil nil)] nil nil nil) base-context)]
+        [tv node constrs] (gen/cg-node (m/->Call fn-node [(m/->Literal 1.0 nil nil nil) (m/->Literal 2.0 nil nil nil)] nil nil nil) base-context)]
     (is (tvar? tv))
     (let [overloads (filter #(instance? COverload %) constrs)]
       (is (= 1 (count overloads)))
@@ -77,20 +77,20 @@
 
 ;; ── let 测试 ──
 (deftest test-let-basic
-  (let [var-node (m/->VariableNode "x" nil nil nil)
-        val-node (m/->LiteralNode 3.0 nil nil nil)
-        body-node (m/->VariableNode "x" nil nil nil)
-        let-node (m/->LetNode [[var-node val-node]] body-node nil nil nil)
+  (let [var-node (m/->Variable "x" nil nil nil)
+        val-node (m/->Literal 3.0 nil nil nil)
+        body-node (m/->Variable "x" nil nil nil)
+        let-node (m/->Let [[var-node val-node]] body-node nil nil nil)
         [tv node constrs] (gen/cg-node let-node base-context)]
     (is (tcon? tv :float))
     (is (seq constrs))))
 
 ;; ── if 测试 ──
 (deftest test-if
-  (let [test-node (m/->LiteralNode true nil nil nil)
-        then-node (m/->LiteralNode 1 nil nil nil)
-        else-node (m/->LiteralNode 2 nil nil nil)
-        if-node (m/->IfNode test-node then-node else-node nil nil nil)
+  (let [test-node (m/->Literal true nil nil nil)
+        then-node (m/->Literal 1 nil nil nil)
+        else-node (m/->Literal 2 nil nil nil)
+        if-node (m/->If test-node then-node else-node nil nil nil)
         [tv node constrs] (gen/cg-node if-node base-context)]
     (is (tvar? tv))
     (let [equal-constrs (filter #(instance? CEqual %) constrs)]
@@ -98,19 +98,19 @@
 
 ;; ── block 测试 ──
 (deftest test-block
-  (let [exprs [(m/->LiteralNode 1 nil nil nil)
-               (m/->LiteralNode 2 nil nil nil)
-               (m/->LiteralNode 3 nil nil nil)]
-        block-node (m/->BlockNode exprs nil nil nil)
+  (let [exprs [(m/->Literal 1 nil nil nil)
+               (m/->Literal 2 nil nil nil)
+               (m/->Literal 3 nil nil nil)]
+        block-node (m/->Block exprs nil nil nil)
         [tv node constrs] (gen/cg-node block-node base-context)]
     (is (tcon? tv :int))
     (is (seq constrs))))
 
 ;; ── assign 测试 ──
 (deftest test-assign
-  (let [var-node (m/->VariableNode "x" nil nil nil)
-        val-node (m/->LiteralNode 5 nil nil nil)
-        assign-node (m/->AssignNode var-node val-node nil nil nil)
+  (let [var-node (m/->Variable "x" nil nil nil)
+        val-node (m/->Literal 5 nil nil nil)
+        assign-node (m/->Assign var-node val-node nil nil nil)
         [tv node constrs] (gen/cg-node assign-node base-context)]
     (is (tcon? tv :nil))
     (let [eq (first (filter #(instance? CEqual %) constrs))]
@@ -118,9 +118,9 @@
 
 ;; ── while 测试 ──
 (deftest test-while
-  (let [test-node (m/->LiteralNode true nil nil nil)
-        body-node (m/->LiteralNode 1 nil nil nil)
-        while-node (m/->WhileNode test-node body-node nil nil nil)
+  (let [test-node (m/->Literal true nil nil nil)
+        body-node (m/->Literal 1 nil nil nil)
+        while-node (m/->While test-node body-node nil nil nil)
         [tv node constrs] (gen/cg-node while-node base-context)]
     (is (tcon? tv :nil))
     (let [bool-constr (some #(and (instance? CEqual %) (= (:type %) (t/->TCon :bool))) constrs)]
@@ -128,17 +128,17 @@
 
 ;; ── define 测试 ──
 (deftest test-define
-  (let [val-node (m/->LiteralNode 42 nil nil nil)
-        define-node (m/->DefineNode 'foo val-node nil nil nil nil)
+  (let [val-node (m/->Literal 42 nil nil nil)
+        define-node (m/->Define 'foo val-node nil nil nil nil)
         [tv node constrs] (gen/cg-node define-node base-context)]
     (is (tcon? tv :int))
     (is (= 'foo (:name node)))))
 
 ;; ── lambda 测试 ──
 (deftest test-lambda
-  (let [param (m/->VariableNode "x" nil nil nil)
-        body (m/->VariableNode "x" nil nil nil)
-        lambda-node (m/->LambdaNode [param] body [] nil nil nil nil)
+  (let [param (m/->Variable "x" nil nil nil)
+        body (m/->Variable "x" nil nil nil)
+        lambda-node (m/->Lambda [param] body [] nil nil nil nil)
         [tv node constrs] (gen/cg-node lambda-node base-context)]
     (is (tfun? tv))
     (is (tvar? (:arg tv)))
@@ -147,7 +147,7 @@
 
 ;; ── 默认测试 ──
 (deftest test-default
-  (let [try-node (m/->TryNode [] [] nil nil nil nil)
+  (let [try-node (m/->Try [] [] nil nil nil nil)
         [tv node constrs] (gen/cg-node try-node base-context)]
     (is (tvar? tv))
     (is (nil? constrs))))

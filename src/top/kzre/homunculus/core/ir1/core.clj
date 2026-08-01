@@ -25,7 +25,7 @@
 (defmethod form->node :default [form]
   (if (seq? form)
     (let [[op & args] form]
-      (m/->CallNode op args nil ))
+      (m/->Call op args nil ))
     (throw (ex-info (str "Unsupported form: " form) {:form form}))))
 
 

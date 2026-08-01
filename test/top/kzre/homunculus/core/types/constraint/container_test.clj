@@ -13,10 +13,10 @@
      THeteroMap
      VariableLength]))
 
-(defn- lit [val] (m/->LiteralNode val nil nil nil))
-(defn- vref [name] (m/->VariableNode name nil nil nil))
-(defn- vec-node [items] (m/->VectorNode items nil nil nil))
-(defn- map-node [kvs] (m/->MapNode kvs nil nil nil))
+(defn- lit [val] (m/->Literal val nil nil nil))
+(defn- vref [name] (m/->Variable name nil nil nil))
+(defn- vec-node [items] (m/->Vector items nil nil nil))
+(defn- map-node [kvs] (m/->Map kvs nil nil nil))
 
 (def mock-frontend
   (reify tp/IFrontendInfo

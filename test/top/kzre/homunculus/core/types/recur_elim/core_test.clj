@@ -9,28 +9,28 @@
 
 ;; ── 辅助构造函数（简化节点创建） ──
 (defn- variable [name]
-  (m/->VariableNode name nil nil nil))
+  (m/->Variable name nil nil nil))
 
 (defn- literal [val]
-  (m/->LiteralNode val nil nil nil))
+  (m/->Literal val nil nil nil))
 
 (defn- if-node [test then else]
-  (m/->IfNode test then else nil nil nil))
+  (m/->If test then else nil nil nil))
 
 (defn- block [& exprs]
-  (m/->BlockNode (vec exprs) nil nil nil))
+  (m/->Block (vec exprs) nil nil nil))
 
 (defn- let-node [bindings body]
-  (m/->LetNode (vec bindings) body nil nil nil))
+  (m/->Let (vec bindings) body nil nil nil))
 
 (defn- loop-node [bindings body]
-  (m/->LoopNode (vec bindings) body nil nil nil))
+  (m/->Loop (vec bindings) body nil nil nil))
 
 (defn- recur-node [args]
-  (m/->RecurNode (vec args) nil nil nil))
+  (m/->Recur (vec args) nil nil nil))
 
 (defn- call [f & args]
-  (m/->CallNode f (vec args) nil nil nil))
+  (m/->Call f (vec args) nil nil nil))
 
 ;; ── 测试：基本 loop 无递归（立即返回） ──
 (deftest loop-no-recur-test
@@ -137,16 +137,16 @@
 
 
 (deftest loop-while-conversion-preserves-args
-  (let [i-var   (m/->VariableNode "i" nil nil nil)
-        init    (m/->LiteralNode 0.0 nil nil nil)
-        test-node (m/->CallNode (m/->VariableNode "<" nil nil nil)
-                                [i-var (m/->LiteralNode 10.0 nil nil nil)]
+  (let [i-var   (m/->Variable "i" nil nil nil)
+        init    (m/->Literal 0.0 nil nil nil)
+        test-node (m/->Call (m/->Variable "<" nil nil nil)
+                                [i-var (m/->Literal 10.0 nil nil nil)]
                                 nil nil nil)
-        recur-node (m/->RecurNode [(m/->CallNode (m/->VariableNode "+" nil nil nil)
-                                                 [i-var (m/->LiteralNode 1.0 nil nil nil)]
+        recur-node (m/->Recur [(m/->Call (m/->Variable "+" nil nil nil)
+                                                 [i-var (m/->Literal 1.0 nil nil nil)]
                                                  nil nil nil)] nil nil nil)
-        if-node (m/->IfNode test-node recur-node i-var nil nil nil)
-        loop-node (m/->LoopNode [[i-var init]] if-node nil nil nil)
+        if-node (m/->If test-node recur-node i-var nil nil nil)
+        loop-node (m/->Loop [[i-var init]] if-node nil nil nil)
         result (sut/transform-loop loop-node)]
     ;; 转换后应为 let 节点
     (is (= :let (ir2p/kind result)))

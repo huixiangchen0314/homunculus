@@ -65,9 +65,9 @@
                      checked
                      (let [body (if (= 1 (count checked))
                                   (first checked)
-                                  (m/->BlockNode checked nil nil nil))]
-                       [(m/->DefineNode (symbol (:fn-name (first entries)))  ;; 使用 entries 中的名字
-                                        (m/->LambdaNode [] body [] nil nil nil nil)
+                                  (m/->Block checked nil nil nil))]
+                       [(m/->Define (symbol (:fn-name (first entries)))  ;; 使用 entries 中的名字
+                                        (m/->Lambda [] body [] nil nil nil nil)
                                         nil nil nil nil)]))]
     (emit/generate roots hlsl-backend-inst entries)))  ;; 传递 entries
 

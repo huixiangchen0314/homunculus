@@ -29,8 +29,8 @@
 (defn lit-val [node] (:val node))
 
 (defn make-literal
-  ([val] (m/->LiteralNode val nil nil))
-  ([val meta] (m/->LiteralNode val meta nil)))
+  ([val] (m/->Literal val nil nil))
+  ([val meta] (m/->Literal val meta nil)))
 
 (defn literal-with-val [node val] (assoc node :val val))
 
@@ -40,8 +40,8 @@
 (defn sym-name [node] (:name node))
 
 (defn make-symbol
-  ([name] (m/->SymbolNode name nil ))
-  ([name meta] (m/->SymbolNode name meta )))
+  ([name] (m/->Symbol name nil ))
+  ([name meta] (m/->Symbol name meta )))
 
 (defn symbol-with-name [node name] (assoc node :name name))
 
@@ -52,13 +52,13 @@
 (defn map-pairs [node] (:pairs node))
 
 (defn make-vector
-  ([items] (m/->VectorNode items nil))
-  ([items meta] (m/->VectorNode items meta)))
+  ([items] (m/->Vector items nil))
+  ([items meta] (m/->Vector items meta)))
 
 (defn make-map
-  ([pairs] (m/->MapNode pairs nil nil))
-  ([pairs meta] (m/->MapNode pairs meta nil))
-  ([pairs meta parent] (m/->MapNode pairs meta parent)))
+  ([pairs] (m/->Map pairs nil nil))
+  ([pairs meta] (m/->Map pairs meta nil))
+  ([pairs meta parent] (m/->Map pairs meta parent)))
 
 (defn vector-with-items [node items] (assoc node :items items))
 (defn map-with-pairs    [node pairs] (assoc node :pairs pairs))
@@ -70,8 +70,8 @@
 (defn call-args [node] (:args node))
 
 (defn make-call
-  ([op args] (m/->CallNode op args nil))
-  ([op args meta] (m/->CallNode op args meta)))
+  ([op args] (m/->Call op args nil))
+  ([op args meta] (m/->Call op args meta)))
 
 (defn call-with-op   [node op]   (assoc node :op op))
 (defn call-with-args [node args] (assoc node :args args))
@@ -84,8 +84,8 @@
 (defn if-else [node] (:else node))
 
 (defn make-if
-  ([test then else] (m/->IfNode test then else nil ))
-  ([test then else meta] (m/->IfNode test then else meta )))
+  ([test then else] (m/->If test then else nil ))
+  ([test then else meta] (m/->If test then else meta )))
 
 (defn if-with-test [node test] (assoc node :test test))
 (defn if-with-then [node then] (assoc node :then then))
@@ -97,8 +97,8 @@
 (defn do-exprs [node] (:exprs node))
 
 (defn make-do
-  ([exprs] (m/->DoNode exprs nil))
-  ([exprs meta] (m/->DoNode exprs meta)))
+  ([exprs] (m/->Do exprs nil))
+  ([exprs meta] (m/->Do exprs meta)))
 
 (defn do-with-exprs [node exprs] (assoc node :exprs exprs))
 
@@ -110,9 +110,9 @@
 
 (defn make-let
   ([bindings body]
-   (m/->LetNode bindings body (/ (count bindings) 2) nil))
+   (m/->Let bindings body (/ (count bindings) 2) nil))
   ([bindings body meta]
-   (m/->LetNode bindings body (/ (count bindings) 2) meta)))
+   (m/->Let bindings body (/ (count bindings) 2) meta)))
 (def binding-pairs kv-pairs)
 (def make-binding make-pair)
 
@@ -127,8 +127,8 @@
 (defn fn-body   [node] (:body node))
 
 (defn make-fn
-  ([name params body] (m/->FnNode name params body nil ))
-  ([name params body meta] (m/->FnNode name params body meta )))
+  ([name params body] (m/->Fn name params body nil ))
+  ([name params body meta] (m/->Fn name params body meta )))
 
 (defn fn-with-name   [node name]   (assoc node :name name))
 (defn fn-with-params [node params] (assoc node :params params))
@@ -150,9 +150,9 @@
 (defn def-val  [node] (:val node))
 
 (defn make-def
-  ([name val] (m/->DefNode name nil nil val nil ))
-  ([name val meta] (m/->DefNode name nil nil val meta ))
-  ([name doc attr val meta] (m/->DefNode name doc attr val meta )))
+  ([name val] (m/->Def name nil nil val nil ))
+  ([name val meta] (m/->Def name nil nil val meta ))
+  ([name doc attr val meta] (m/->Def name doc attr val meta )))
 
 (defn def-with-name [node name] (assoc node :name name))
 (defn def-with-doc  [node doc]  (assoc node :doc doc))
@@ -167,11 +167,11 @@
 
 (defn make-loop
   ([bindings body]
-   (m/->LoopNode bindings body (/ (count bindings) 2) nil nil))
+   (m/->Loop bindings body (/ (count bindings) 2) nil nil))
   ([bindings body meta]
-   (m/->LoopNode bindings body (/ (count bindings) 2) meta nil))
+   (m/->Loop bindings body (/ (count bindings) 2) meta nil))
   ([bindings body meta parent]
-   (m/->LoopNode bindings body (/ (count bindings) 2) meta parent)))
+   (m/->Loop bindings body (/ (count bindings) 2) meta parent)))
 
 (defn loop-with-bindings [node bindings] (assoc node :bindings bindings))
 (defn loop-with-body     [node body]      (assoc node :body body))
@@ -182,9 +182,9 @@
 (defn recur-exprs [node] (:exprs node))
 
 (defn make-recur
-  ([exprs] (m/->RecurNode exprs nil nil))
-  ([exprs meta] (m/->RecurNode exprs meta nil))
-  ([exprs meta parent] (m/->RecurNode exprs meta parent)))
+  ([exprs] (m/->Recur exprs nil nil))
+  ([exprs meta] (m/->Recur exprs meta nil))
+  ([exprs meta parent] (m/->Recur exprs meta parent)))
 
 (defn recur-with-exprs [node exprs] (assoc node :exprs exprs))
 
@@ -194,9 +194,9 @@
 (defn quoted-expr [node] (:expr node))
 
 (defn make-quote
-  ([expr] (m/->QuoteNode expr nil nil))
-  ([expr meta] (m/->QuoteNode expr meta nil))
-  ([expr meta parent] (m/->QuoteNode expr meta parent)))
+  ([expr] (m/->Quote expr nil nil))
+  ([expr meta] (m/->Quote expr meta nil))
+  ([expr meta parent] (m/->Quote expr meta parent)))
 
 (defn quote-with-expr [node expr] (assoc node :expr expr))
 
@@ -206,9 +206,9 @@
 (defn var-sym [node] (:var-sym node))
 
 (defn make-var
-  ([var-sym] (m/->VarNode var-sym nil nil))
-  ([var-sym meta] (m/->VarNode var-sym meta nil))
-  ([var-sym meta parent] (m/->VarNode var-sym meta parent)))
+  ([var-sym] (m/->Var var-sym nil nil))
+  ([var-sym meta] (m/->Var var-sym meta nil))
+  ([var-sym meta parent] (m/->Var var-sym meta parent)))
 
 (defn var-with-sym [node var-sym] (assoc node :var-sym var-sym))
 
@@ -218,9 +218,9 @@
 (defn throw-expr [node] (:expr node))
 
 (defn make-throw
-  ([expr] (m/->ThrowNode expr nil nil))
-  ([expr meta] (m/->ThrowNode expr meta nil))
-  ([expr meta parent] (m/->ThrowNode expr meta parent)))
+  ([expr] (m/->Throw expr nil nil))
+  ([expr meta] (m/->Throw expr meta nil))
+  ([expr meta parent] (m/->Throw expr meta parent)))
 
 (defn throw-with-expr [node expr] (assoc node :expr expr))
 
@@ -231,9 +231,9 @@
 (defn set-val [node] (:val node))
 
 (defn make-set!
-  ([var val] (m/->SetNode var val nil nil))
-  ([var val meta] (m/->SetNode var val meta nil))
-  ([var val meta parent] (m/->SetNode var val meta parent)))
+  ([var val] (m/->Set var val nil nil))
+  ([var val meta] (m/->Set var val meta nil))
+  ([var val meta parent] (m/->Set var val meta parent)))
 
 (defn set-with-var [node var] (assoc node :var var))
 (defn set-with-val [node val] (assoc node :val val))
@@ -246,10 +246,10 @@
 (defn try-finally [node] (:finally node))
 
 (defn make-try
-  ([body catches] (m/->TryNode body catches nil nil nil))
-  ([body catches finally] (m/->TryNode body catches finally nil nil))
-  ([body catches finally meta] (m/->TryNode body catches finally meta nil))
-  ([body catches finally meta parent] (m/->TryNode body catches finally meta parent)))
+  ([body catches] (m/->Try body catches nil nil nil))
+  ([body catches finally] (m/->Try body catches finally nil nil))
+  ([body catches finally meta] (m/->Try body catches finally meta nil))
+  ([body catches finally meta parent] (m/->Try body catches finally meta parent)))
 
 (defn try-with-body    [node body]    (assoc node :body body))
 (defn try-with-catches [node catches] (assoc node :catches catches))
@@ -260,9 +260,9 @@
 (defn catch-body  [node] (:body node))
 
 (defn make-catch
-  ([class sym body] (m/->CatchNode class sym body nil nil))
-  ([class sym body meta] (m/->CatchNode class sym body meta nil))
-  ([class sym body meta parent] (m/->CatchNode class sym body meta parent)))
+  ([class sym body] (m/->Catch class sym body nil nil))
+  ([class sym body meta] (m/->Catch class sym body meta nil))
+  ([class sym body meta parent] (m/->Catch class sym body meta parent)))
 
 (defn catch-with-class [node class] (assoc node :class class))
 (defn catch-with-sym   [node sym]   (assoc node :sym sym))
@@ -278,11 +278,11 @@
 
 (defn make-ns
   ([name references]
-   (m/->NsNode name nil nil references nil nil))
+   (m/->Ns name nil nil references nil nil))
   ([name docstring attr-map references meta]
-   (m/->NsNode name docstring attr-map references meta nil))
+   (m/->Ns name docstring attr-map references meta nil))
   ([name docstring attr-map references meta parent]
-   (m/->NsNode name docstring attr-map references meta parent)))
+   (m/->Ns name docstring attr-map references meta parent)))
 
 (defn ns-with-name       [node name]       (assoc node :name name))
 (defn ns-with-references [node references] (assoc node :references references))
@@ -313,8 +313,8 @@
   {:name method-name :params params :body body :meta meta})
 
 (defn make-record
-  ([name fields protocols] (m/->RecordNode name fields protocols nil nil))
-  ([name fields protocols meta] (m/->RecordNode name fields protocols meta nil)))
+  ([name fields protocols] (m/->Record name fields protocols nil nil))
+  ([name fields protocols meta] (m/->Record name fields protocols meta nil)))
 
 (defn record-with-name      [node name]      (assoc node :name name))
 (defn record-with-fields    [node fields]    (assoc node :fields fields))
@@ -391,8 +391,8 @@
 (defn protocol-funcs [node] (:funcs node))
 
 (defn make-protocol
-  ([name funcs] (m/->ProtocolNode name funcs nil nil))
-  ([name funcs meta] (m/->ProtocolNode name funcs meta nil)))
+  ([name funcs] (m/->Protocol name funcs nil nil))
+  ([name funcs meta] (m/->Protocol name funcs meta nil)))
 
 (defn protocol-with-name  [node name]  (assoc node :name name))
 (defn protocol-with-funcs [node funcs] (assoc node :funcs funcs))
@@ -412,9 +412,9 @@
 (defn access-args   [node] (member-access-args node))
 
 (defn make-member-access
-  ([target accessor args] (m/->MemberAccessNode target accessor args nil nil))
-  ([target accessor args meta] (m/->MemberAccessNode target accessor args meta nil))
-  ([target accessor args meta parent] (m/->MemberAccessNode target accessor args meta parent)))
+  ([target accessor args] (m/->MemberAccess target accessor args nil nil))
+  ([target accessor args meta] (m/->MemberAccess target accessor args meta nil))
+  ([target accessor args meta parent] (m/->MemberAccess target accessor args meta parent)))
 
 (defn member-access-with-target   [node target]   (assoc node :target target))
 (defn member-access-with-accessor [node accessor] (assoc node :accessor accessor))

@@ -6,9 +6,9 @@
     [top.kzre.homunculus.core.types.model :as t]
     [top.kzre.homunculus.core.types.test-utils :refer [get-type tcon?]]))
 
-(defn- vref [name] (m/->VariableNode name nil nil nil))
-(defn- lit [val] (m/->LiteralNode val nil nil nil))
-(defn- while-node [test body] (m/->WhileNode test body nil nil nil))
+(defn- vref [name] (m/->Variable name nil nil nil))
+(defn- lit [val] (m/->Literal val nil nil nil))
+(defn- while-node [test body] (m/->While test body nil nil nil))
 (defn- process-one [node context] (first (cs/process [node] context)))
 
 (deftest while-typed-test
@@ -23,7 +23,7 @@
 (deftest assign-typed-test
   (let [var-node (vref "x")
         val-node (lit 10)
-        assign-node (m/->AssignNode var-node val-node nil nil nil)
+        assign-node (m/->Assign var-node val-node nil nil nil)
         result (process-one assign-node {:frontend nil :env {"x" (t/->TCon :int64)}})]
     (is (tcon? (get-type result) :nil))
     (let [var-ty (get-type (:var result))

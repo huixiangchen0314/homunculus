@@ -9,9 +9,9 @@
    [top.kzre.homunculus.core.types.typed.unify :as u]))
 
 ;; 辅助函数
-(defn- vref [name] (m/->VariableNode name nil nil nil))
-(defn- lit [val] (m/->LiteralNode val nil nil nil))
-(defn- while-node [test body] (m/->WhileNode test body nil nil nil))
+(defn- vref [name] (m/->Variable name nil nil nil))
+(defn- lit [val] (m/->Literal val nil nil nil))
+(defn- while-node [test body] (m/->While test body nil nil nil))
 
 (deftest while-typed-test
   (testing "HM inference for while"
@@ -31,7 +31,7 @@
   (testing "HM inference for assign"
     (let [var-node (vref "x")
           val-node (lit 10)
-          assign-node (m/->AssignNode var-node val-node nil nil nil)
+          assign-node (m/->Assign var-node val-node nil nil nil)
           context {:env {"x" (t/->TCon :int64)}}
           [ty inferred-node s] (typed/infer assign-node context)]
       ;; assign 的类型应为 nil

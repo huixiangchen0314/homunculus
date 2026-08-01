@@ -285,7 +285,7 @@
   (testing "set! assignment"
     (let [node (ir1/->ir1 '(set! *x* 10))
           kids (p/children node)]
-      (is (node? node :set!))
+      (is (node? node :set))
       (is (= 2 (count kids)))
       (is (symbol-node? (first kids) '*x*))
       (is (literal-node? (second kids) 10)))))

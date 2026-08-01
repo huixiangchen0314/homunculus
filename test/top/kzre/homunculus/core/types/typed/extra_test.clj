@@ -8,13 +8,13 @@
             [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p])
   (:import [top.kzre.homunculus.core.types.model THeteroMap TVar TCon TFun]))
-(defn- vref [name] (m/->VariableNode name nil nil nil))
+(defn- vref [name] (m/->Variable name nil nil nil))
 
 
 (deftest infer-vector-test
   (let [frontend (->MockFrontend)
-        vec-node (m/->VectorNode [(m/->LiteralNode 1 nil nil nil)
-                                  (m/->LiteralNode 2 nil nil  nil)]
+        vec-node (m/->Vector [(m/->Literal 1 nil nil nil)
+                                  (m/->Literal 2 nil nil  nil)]
                                  nil nil  nil)]
     (testing "vector type is :vector"
       (let [[ty result _] (typed/infer vec-node {:frontend frontend})]
@@ -26,10 +26,10 @@
 
 (deftest infer-map-test
   (let [frontend (->MockFrontend)
-        map-node (m/->MapNode [(m/->LiteralNode :a nil nil nil)
-                               (m/->LiteralNode 1 nil nil nil)
-                               (m/->LiteralNode :b nil nil nil)
-                               (m/->LiteralNode 2 nil nil nil)]
+        map-node (m/->Map [(m/->Literal :a nil nil nil)
+                               (m/->Literal 1 nil nil nil)
+                               (m/->Literal :b nil nil nil)
+                               (m/->Literal 2 nil nil nil)]
                               nil nil nil)]
     (testing "map infers as THeteroMap with correct entries"
       (let [[ty result _] (typed/infer map-node {:frontend frontend})]
@@ -49,9 +49,9 @@
 
 (deftest infer-try-test
   (let [frontend (->MockFrontend)
-        body-expr (m/->LiteralNode 42 nil nil  nil)
-        catch-node (m/->CatchNode (vref "Exception") (vref "e") [(m/->LiteralNode -1 nil nil nil)] nil nil nil)
-        try-node (m/->TryNode [body-expr] [catch-node] nil nil nil nil)]
+        body-expr (m/->Literal 42 nil nil  nil)
+        catch-node (m/->Catch (vref "Exception") (vref "e") [(m/->Literal -1 nil nil nil)] nil nil nil)
+        try-node (m/->Try [body-expr] [catch-node] nil nil nil nil)]
     (testing "try returns body type (int64)"
       (let [[ty result _] (typed/infer try-node {:frontend frontend})]
         (is (tcon? ty :int64))
@@ -62,16 +62,16 @@
 
 (deftest infer-throw-test
   (testing "throw type is :nil"
-    (let [throw-node (m/->ThrowNode (m/->LiteralNode "boom" nil nil nil) nil nil nil)
+    (let [throw-node (m/->Throw (m/->Literal "boom" nil nil nil) nil nil nil)
           [ty result _] (typed/infer throw-node {:frontend (->MockFrontend)})]
       (is (tcon? ty :nil))
       (is (tcon? (get-type result) :nil)))))
 
 (deftest infer-assign-test
   (let [frontend (->MockFrontend)
-        var-node (m/->VariableNode "x" nil nil  nil)
-        val-node (m/->LiteralNode 10 nil nil  nil)
-        assign-node (m/->AssignNode var-node val-node nil nil nil)]
+        var-node (m/->Variable "x" nil nil  nil)
+        val-node (m/->Literal 10 nil nil  nil)
+        assign-node (m/->Assign var-node val-node nil nil nil)]
     (testing "assign type is :nil, left and right unified"
       (let [[ty result _] (typed/infer assign-node {:frontend frontend :env {"x" (t/->TCon :int64)}})]
         (is (tcon? ty :nil))
@@ -81,7 +81,7 @@
       (let [pre-typed (assoc-in assign-node [:attrs :type] (t/->TCon :nil))]
         (is (= pre-typed (second (typed/infer pre-typed {:frontend frontend :env {"x" (t/->TCon :int64)}}))))))
     (testing "type mismatch throws"
-      (let [var-node2 (m/->VariableNode "y" nil nil nil)
-            assign2 (m/->AssignNode var-node2 val-node nil nil nil)]
+      (let [var-node2 (m/->Variable "y" nil nil nil)
+            assign2 (m/->Assign var-node2 val-node nil nil nil)]
         (is (thrown? clojure.lang.ExceptionInfo
                      (typed/infer assign2 {:frontend frontend :env {"y" (t/->TCon :string)}})))))))

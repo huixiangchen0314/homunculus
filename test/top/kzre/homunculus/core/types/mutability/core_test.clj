@@ -4,10 +4,10 @@
             [top.kzre.homunculus.core.ir2.model :as m]
             [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
-(defn- vref [name] (m/->VariableNode name nil nil nil))
-(defn- lit [val] (m/->LiteralNode val nil nil nil))
-(defn- assign [var val] (m/->AssignNode var val nil nil nil))
-(defn- call [f & args] (m/->CallNode f (vec args) nil nil nil))
+(defn- vref [name] (m/->Variable name nil nil nil))
+(defn- lit [val] (m/->Literal val nil nil nil))
+(defn- assign [var val] (m/->Assign var val nil nil nil))
+(defn- call [f & args] (m/->Call f (vec args) nil nil nil))
 
 (deftest no-assign-test
   (testing "no assign → no mutable"
@@ -42,7 +42,7 @@
     (let [x (vref "x")
           body (assign x (call (vref "+") x (lit 1)))
           test (call (vref "<") x (lit 10))
-          while-node (m/->WhileNode test body nil nil nil)
+          while-node (m/->While test body nil nil nil)
           roots [while-node]
           result (sut/analyze roots)]
       ;; 遍历 while 节点体内的 assign 应该标记 x

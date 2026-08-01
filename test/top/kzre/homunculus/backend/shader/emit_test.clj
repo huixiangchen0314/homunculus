@@ -11,24 +11,24 @@
 (def backend (hlsl-backend/->HLSLBackend))
 
 (defn tvar-typed [name ty]
-  (m/->VariableNode name {:type ty} nil nil))
+  (m/->Variable name {:type ty} nil nil))
 
 (defn lit [val]
-  (m/->LiteralNode val nil nil nil))
+  (m/->Literal val nil nil nil))
 
 (defn tvar [name]
-  (m/->VariableNode name nil nil nil))
+  (m/->Variable name nil nil nil))
 
 (deftest lambert-simple-test
   (testing "最简单着色器：直接返回红色"
-    (let [fn-body (m/->CallNode (tvar "float4")
+    (let [fn-body (m/->Call (tvar "float4")
                                 [(lit 1) (lit 0) (lit 0) (lit 1)]
                                 nil nil nil)
           body-typed (assoc-in fn-body [:attrs :type] (t/->TCon :float4))
           pos-param    (tvar-typed "pos"    (t/->TCon :float4))
           normal-param (tvar-typed "normal" (t/->TCon :float3))
-          lambda (m/->LambdaNode [pos-param normal-param] body-typed [] nil nil nil nil)
-          define (m/->DefineNode 'lambert lambda nil nil nil nil)
+          lambda (m/->Lambda [pos-param normal-param] body-typed [] nil nil nil nil)
+          define (m/->Define 'lambert lambda nil nil nil nil)
           roots [define]
           result (emit/generate roots backend [{:stage :fragment :fn-name "lambert"}])]
       (println "Generated HLSL:\n" result)

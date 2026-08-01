@@ -24,23 +24,23 @@
 
 ;; 测试 2：直接构造 VariableNode，验证 node-meta 可存储和读取
 (deftest ir2-variable-meta-manual-test
-  (let [var (m/->VariableNode "x" nil {:SV_Position true} nil)]
+  (let [var (m/->Variable "x" nil {:SV_Position true} nil)]
     (is (= :variable (ir2p/kind var)))
     (is (= {:SV_Position true} (ir2p/node-meta var)))))
 
 ;; 测试 3：emit 读取 node-meta 并生成语义字符串
 (deftest emit-semantic-test
-  (let [param (m/->VariableNode "pos" {:type (t/->TCon :float4)} {:SV_Position true} nil)
-        body  (m/->CallNode
-                (m/->VariableNode "float4" nil nil nil)
-                [(m/->LiteralNode 1.0 nil nil nil)
-                 (m/->LiteralNode 0.0 nil nil nil)
-                 (m/->LiteralNode 0.0 nil nil nil)
-                 (m/->LiteralNode 1.0 nil nil nil)]
+  (let [param (m/->Variable "pos" {:type (t/->TCon :float4)} {:SV_Position true} nil)
+        body  (m/->Call
+                (m/->Variable "float4" nil nil nil)
+                [(m/->Literal 1.0 nil nil nil)
+                 (m/->Literal 0.0 nil nil nil)
+                 (m/->Literal 0.0 nil nil nil)
+                 (m/->Literal 1.0 nil nil nil)]
                 nil nil nil)
         body-typed (assoc body :attrs {:type (t/->TCon :float4)})
-        lambda (m/->LambdaNode [param] body-typed [] nil nil nil nil)
-        define (m/->DefineNode 'vs-main lambda nil nil nil nil)
+        lambda (m/->Lambda [param] body-typed [] nil nil nil nil)
+        define (m/->Define 'vs-main lambda nil nil nil nil)
         result (emit/emit define backend)]
     (println "Generated:\n" result)
     (is (re-find #"float4 pos\s*:\s*SV_Position" result))))

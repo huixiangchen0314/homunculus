@@ -1,8 +1,7 @@
 (ns top.kzre.homunculus.core.types.subst
   "替换相关工具函数"
   (:require [top.kzre.homunculus.core.ir2.model :as m]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [top.kzre.homunculus.core.types.protocol :as p]))
+            [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
 
 
 (defn inline-call
@@ -18,52 +17,52 @@
                         (subst (:name node))
                         (case (ir2p/kind node)
                           :call
-                          (m/->CallNode (replace-var (:fn node))
+                          (m/->Call (replace-var (:fn node))
                                         (mapv replace-var (:args node))
                                         (:attrs node) (:meta node) (:parent node))
                           :let
-                          (m/->LetNode (mapv (fn [[v e]] [(replace-var v) (replace-var e)])
+                          (m/->Let (mapv (fn [[v e]] [(replace-var v) (replace-var e)])
                                              (:bindings node))
                                        (replace-var (:body node))
                                        (:attrs node) (:meta node) (:parent node))
                           :block
-                          (m/->BlockNode (mapv replace-var (:exprs node))
+                          (m/->Block (mapv replace-var (:exprs node))
                                          (:attrs node) (:meta node) (:parent node))
                           :if
-                          (m/->IfNode (replace-var (:test node))
+                          (m/->If (replace-var (:test node))
                                       (replace-var (:then node))
                                       (when (:else node) (replace-var (:else node)))
                                       (:attrs node) (:meta node) (:parent node))
                           :loop
-                          (m/->LoopNode (mapv (fn [[v e]] [(replace-var v) (replace-var e)])
+                          (m/->Loop (mapv (fn [[v e]] [(replace-var v) (replace-var e)])
                                               (:bindings node))
                                         (replace-var (:body node))
                                         (:attrs node) (:meta node) (:parent node))
                           :while
-                          (m/->WhileNode (replace-var (:test node))
+                          (m/->While (replace-var (:test node))
                                          (replace-var (:body node))
                                          (:attrs node) (:meta node) (:parent node))
                           :try
-                          (m/->TryNode (mapv replace-var (:body node))
+                          (m/->Try (mapv replace-var (:body node))
                                        (mapv replace-var (:catches node))
                                        (when (:finally node) (mapv replace-var (:finally node)))
                                        (:attrs node) (:meta node) (:parent node))
                           :catch
-                          (m/->CatchNode (:class node) (:sym node)
+                          (m/->Catch (:class node) (:sym node)
                                          (mapv replace-var (:body node))
                                          (:attrs node) (:meta node) (:parent node))
                           :throw
-                          (m/->ThrowNode (replace-var (:expr node))
+                          (m/->Throw (replace-var (:expr node))
                                          (:attrs node) (:meta node) (:parent node))
                           :assign
-                          (m/->AssignNode (replace-var (:var node))
+                          (m/->Assign (replace-var (:var node))
                                           (replace-var (:val node))
                                           (:attrs node) (:meta node) (:parent node))
                           :vector
-                          (m/->VectorNode (mapv replace-var (:items node))
+                          (m/->Vector (mapv replace-var (:items node))
                                           (:attrs node) (:meta node) (:parent node))
                           :map
-                          (m/->MapNode (mapv replace-var (:kvs node))
+                          (m/->Map (mapv replace-var (:kvs node))
                                        (:attrs node) (:meta node) (:parent node))
                           ;; 对于 :literal :variable 及其他未知节点，原样返回
                           node)))]
@@ -137,46 +136,46 @@
   (if (= (:name node) var-name) replacement node))
 
 (defmethod replace-in-expr :call [node var-name replacement]
-  (m/->CallNode (replace-in-expr (:fn node) var-name replacement)
+  (m/->Call (replace-in-expr (:fn node) var-name replacement)
                 (mapv #(replace-in-expr % var-name replacement) (:args node))
                 (:attrs node) (:meta node) (:parent node)))
 
 
 (defmethod replace-in-expr :let [node var-name replacement]
-  (m/->LetNode (mapv (fn [[v e]] [(replace-in-expr v var-name replacement)
+  (m/->Let (mapv (fn [[v e]] [(replace-in-expr v var-name replacement)
                                   (replace-in-expr e var-name replacement)])
                      (:bindings node))
                (replace-in-expr (:body node) var-name replacement)
                (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :block [node var-name replacement]
-  (m/->BlockNode (mapv #(replace-in-expr % var-name replacement) (:exprs node))
+  (m/->Block (mapv #(replace-in-expr % var-name replacement) (:exprs node))
                  (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :if [node var-name replacement]
-  (m/->IfNode (replace-in-expr (:test node) var-name replacement)
+  (m/->If (replace-in-expr (:test node) var-name replacement)
               (replace-in-expr (:then node) var-name replacement)
               (when (:else node) (replace-in-expr (:else node) var-name replacement))
               (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :loop [node var-name replacement]
-  (m/->LoopNode (mapv (fn [[v e]] [(replace-in-expr v var-name replacement) (replace-in-expr e var-name replacement)])
+  (m/->Loop (mapv (fn [[v e]] [(replace-in-expr v var-name replacement) (replace-in-expr e var-name replacement)])
                       (:bindings node))
                 (replace-in-expr (:body node) var-name replacement)
                 (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :while [node var-name replacement]
-  (m/->WhileNode (replace-in-expr (:test node) var-name replacement)
+  (m/->While (replace-in-expr (:test node) var-name replacement)
                  (replace-in-expr (:body node) var-name replacement)
                  (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :assign [node var-name replacement]
-  (m/->AssignNode (replace-in-expr (:var node) var-name replacement)
+  (m/->Assign (replace-in-expr (:var node) var-name replacement)
                   (replace-in-expr (:val node) var-name replacement)
                   (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :try [node var-name replacement]
-  (m/->TryNode (mapv #(replace-in-expr % var-name replacement) (:body node))
+  (m/->Try (mapv #(replace-in-expr % var-name replacement) (:body node))
                (mapv #(when (satisfies? ir2p/INode %) (replace-in-expr % var-name replacement))
                      (:catches node))
                (when (:finally node)
@@ -185,32 +184,32 @@
 
 (defmethod replace-in-expr :catch [node var-name replacement]
   ;; 不处理 class 和 sym，仅递归 body
-  (m/->CatchNode (:class node) (:sym node)
+  (m/->Catch (:class node) (:sym node)
                  (mapv #(replace-in-expr % var-name replacement) (:body node))
                  (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :throw [node var-name replacement]
-  (m/->ThrowNode (replace-in-expr (:expr node) var-name replacement)
+  (m/->Throw (replace-in-expr (:expr node) var-name replacement)
                  (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :vector [node var-name replacement]
-  (m/->VectorNode (mapv #(replace-in-expr % var-name replacement) (:items node))
+  (m/->Vector (mapv #(replace-in-expr % var-name replacement) (:items node))
                   (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :map [node var-name replacement]
-  (m/->MapNode (mapv #(replace-in-expr % var-name replacement) (:kvs node))
+  (m/->Map (mapv #(replace-in-expr % var-name replacement) (:kvs node))
                (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :lambda [node var-name replacement]
   ;; 注意：lambda 内部可能引用 var-name，但因为有新绑定，简单替换不安全，
   ;; 但调用者通常已做 alpha-rename，这里仅递归
-  (m/->LambdaNode (mapv #(replace-in-expr % var-name replacement) (:params node))
+  (m/->Lambda (mapv #(replace-in-expr % var-name replacement) (:params node))
                   (replace-in-expr (:body node) var-name replacement)
                   (:captures node) (:fn-name node)
                   (:attrs node) (:meta node) (:parent node)))
 
 (defmethod replace-in-expr :define [node var-name replacement]
-  (m/->DefineNode (:name node)
+  (m/->Define (:name node)
                   (replace-in-expr (:val node) var-name replacement)
                   (:doc node) (:attrs node) (:meta node) (:parent node)))
 

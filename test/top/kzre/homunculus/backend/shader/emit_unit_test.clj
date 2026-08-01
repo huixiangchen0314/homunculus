@@ -14,40 +14,40 @@
 
 ;; ── 辅助函数 ──
 (defn- lit [val]
-  (m/->LiteralNode val nil nil nil))
+  (m/->Literal val nil nil nil))
 
 (defn- vref [name]
-  (m/->VariableNode name nil nil nil))
+  (m/->Variable name nil nil nil))
 
 (defn- typed-var [name ty]
-  (m/->VariableNode name {:type ty} nil nil))
+  (m/->Variable name {:type ty} nil nil))
 
 (defn- call [fn-node & args]
-  (m/->CallNode fn-node (vec args) nil nil nil))
+  (m/->Call fn-node (vec args) nil nil nil))
 
 (defn- if-node [test then else]
-  (m/->IfNode test then else nil nil nil))
+  (m/->If test then else nil nil nil))
 
 (defn- while-node [test body]
-  (m/->WhileNode test body nil nil nil))
+  (m/->While test body nil nil nil))
 
 (defn- block [& exprs]
-  (m/->BlockNode (vec exprs) nil nil nil))
+  (m/->Block (vec exprs) nil nil nil))
 
 (defn- let-node [bindings body]
-  (m/->LetNode (vec bindings) body nil nil nil))
+  (m/->Let (vec bindings) body nil nil nil))
 
 (defn- assign [var val]
-  (m/->AssignNode var val nil nil nil))
+  (m/->Assign var val nil nil nil))
 
 (defn- define [name lambda-val]
-  (m/->DefineNode name lambda-val nil nil nil nil))
+  (m/->Define name lambda-val nil nil nil nil))
 
 (defn- lam [params body]
-  (m/->LambdaNode params body [] nil nil nil nil))
+  (m/->Lambda params body [] nil nil nil nil))
 
 (defn- vector-node [items]
-  (m/->VectorNode items nil nil nil))
+  (m/->Vector items nil nil nil))
 
 ;; ── 字面量测试 ──
 (deftest test-literal
@@ -141,45 +141,45 @@
                  (emit/emit (lam [] (lit 1)) backend))))
   (testing "loop node should throw"
     (is (thrown? ExceptionInfo
-                 (emit/emit (m/->LoopNode [] (lit 1) nil nil nil) backend))))
+                 (emit/emit (m/->Loop [] (lit 1) nil nil nil) backend))))
   (testing "recur node should throw"
     (is (thrown? ExceptionInfo
-                 (emit/emit (m/->RecurNode [(lit 1)] nil nil nil) backend))))
+                 (emit/emit (m/->Recur [(lit 1)] nil nil nil) backend))))
   (testing "try node should throw"
     (is (thrown? ExceptionInfo
-                 (emit/emit (m/->TryNode [(lit 1)] [] nil nil nil nil) backend))))
+                 (emit/emit (m/->Try [(lit 1)] [] nil nil nil nil) backend))))
   (testing "catch node should throw"
     (is (thrown? ExceptionInfo
-                 (emit/emit (m/->CatchNode (vref "e") (vref "x") [(lit 1)] nil nil nil) backend))))
+                 (emit/emit (m/->Catch (vref "e") (vref "x") [(lit 1)] nil nil nil) backend))))
   (testing "throw node should throw"
     (is (thrown? ExceptionInfo
-                 (emit/emit (m/->ThrowNode (lit "err") nil nil nil) backend))))
+                 (emit/emit (m/->Throw (lit "err") nil nil nil) backend))))
   (testing "map node should throw"
     (is (thrown? ExceptionInfo
-                 (emit/emit (m/->MapNode [(lit :a) (lit 1)] nil nil nil) backend))))
+                 (emit/emit (m/->Map [(lit :a) (lit 1)] nil nil nil) backend))))
   (testing "default (unknown node kind) should throw"
     (is (thrown? ExceptionInfo
                  (emit/emit {:kind :bogus} backend)))))
 
 
 (deftest test-while-assign
-  (let [x (m/->VariableNode "i" {:mutable true :type (t/->TCon :int)} nil nil)
-        test (m/->CallNode (m/->VariableNode "<" nil nil nil)
-                           [x (m/->LiteralNode 10 nil nil nil)]
+  (let [x (m/->Variable "i" {:mutable true :type (t/->TCon :int)} nil nil)
+        test (m/->Call (m/->Variable "<" nil nil nil)
+                           [x (m/->Literal 10 nil nil nil)]
                            nil nil nil)
-        body (m/->AssignNode x
-                             (m/->CallNode (m/->VariableNode "+" nil nil nil)
-                                           [x (m/->LiteralNode 1 nil nil nil)]
+        body (m/->Assign x
+                             (m/->Call (m/->Variable "+" nil nil nil)
+                                           [x (m/->Literal 1 nil nil nil)]
                                            nil nil nil)
                              nil nil nil)
-        while-node (m/->WhileNode test body nil nil nil)
-        block (m/->BlockNode
-                [(m/->AssignNode x (m/->LiteralNode 0 nil nil nil) nil nil nil)
+        while-node (m/->While test body nil nil nil)
+        block (m/->Block
+                [(m/->Assign x (m/->Literal 0 nil nil nil) nil nil nil)
                  while-node
                  x]
                 nil nil nil)
-        lambda (m/->LambdaNode [] block [] nil nil nil nil)
-        define (m/->DefineNode 'loop-test lambda nil nil nil nil)
+        lambda (m/->Lambda [] block [] nil nil nil nil)
+        define (m/->Define 'loop-test lambda nil nil nil nil)
         result (emit/emit define backend)]
     (is (str/includes? result "i = 0;"))
     (is (str/includes? result "while (i < 10) { i = i + 1; }"))

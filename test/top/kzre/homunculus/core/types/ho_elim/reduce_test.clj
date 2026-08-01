@@ -16,15 +16,15 @@
     (backend-nth-fn [_] 'nth)
     (backend-less-than-fn [_] '<)))
 
-(defn- lit [val] (m/->LiteralNode val nil nil nil))
-(defn- vref [name] (m/->VariableNode name nil nil nil))
-(defn- call [f & args] (m/->CallNode f (vec args) nil nil nil))
+(defn- lit [val] (m/->Literal val nil nil nil))
+(defn- vref [name] (m/->Variable name nil nil nil))
+(defn- call [f & args] (m/->Call f (vec args) nil nil nil))
 
 (defn- typed-vec [items]
   (let [elem-ty (t/->TCon :int)
         shape   (t/->FixedLength (count items))
         ty      (t/->TVec :vector elem-ty shape)]
-    (m/->VectorNode items {:type ty} nil nil)))
+    (m/->Vector items {:type ty} nil nil)))
 
 (deftest test-reduce-empty
   (let [init (lit 0)

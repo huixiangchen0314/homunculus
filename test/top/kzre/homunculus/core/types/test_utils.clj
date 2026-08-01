@@ -123,7 +123,7 @@
 
 ;; ── 快速构造辅助 ──
 (defn with-meta-var [name meta]
-  (m/->VariableNode name nil meta nil))
+  (m/->Variable name nil meta nil))
 
 (defn macroexpand-deep [form]
   (w/postwalk (fn [f] (if (seq? f) (macroexpand f) f)) form))

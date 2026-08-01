@@ -1,4 +1,3 @@
-;; top.kzre.homunculus.core.types.infer.methods.recur.clj
 (ns top.kzre.homunculus.core.types.infer.methods.recur
   (:require [top.kzre.homunculus.core.types.infer.core :as infer]))
 

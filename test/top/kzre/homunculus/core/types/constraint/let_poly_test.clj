@@ -27,19 +27,19 @@
     (collection-type-ctor [_ _ _ _] nil)))
 
 (deftest test-let-poly-simple
-  (let [id-param (m/->VariableNode "x" nil nil nil)
-        id-body  (m/->VariableNode "x" nil nil nil)
-        id-lambda (m/->LambdaNode [id-param] id-body [] nil nil nil nil)
+  (let [id-param (m/->Variable "x" nil nil nil)
+        id-body  (m/->Variable "x" nil nil nil)
+        id-lambda (m/->Lambda [id-param] id-body [] nil nil nil nil)
         ;; 模拟 infer 已为 lambda 设置函数类型
         id-lambda-typed (assoc-in id-lambda [:attrs :type]
                                   (t/->TFun (t/->TVar 'a) (t/->TVar 'a)))
-        id-var   (m/->VariableNode "id" nil nil nil)
-        call1 (m/->CallNode (m/->VariableNode "id" nil nil nil)
-                            [(m/->LiteralNode 1 nil nil nil)] nil nil nil)
-        call2 (m/->CallNode (m/->VariableNode "id" nil nil nil)
-                            [(m/->LiteralNode 3.0 nil nil nil)] nil nil nil)
-        body   (m/->BlockNode [call1 call2] nil nil nil)
-        let-node (m/->LetNode [[id-var id-lambda-typed]] body nil nil nil)
+        id-var   (m/->Variable "id" nil nil nil)
+        call1 (m/->Call (m/->Variable "id" nil nil nil)
+                            [(m/->Literal 1 nil nil nil)] nil nil nil)
+        call2 (m/->Call (m/->Variable "id" nil nil nil)
+                            [(m/->Literal 3.0 nil nil nil)] nil nil nil)
+        body   (m/->Block [call1 call2] nil nil nil)
+        let-node (m/->Let [[id-var id-lambda-typed]] body nil nil nil)
         result (cs/process [let-node] {:frontend mock-frontend :env {}})
         processed (first result)
         ;; 从处理后的节点中提取绑定变量
@@ -56,18 +56,18 @@
       (is (tcon? call2-type :float) "call2 应返回 float"))))
 
 (deftest test-let-poly-nested
-  (let [id-param (m/->VariableNode "x" nil nil nil)
-        id-body  (m/->VariableNode "x" nil nil nil)
-        id-lambda (m/->LambdaNode [id-param] id-body [] nil nil nil nil)
+  (let [id-param (m/->Variable "x" nil nil nil)
+        id-body  (m/->Variable "x" nil nil nil)
+        id-lambda (m/->Lambda [id-param] id-body [] nil nil nil nil)
         id-lambda-typed (assoc-in id-lambda [:attrs :type]
                                   (t/->TFun (t/->TVar 'a) (t/->TVar 'a)))
-        id-var   (m/->VariableNode "id" nil nil nil)
-        y-val    (m/->CallNode (m/->VariableNode "id" nil nil nil)
-                               [(m/->LiteralNode 1 nil nil nil)] nil nil nil)
-        y-var    (m/->VariableNode "y" nil nil nil)
-        inner-body (m/->VariableNode "y" nil nil nil)
-        inner-let (m/->LetNode [[y-var y-val]] inner-body nil nil nil)
-        let-node (m/->LetNode [[id-var id-lambda-typed]] inner-let nil nil nil)
+        id-var   (m/->Variable "id" nil nil nil)
+        y-val    (m/->Call (m/->Variable "id" nil nil nil)
+                               [(m/->Literal 1 nil nil nil)] nil nil nil)
+        y-var    (m/->Variable "y" nil nil nil)
+        inner-body (m/->Variable "y" nil nil nil)
+        inner-let (m/->Let [[y-var y-val]] inner-body nil nil nil)
+        let-node (m/->Let [[id-var id-lambda-typed]] inner-let nil nil nil)
         result (cs/process [let-node] {:frontend mock-frontend :env {}})
         processed (first result)
         ;; 外层绑定

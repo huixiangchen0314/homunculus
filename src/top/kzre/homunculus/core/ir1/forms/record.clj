@@ -62,7 +62,7 @@
   (let [[_ name field-vec & body-forms] form
         fields    (parse-fields field-vec)
         protocols (parse-protocols body-forms)]
-    (m/->RecordNode name fields protocols (meta form) nil)))
+    (m/->Record name fields protocols (meta form) nil)))
 
 ;; ── build-tree ：递归构建 IR1 子树 ───────
 (defmethod ir1/build-tree :record [node]
@@ -87,4 +87,4 @@
                                 (n/arity-with-body m (ir1/->ir1 body))
                                 m))))
                         protocols)]
-    (m/->RecordNode name new-fields new-protocols meta parent)))
+    (m/->Record name new-fields new-protocols meta parent)))

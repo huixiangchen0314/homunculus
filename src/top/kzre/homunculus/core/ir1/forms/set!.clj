@@ -6,7 +6,7 @@
   (let [[_ var-sym val] form]
     (n/make-set! var-sym val (meta form))))
 
-(defmethod ir1/build-tree :set! [node]
+(defmethod ir1/build-tree :set [node]
   (n/make-set! (ir1/->ir1 (n/set-var node))
                (ir1/->ir1 (n/set-val node))
                (n/node-meta node)
