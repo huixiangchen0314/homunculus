@@ -27,7 +27,7 @@
    其他节点原样返回。"
   [node env]
   (if (= :define (p/kind node))
-    (let [new-val (first (walk (n/define-val node) env))
+    (let [new-val (first (ho-fn (n/define-val node) env))
           ho? (high-order? new-val)]
       [(n/make-define (n/define-name node)
                       new-val

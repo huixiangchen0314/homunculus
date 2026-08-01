@@ -24,28 +24,28 @@
     (let [bindings (n/let-bindings node)
           [new-bindings env']
           (reduce (fn [[bnds e] [var val]]
-                    (let [[new-val e1] (walk val e)
+                    (let [[new-val e1] (rename-fn val e)
                           old-name (n/var-name var)
                           new-name (u/fresh-name old-name)
                           e2 (extend-env e1 old-name new-name)
                           new-var (n/make-variable new-name (n/attrs var) (n/node-meta var) (n/parent var))]
                       [(conj bnds [new-var new-val]) e2]))
                   [[] env] bindings)
-          [new-body env''] (walk (n/let-body node) env')]
+          [new-body env''] (rename-fn (n/let-body node) env')]
       [(n/make-let new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node)) env''])
 
     :loop
     (let [bindings (n/loop-bindings node)
           [new-bindings env']
           (reduce (fn [[bnds e] [var val]]
-                    (let [[new-val e1] (walk val e)
+                    (let [[new-val e1] (rename-fn val e)
                           old-name (n/var-name var)
                           new-name (u/fresh-name old-name)
                           e2 (extend-env e1 old-name new-name)
                           new-var (n/make-variable new-name (n/attrs var) (n/node-meta var) (n/parent var))]
                       [(conj bnds [new-var new-val]) e2]))
                   [[] env] bindings)
-          [new-body env''] (walk (n/loop-body node) env')]
+          [new-body env''] (rename-fn (n/loop-body node) env')]
       [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node)) env''])
 
     :lambda

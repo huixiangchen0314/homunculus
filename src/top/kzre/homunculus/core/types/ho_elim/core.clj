@@ -1,11 +1,9 @@
 (ns top.kzre.homunculus.core.types.ho-elim.core
-  "高阶函数内联 Pass（仅处理命名高阶函数）。
-   1. 分析阶段：遍历 IR 树，标记高阶函数定义（设置 attrs :ho?）。
-   2. 内联阶段：顺序处理根节点，动态构建环境，内联可见的高阶调用。
-      ho-max-depth 控制单次内联的最大展开深度，默认为 20。
-   3. 支持跨模块内联：从全局符号表查找被标记为高阶的函数定义。"
+  "高阶函数内联 Pass：标记并内联高阶函数。
+   使用 reduce-children + walk 模式，ho-elim-fn 绝不递归子节点。"
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.ir2.protocol :as p]
     [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.core.types.subst.replace :as replace]
     [top.kzre.homunculus.internal.protocol :as ip]
@@ -17,197 +15,90 @@
   {:defs   {}
    :ho-set #{}})
 
-(defn- get-env [ctx]
-  (get ctx :env (empty-env)))
-
 (defn- add-def [env name lam]
   (-> env
       (assoc-in [:defs name] lam)
       (update :ho-set conj name)))
 
-(defn- add-def-to-ctx [ctx name lam]
-  (assoc ctx :env (add-def (get-env ctx) name lam)))
+;; ── 内联辅助 ──────────────────────────────
+(defn- inline-call [lam args]
+  (let [params (n/lambda-params lam)
+        body   (n/lambda-body lam)]
+    (reduce (fn [b [p a]]
+              (replace/replace-var b (n/var-name p) a))
+            body
+            (map vector params args))))
 
-;; ── 多方法分派（返回 [new-node, new-ctx]）────
-(defmulti eliminate-ho
-          (fn [node depth ctx] (n/kind node)))
+(declare walk)
 
-(defmethod eliminate-ho :literal   [node _ ctx] [node ctx])
-(defmethod eliminate-ho :variable  [node _ ctx] [node ctx])
+(defn- ho-elim-fn [node ctx]
+  (let [depth (get ctx :depth 0)
+        max-depth (get ctx :ho-max-depth 20)]
+    (case (p/kind node)
+      ;; define：如果 lambda 被标记为高阶，则加入环境
+      :define
+      (let [name (n/define-name node)
+            val  (n/define-val node)
+            ho?  (-> node n/attrs :ho?)]
+        (if (and val ho? (n/lambda-node? val))
+          (walk node (update ctx :env add-def name val))
+          (walk node ctx)))
 
-(defmethod eliminate-ho :define [node depth ctx]
-  (let [name (n/define-name node)
-        val  (n/define-val node)
-        ho?  (-> node n/attrs :ho?)]
-    (if (and val (n/lambda-node? val))
-      (let [[new-val ctx1] (eliminate-ho val (inc depth) ctx)
-            ctx2 (if ho? (add-def-to-ctx ctx1 name new-val) ctx1)]
-        [(n/make-define name new-val (n/define-doc node)
-                        (n/attrs node) (n/node-meta node) (n/parent node))
-         ctx2])
-      (let [[new-val ctx1] (if val (eliminate-ho val depth ctx) [val ctx])]
-        [(n/make-define name new-val (n/define-doc node)
-                        (n/attrs node) (n/node-meta node) (n/parent node))
-         ctx1]))))
+      ;; call：尝试内联高阶调用
+      :call
+      (let [fn-node (n/call-fn node)
+            args    (n/call-args node)
+            env     (:env ctx)]
+        (if (and (n/variable-node? fn-node) (< depth max-depth))
+          (let [fn-name (n/var-name fn-node)
+                local-lam (get-in env [:defs fn-name])
+                local-ho? (contains? (:ho-set env) fn-name)]
+            (if (and local-ho? local-lam)
+              ;; 本地高阶函数内联，返回内联结果（新节点），增加深度
+              (let [inlined (inline-call local-lam args)]
+                (walk inlined (update ctx :depth inc)))
+              ;; 尝试全局符号表
+              (if-let [global-table (:symbol-table ctx)]
+                (let [entry (sym/lookup-func global-table fn-name)]
+                  (if (and entry (:ho? entry) (:ir2 entry))
+                    (let [lam (:ir2 entry)
+                          inlined (inline-call lam args)
+                          ctx' (-> ctx
+                                   (update :depth inc)
+                                   (update :env add-def fn-name lam))]
+                      (walk inlined ctx'))
+                    (walk node ctx)))
+                (walk node ctx))))
+          (walk node ctx)))
+      (walk node ctx))))
 
-(defmethod eliminate-ho :call [node depth ctx]
-  (let [max-depth (get ctx :ho-max-depth 20)
-        fn-node   (n/call-fn node)
-        [args ctx-args]
-        (reduce (fn [[as ctx] arg]
-                  (let [[new-arg new-ctx] (eliminate-ho arg (inc depth) ctx)]
-                    [(conj as new-arg) new-ctx]))
-                [[] ctx]
-                (n/call-args node))
-        env (get-env ctx-args)]
-    (if (n/variable-node? fn-node)
-      (let [fn-name (n/var-name fn-node)
-            ;; 本地环境查找
-            local-lam (get-in env [:defs fn-name])
-            local-ho? (contains? (:ho-set env) fn-name)]
-        (if (and local-ho? local-lam (< depth max-depth))
-          ;; 本地已有，直接内联
-          (let [params  (n/lambda-params local-lam)
-                body    (n/lambda-body local-lam)
-                inlined (reduce (fn [b [p a]]
-                                  (replace/replace-var b (n/var-name p) a))
-                                body
-                                (map vector params args))]
-            (eliminate-ho inlined (inc depth) ctx-args))
-          ;; 本地没有，尝试从全局符号表查找
-          (if-let [global-table (get ctx :symbol-table)]
-            (let [entry (sym/lookup-func global-table fn-name)]
-              (if (and entry
-                       (:ho? entry)
-                       (:ir2 entry)
-                       (< depth max-depth))
-                ;; 跨模块高阶函数，内联之
-                (let [lam     (:ir2 entry)
-                      params  (n/lambda-params lam)
-                      body    (n/lambda-body lam)
-                      inlined (reduce (fn [b [p a]]
-                                        (replace/replace-var b (n/var-name p) a))
-                                      body
-                                      (map vector params args))
-                      ;; 加入本地环境避免后续重复查找
-                      ctx'' (add-def-to-ctx ctx-args fn-name lam)]
-                  (eliminate-ho inlined (inc depth) ctx''))
-                ;; 非高阶或无 IR，正常生成调用
-                [(n/make-call fn-node args (n/attrs node) (n/node-meta node) (n/parent node)) ctx-args]))
-            ;; 无符号表，正常调用
-            [(n/make-call fn-node args (n/attrs node) (n/node-meta node) (n/parent node)) ctx-args])))
-      ;; 非变量调用（匿名函数等）留待后续处理
-      (let [[new-fn ctx-fn] (eliminate-ho fn-node depth ctx-args)]
-        [(n/make-call new-fn args (n/attrs node) (n/node-meta node) (n/parent node)) ctx-fn]))))
+(defn- walk [node ctx]
+  (p/reduce-children node ho-elim-fn ctx))
 
-;; ── 容器节点：返回二元组并传递上下文 ────
-(defmethod eliminate-ho :if [node depth ctx]
-  (let [[test ctx1] (eliminate-ho (n/if-test node) depth ctx)
-        [then ctx2] (eliminate-ho (n/if-then node) depth ctx1)
-        [else ctx3] (if-let [e (n/if-else node)] (eliminate-ho e depth ctx2) [nil ctx2])]
-    [(n/make-if test then else (n/attrs node) (n/node-meta node) (n/parent node)) ctx3]))
-
-(defmethod eliminate-ho :block [node depth ctx]
-  (let [[new-exprs final-ctx]
-        (reduce (fn [[exprs ctx] expr]
-                  (let [[new-expr new-ctx] (eliminate-ho expr depth ctx)]
-                    [(conj exprs new-expr) new-ctx]))
-                [[] ctx]
-                (n/block-exprs node))]
-    [(n/make-block new-exprs (n/attrs node) (n/node-meta node) (n/parent node)) final-ctx]))
-
-(defmethod eliminate-ho :let [node depth ctx]
-  (let [[new-bindings ctx1]
-        (reduce (fn [[bnds ctx] [v e]]
-                  (let [[new-v ctx'] (eliminate-ho v depth ctx)
-                        [new-e ctx''] (eliminate-ho e depth ctx')]
-                    [(conj bnds [new-v new-e]) ctx'']))
-                [[] ctx]
-                (n/let-bindings node))
-        [new-body ctx2] (eliminate-ho (n/let-body node) depth ctx1)]
-    [(n/make-let new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node)) ctx2]))
-
-(defmethod eliminate-ho :loop [node depth ctx]
-  (let [[new-bindings ctx1]
-        (reduce (fn [[bnds ctx] [v e]]
-                  (let [[new-v ctx'] (eliminate-ho v depth ctx)
-                        [new-e ctx''] (eliminate-ho e depth ctx')]
-                    [(conj bnds [new-v new-e]) ctx'']))
-                [[] ctx]
-                (n/loop-bindings node))
-        [new-body ctx2] (eliminate-ho (n/loop-body node) depth ctx1)]
-    [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node)) ctx2]))
-
-(defmethod eliminate-ho :lambda [node depth ctx]
-  (let [[params ctx1] (reduce (fn [[ps ctx] p]
-                                (let [[new-p ctx'] (eliminate-ho p depth ctx)]
-                                  [(conj ps new-p) ctx']))
-                              [[] ctx]
-                              (n/lambda-params node))
-        [body ctx2] (eliminate-ho (n/lambda-body node) depth ctx1)]
-    [(n/make-lambda params body (n/lambda-captures node) (n/lambda-fn-name node)
-                    (n/attrs node) (n/node-meta node) (n/parent node))
-     ctx2]))
-
-(defmethod eliminate-ho :recur [node depth ctx]
-  (let [[args ctx1] (reduce (fn [[as ctx] arg]
-                              (let [[new-arg ctx'] (eliminate-ho arg depth ctx)]
-                                [(conj as new-arg) ctx']))
-                            [[] ctx]
-                            (n/recur-args node))]
-    [(n/make-recur args (n/attrs node) (n/node-meta node) (n/parent node)) ctx1]))
-
-(defmethod eliminate-ho :while [node depth ctx]
-  (let [[test ctx1] (eliminate-ho (n/while-test node) depth ctx)
-        [body ctx2] (eliminate-ho (n/while-body node) depth ctx1)]
-    [(n/make-while test body (n/attrs node) (n/node-meta node) (n/parent node)) ctx2]))
-
-;; 数组特殊节点
-(defmethod eliminate-ho :new-array [node depth ctx]
-  (let [[size ctx1] (eliminate-ho (n/new-array-size node) depth ctx)]
-    [(n/make-new-array size (n/attrs node) (n/node-meta node) (n/parent node)) ctx1]))
-
-(defmethod eliminate-ho :aget [node depth ctx]
-  (let [[target ctx1] (eliminate-ho (n/aget-target node) depth ctx)
-        [idx ctx2] (eliminate-ho (n/aget-idx node) depth ctx1)]
-    [(n/make-aget target idx (n/attrs node) (n/node-meta node) (n/parent node)) ctx2]))
-
-(defmethod eliminate-ho :aset [node depth ctx]
-  (let [[target ctx1] (eliminate-ho (n/aset-target node) depth ctx)
-        [idx ctx2] (eliminate-ho (n/aset-idx node) depth ctx1)
-        [val ctx3] (eliminate-ho (n/aset-val node) depth ctx2)]
-    [(n/make-aset target idx val (n/attrs node) (n/node-meta node) (n/parent node)) ctx3]))
-
-(defmethod eliminate-ho :alength [node depth ctx]
-  (let [[target ctx1] (eliminate-ho (n/alength-target node) depth ctx)]
-    [(n/make-alength target (n/attrs node) (n/node-meta node) (n/parent node)) ctx1]))
-
-(defmethod eliminate-ho :default [node _ ctx] [node ctx])
-
-
+;; ── 上下文构建 ──────────────────────────
 (defn make-context
   [compile-ctx frontend backend]
   (let [builtin-table (tp/builtin-symbols frontend)
         user-table    (ip/symbol-table compile-ctx)
         symbols       (merge builtin-table user-table)]
-    {:env               (empty-env)
-     :frontend          frontend
-     :ctx               compile-ctx
-     :backend           backend
-     :ho-max-depth      20
-     :symbol-table      symbols
-     :known-types       (sym/types-symbols symbols)}))
+    {:env              (empty-env)
+     :frontend         frontend
+     :ctx              compile-ctx
+     :backend          backend
+     :ho-max-depth     20
+     :symbol-table     symbols
+     :known-types      (sym/types-symbols symbols)
+     :depth            0}))
 
+;; ── 入口 ──
 (defn process
   [ir2-roots context]
-  (let [ctx (-> context
-                (assoc :ho-max-depth (get context :ho-max-depth 20))
-                (assoc :env (or (:env context) (empty-env))))
-        analyzed-roots (analyze/analyze ir2-roots)
+  (let [analyzed-roots (analyze/analyze ir2-roots)
+        ctx (assoc context :env (empty-env) :depth 0)
         [new-roots _]
-        (reduce (fn [[rs ctx] root]
-                  (let [[new-root new-ctx] (eliminate-ho root 0 ctx)]
-                    [(conj rs new-root) new-ctx]))
-                [[] (assoc ctx :env (empty-env))]
+        (reduce (fn [[roots ctx] root]
+                  (let [[new-root new-ctx] (ho-elim-fn root ctx)]
+                    [(conj roots new-root) new-ctx]))
+                [[] ctx]
                 analyzed-roots)]
     new-roots))

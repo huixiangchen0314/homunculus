@@ -82,7 +82,7 @@
     :define
     (let [val (n/define-val node)
           ;; 先递归内联 val
-          [new-val new-ctx] (if val (walk val ctx) [nil ctx])
+          [new-val new-ctx] (if val (inline-fn val ctx) [nil ctx])
           ;; 更新环境（加入本 define 定义的内联函数）
           final-ctx (add-inline-def (assoc ctx :local-inline-defs (:local-inline-defs new-ctx))
                                     (n/make-define (n/define-name node) new-val
