@@ -13,9 +13,20 @@
 (defmulti eliminate
           (fn [node  _config _env] (n/kind node)))
 
-(defmethod eliminate :default [node _ _]
-  (throw (ex-info (str "Unknown node kind in lambda-elim: " (ir2p/kind node))
-                  {:node node})))
+(defn elim-fn
+  [node {:keys [config env defines]}]
+  (let [[new-node defs] (eliminate node config env)]
+    [new-node
+     {:config config
+      :env env
+      :defines (into defines defs)}]))
+
+(defmethod eliminate :default [node config env]
+  (let [[new-node {:keys [defines]}] (ir2p/reduce-children node elim-fn
+                                      {:config config
+                                       :env env
+                                       :defines []})]
+    [new-node defines]))
 
 
 ;; has-lambda? 修复：递归检查所有子节点，不排除 define 的值
@@ -34,11 +45,12 @@
         (some has-lambda? (n/children node))))
     false))
 
-(defn elaborate [ir2-roots config]
+
+(defn elim-nodes [nodes config]
   (let [max-iter (p/max-iterations config)
         strict?  (p/strict-mode? config)
         empty-env #{}]
-    (loop [roots ir2-roots iter 0]
+    (loop [roots nodes iter 0]
       (let [[new-roots _]
             (reduce (fn [[new-roots defs] root]
                       (let [[new-root root-defs] (eliminate root config empty-env)]
