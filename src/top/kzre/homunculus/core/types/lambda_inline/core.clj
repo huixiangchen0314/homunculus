@@ -1,40 +1,37 @@
 (ns top.kzre.homunculus.core.types.lambda-inline.core
-  "Lambda 内联 Pass：消除 let 绑定的局部 lambda。"
+  "Lambda 内联 Pass：消除 let 绑定的局部 lambda。
+   使用递归 + case 特判，reduce-children 处理通用容器。"
   (:require
     [clojure.walk :as walk]
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-    [top.kzre.homunculus.core.types.lambda-inline.protocol :as p]
+    [top.kzre.homunculus.core.ir2.protocol :as p]
+    [top.kzre.homunculus.core.types.lambda-inline.protocol :as lp]
     [top.kzre.homunculus.core.types.free-vars :as free-vars]
     [top.kzre.homunculus.core.types.subst.api :as subst]))
 
-;; ── 检查变量是否在非调用位置被引用 ──────
+;; ── 辅助函数（保持不变） ──
 (defn has-non-call-usage?
-  "检查 body 中是否存在对 var-name 的非调用位置引用。
-   例如作为函数参数、返回值、赋值等。"
   [body var-name]
   (let [found (atom false)]
     (walk/prewalk
       (fn [node]
-        (when (and (satisfies? ir2p/INode node)
+        (when (and (satisfies? p/INode node)
                    (= (n/kind node) :variable)
                    (= (n/var-name node) var-name))
-          ;; 判断父节点是否 :call 且该变量是否位于函数位置
-          (let [p (n/parent node)]
-            (when (or (nil? p)
-                      (not= (n/kind p) :call)
-                      (not= (n/call-fn p) node))
+          (let [parent (n/parent node)]
+            (when (or (nil? parent)
+                      (not= (n/kind parent) :call)
+                      (not= (n/call-fn parent) node))
               (reset! found true))))
         node)
       body)
     @found))
 
-;; ── 收集所有调用点 ──────────────────────
 (defn- collect-call-sites [body var-name]
   (let [sites (atom [])]
     (walk/prewalk
       (fn [node]
-        (when (and (satisfies? ir2p/INode node)
+        (when (and (satisfies? p/INode node)
                    (= (n/kind node) :call))
           (let [fn-node (n/call-fn node)]
             (when (and (= (n/kind fn-node) :variable)
@@ -44,17 +41,14 @@
       body)
     @sites))
 
-;; ── 内联条件 ────────────────────────────
 (defn- inline-candidate? [lam config]
-  (and (p/should-inline? config lam nil)
+  (and (lp/should-inline? config lam nil)
        (let [size (count (tree-seq coll? seq (n/lambda-body lam)))]
-         (<= size (p/max-inline-size? config)))))
+         (<= size (lp/max-inline-size? config)))))
 
-;; ── 内联单个调用点 ──────────────────────
 (defn- inline-call-site [call-node lambda-node]
   (subst/inline-call call-node lambda-node nil))
 
-;; ── 替换 body 中所有对 var-name 的调用 ──
 (defn- replace-call-sites [body var-name lambda-node]
   (let [sites (collect-call-sites body var-name)]
     (reduce (fn [cur-body site]
@@ -62,7 +56,6 @@
                 (walk/prewalk-replace {site inlined} cur-body)))
             body sites)))
 
-;; ── 内联 let 绑定 ───────────────────────
 (defn inline-let
   "如果 let 绑定的 lambda 满足条件，将其内联到 body 中所有调用点。"
   [let-node config]
@@ -76,21 +69,26 @@
                  (empty? (free-vars/free-vars-of-lambda val))
                  (inline-candidate? val config)
                  (not (has-non-call-usage? current-body (n/var-name var))))
-          ;; 执行内联
           (let [new-body (replace-call-sites current-body (n/var-name var) val)]
             (recur (rest remaining) new-bindings new-body))
-          ;; 保留绑定
           (recur (rest remaining) (conj new-bindings [var val]) current-body))
         (n/make-let new-bindings current-body
                     (n/attrs let-node) (n/node-meta let-node) (n/parent let-node))))))
 
-;; ── 多方法遍历 ──────────────────────────
-(defmulti eliminate-inline
-          (fn [node _config] (n/kind node)))
+(declare walk)
 
-(defmethod eliminate-inline :default [node _]
-  node)
+(defn- inline-fn [node config]
+  (case (n/kind node)
+    ;; 特判：let 节点需要先递归子节点，再尝试内联
+    :let
+    (let [processed (first (walk node config))]
+      [(inline-let processed config) config])
+    (walk node config)))
 
-;; ── 对外入口 ────────────────────────────
-(defn inline-pass [ir2-roots config]
-  (mapv #(eliminate-inline % config) ir2-roots))
+(defn walk
+  [node config]
+  (p/reduce-children node inline-fn config))
+
+;; ── 入口 ──
+(defn inline-nodes [ir2-roots config]
+  (mapv #(inline-fn % config) ir2-roots))

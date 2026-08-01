@@ -1,7 +1,0 @@
-(ns top.kzre.homunculus.core.types.lambda-inline.methods.block
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.lambda-inline.core :as inline]))
-
-(defmethod inline/eliminate-inline :block [node config]
-  (n/make-block (mapv #(inline/eliminate-inline % config) (n/block-exprs node))
-                (n/attrs node) (n/node-meta node) (n/parent node)))
