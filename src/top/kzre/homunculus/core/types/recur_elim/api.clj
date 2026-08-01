@@ -1,28 +1,4 @@
 (ns top.kzre.homunculus.core.types.recur-elim.api
-  (:require [top.kzre.homunculus.core.types.recur-elim.core :as core]
-            [top.kzre.homunculus.core.types.recur-elim.methods.loop]
-            [top.kzre.homunculus.core.types.recur-elim.methods.let]
-            [top.kzre.homunculus.core.types.recur-elim.methods.lambda]
-            [top.kzre.homunculus.core.types.recur-elim.methods.block]
-            [top.kzre.homunculus.core.types.recur-elim.methods.if]
-            [top.kzre.homunculus.core.types.recur-elim.methods.call]
-            [top.kzre.homunculus.core.types.recur-elim.methods.assign]
-            [top.kzre.homunculus.core.types.recur-elim.methods.while]
-            [top.kzre.homunculus.core.types.recur-elim.methods.try]
-            [top.kzre.homunculus.core.types.recur-elim.methods.catch]
-            [top.kzre.homunculus.core.types.recur-elim.methods.throw]
-            [top.kzre.homunculus.core.types.recur-elim.methods.vector]
-            [top.kzre.homunculus.core.types.recur-elim.methods.map]
-            [top.kzre.homunculus.core.types.recur-elim.methods.define]
-            [top.kzre.homunculus.core.types.recur-elim.methods.literal]
-            [top.kzre.homunculus.core.types.recur-elim.methods.variable]
-            [top.kzre.homunculus.core.types.recur-elim.methods.convert]
-            [top.kzre.homunculus.core.types.recur-elim.methods.recur]
-            [top.kzre.homunculus.core.types.recur-elim.methods.protocol]
-            [top.kzre.homunculus.core.types.recur-elim.methods.record]
-            [top.kzre.homunculus.core.types.recur-elim.methods.ns]
-            [top.kzre.homunculus.core.types.recur-elim.methods.member-access]
-            [top.kzre.homunculus.core.types.recur-elim.methods.array]
-            [top.kzre.homunculus.core.types.recur-elim.methods.default]))
+  (:require [top.kzre.homunculus.core.types.recur-elim.core :as core]))
 
-(def eliminate core/eliminate)
+(def elim-nodes  core/elim-nodes)

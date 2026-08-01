@@ -70,7 +70,7 @@
           ir2-roots' (inline/inline-nodes ir2-roots' (inline/make-context context frontend backend))  ;; 执行内联
           no-ho    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
           no-closure (lambda-elim/eliminate no-ho lift-cfg)
-          no-recur   (mapv recur/eliminate no-closure)
+          no-recur   (recur/elim-nodes no-closure)
           folded     (fold/fold no-recur (fold/make-context context frontend backend (folder/folder)))
           inferred   (infer/infer folded (infer/make-context context frontend backend))
           solved     (solve/process inferred (solve/make-context context frontend backend))
