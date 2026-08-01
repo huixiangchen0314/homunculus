@@ -11,35 +11,35 @@
   (kind [_] :literal)
   (children [_] [])
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord SymbolNode [name meta]
   p/INode
   (kind [_] :symbol)
   (children [_] [])
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord VectorNode [items meta]
   p/INode
   (kind [_] :vector)
   (children [_] (vec items))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord MapNode [pairs meta parent]
   p/INode
   (kind [_] :map)
   (children [_] (vec pairs))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord CallNode [op args meta]
   p/INode
   (kind [_] :call)
   (children [_] (into [op] args))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 ;; ── 特殊形式 ──────────────────────────────
 (defrecord IfNode [test then else meta ]
@@ -47,14 +47,14 @@
   (kind [_] :if)
   (children [_] (into [test then] (if else [else] [])))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord DoNode [exprs meta ]
   p/INode
   (kind [_] :do)
   (children [_] (vec exprs))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 
 (defrecord LetNode [bindings body bindings-count meta]
@@ -62,7 +62,7 @@
   (kind [_] :let)
   (children [_] (into (vec bindings) (if body [body] [])))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 
 (defrecord FnNode [name params body meta ]
@@ -73,42 +73,42 @@
           (concat (vec params)
                   (if body [body] []))))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord DefNode [name doc attr val meta ]
   p/INode
   (kind [_] :def)
   (children [_] (if val [val] []))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord LoopNode [bindings body bindings-count meta parent]
   p/INode
   (kind [_] :loop)
   (children [_] (into (vec bindings) (if body [body] [])))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord RecurNode [exprs meta parent]
   p/INode
   (kind [_] :recur)
   (children [_] (vec exprs))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord QuoteNode [expr meta parent]
   p/INode
   (kind [_] :quote)
   (children [_] [expr])
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord VarNode [var-sym meta parent]
   p/INode
   (kind [_] :var)
   (children [_] [var-sym])
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 
 
@@ -117,7 +117,7 @@
   (kind [_] :set!)
   (children [_] [var val])
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 
 (defrecord TryNode [body catches finally meta parent]
@@ -128,7 +128,7 @@
                       (concat catches
                               (if finally [finally] []))))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 
 (defrecord CatchNode [class sym body meta parent]
@@ -136,21 +136,21 @@
   (kind [_] :catch)
   (children [_] (into [class sym] body))
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord ThrowNode [expr meta parent]
   p/INode
   (kind [_] :throw)
   (children [_] [expr])
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 (defrecord NsNode [name docstring attr-map references meta parent]
   p/INode
   (kind [_] :ns)
   (children [_] [])
   (node-meta [_] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 ;; RecordNode: 表示 defrecord 定义
 ;; name symbol?
@@ -185,7 +185,7 @@
                         (:methods proto)))
               protocols)))
   (node-meta  [this] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 ;; ProtocolNode: 表示 defprotocol 定义
 ;; funcs 示例: [{:name draw
@@ -198,7 +198,7 @@
   (kind       [this] :protocol)
   (children   [this] [])   ;; funcs 是函数签名列表，不是 INode 节点
   (node-meta  [this] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
 ;; :关键字 表示属性访问，不支持设置
 ;; .xyz 表示方法调用
@@ -208,5 +208,5 @@
   (kind       [this] :member-access)
   (children   [this] (into [target] args))
   (node-meta  [this] meta)
-  (set-parent [this p] (assoc this :parent p)))
+  )
 
