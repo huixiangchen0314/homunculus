@@ -44,5 +44,5 @@
         combined-table (merge builtin-table user-table)
         alias-map (build-alias-map combined-table)]
     (mapv (fn [root]
-            (first (walk root alias-map)))
+            (first (alias-fn root alias-map)))
           ir2-roots)))

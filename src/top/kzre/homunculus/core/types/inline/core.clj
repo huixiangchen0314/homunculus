@@ -109,7 +109,7 @@
   (let [ctx (assoc context :local-inline-defs {})]
     (first
       (reduce (fn [[roots ctx] root]
-                (let [[new-root new-ctx] (walk root ctx)]
+                (let [[new-root new-ctx] (inline-fn root ctx)]
                   [(conj roots new-root) new-ctx]))
               [[] ctx]
               ir2-roots))))

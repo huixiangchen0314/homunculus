@@ -73,7 +73,7 @@
   [nodes]
   (let [env (make-env)
         [new-nodes _] (reduce (fn [[ns e] node]
-                                (let [[nn ne] (walk node e)]
+                                (let [[nn ne] (rename-fn node e)]
                                   [(conj ns nn) ne]))
                               [[] env] nodes)]
     new-nodes))

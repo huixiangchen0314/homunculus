@@ -68,7 +68,8 @@
   (kind [_] :block)
   (children [_] (vec exprs))
   (reduce-children [this f env]
-    (let [[new-exprs env1] (reduce (fn [[es e] expr] (let [[ne e2] (f expr e)] [(conj es ne) e2])) [[] env] exprs)]
+    (let [[new-exprs env1] (reduce (fn [[es e] expr]
+                                     (let [[ne e2] (f expr e)] [(conj es ne) e2])) [[] env] exprs)]
       [(assoc this :exprs new-exprs) env1]))
   (attrs [_] attrs)
   (node-meta [_] meta)
