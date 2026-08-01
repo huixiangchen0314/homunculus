@@ -28,8 +28,11 @@
     ;; 记录 / 协议 / 成员访问
             [top.kzre.homunculus.core.ir1.forms.record]
             [top.kzre.homunculus.core.ir1.forms.protocol]
-            [top.kzre.homunculus.core.ir1.forms.member-access]))
+            [top.kzre.homunculus.core.ir1.forms.member-access]
+            [top.kzre.homunculus.core.ir1.parse :as parse]))
 
 (def ->ir1 core/->ir1)
 
 (def preprocess pre/preprocess)
+
+(def parse parse/parse)
