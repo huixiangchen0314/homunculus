@@ -69,7 +69,7 @@
                    (println b)
                    b)
           ir2-roots (mapcat ir2/->ir2 ir1-roots)
-          ir2-roots' (mapv rename/rename ir2-roots)
+          ir2-roots' (rename/rename-nodes ir2-roots)
           ir2-roots' (alias/apply-alias ir2-roots' context frontend)
           ir2-roots' (module/resolve-ns ir2-roots' context frontend)
           _          (module/collect-symbols ir2-roots' context)

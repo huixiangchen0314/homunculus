@@ -9,35 +9,35 @@
 (defrecord LiteralNode [val meta parent]
   p/INode
   (kind [_] :literal)
-  (children [_] [])
+
   (node-meta [_] meta)
   )
 
 (defrecord SymbolNode [name meta]
   p/INode
   (kind [_] :symbol)
-  (children [_] [])
+
   (node-meta [_] meta)
   )
 
 (defrecord VectorNode [items meta]
   p/INode
   (kind [_] :vector)
-  (children [_] (vec items))
+
   (node-meta [_] meta)
   )
 
 (defrecord MapNode [pairs meta parent]
   p/INode
   (kind [_] :map)
-  (children [_] (vec pairs))
+
   (node-meta [_] meta)
   )
 
 (defrecord CallNode [op args meta]
   p/INode
   (kind [_] :call)
-  (children [_] (into [op] args))
+
   (node-meta [_] meta)
   )
 
@@ -45,14 +45,14 @@
 (defrecord IfNode [test then else meta ]
   p/INode
   (kind [_] :if)
-  (children [_] (into [test then] (if else [else] [])))
+
   (node-meta [_] meta)
   )
 
 (defrecord DoNode [exprs meta ]
   p/INode
   (kind [_] :do)
-  (children [_] (vec exprs))
+
   (node-meta [_] meta)
   )
 
@@ -60,7 +60,7 @@
 (defrecord LetNode [bindings body bindings-count meta]
   p/INode
   (kind [_] :let)
-  (children [_] (into (vec bindings) (if body [body] [])))
+
   (node-meta [_] meta)
   )
 
@@ -68,45 +68,41 @@
 (defrecord FnNode [name params body meta ]
   p/INode
   (kind [_] :fn)
-  (children [_]
-    (into (if name [name] [])
-          (concat (vec params)
-                  (if body [body] []))))
   (node-meta [_] meta)
   )
 
 (defrecord DefNode [name doc attr val meta ]
   p/INode
   (kind [_] :def)
-  (children [_] (if val [val] []))
+
   (node-meta [_] meta)
   )
 
 (defrecord LoopNode [bindings body bindings-count meta parent]
   p/INode
   (kind [_] :loop)
-  (children [_] (into (vec bindings) (if body [body] [])))
+
   (node-meta [_] meta)
   )
 
 (defrecord RecurNode [exprs meta parent]
   p/INode
   (kind [_] :recur)
-  (children [_] (vec exprs))
+
   (node-meta [_] meta)
   )
 
 (defrecord QuoteNode [expr meta parent]
   p/INode
   (kind [_] :quote)
-  (children [_] [expr])
+
   (node-meta [_] meta)
   )
 
 (defrecord VarNode [var-sym meta parent]
   p/INode
   (kind [_] :var)
-  (children [_] [var-sym])
+
   (node-meta [_] meta)
   )
 
@@ -115,7 +111,7 @@
 (defrecord SetNode [var val meta parent]
   p/INode
   (kind [_] :set!)
-  (children [_] [var val])
+
   (node-meta [_] meta)
   )
 
@@ -123,10 +119,6 @@
 (defrecord TryNode [body catches finally meta parent]
   p/INode
   (kind [_] :try)
-  ;; 直接子节点：body（单个节点，可能为 DoNode）、每个 catch、finally（可选）
-  (children [_] (into (if body [body] [])
-                      (concat catches
-                              (if finally [finally] []))))
   (node-meta [_] meta)
   )
 
@@ -134,21 +126,21 @@
 (defrecord CatchNode [class sym body meta parent]
   p/INode
   (kind [_] :catch)
-  (children [_] (into [class sym] body))
+
   (node-meta [_] meta)
   )
 
 (defrecord ThrowNode [expr meta parent]
   p/INode
   (kind [_] :throw)
-  (children [_] [expr])
+
   (node-meta [_] meta)
   )
 
 (defrecord NsNode [name docstring attr-map references meta parent]
   p/INode
   (kind [_] :ns)
-  (children [_] [])
+
   (node-meta [_] meta)
   )
 
@@ -172,18 +164,6 @@
 (defrecord RecordNode [name fields protocols meta parent]
   p/INode
   (kind     [this] :record)
-  (children [this]
-    (concat
-      ;; 1) 字段默认值表达式（如 (defrecord Foo [x 42]) 中的 42）
-      (keep :init fields)
-      ;; 2) 协议方法体
-      (mapcat (fn [proto]
-                (mapcat (fn [method]
-                          (if-let [body (:body method)]
-                            [body]
-                            []))
-                        (:methods proto)))
-              protocols)))
   (node-meta  [this] meta)
   )
 
@@ -196,7 +176,6 @@
 (defrecord ProtocolNode [name funcs meta parent]
   p/INode
   (kind       [this] :protocol)
-  (children   [this] [])   ;; funcs 是函数签名列表，不是 INode 节点
   (node-meta  [this] meta)
   )
 
@@ -206,7 +185,6 @@
 (defrecord MemberAccessNode [target accessor args meta parent]
   p/INode
   (kind       [this] :member-access)
-  (children   [this] (into [target] args))
   (node-meta  [this] meta)
   )
 

@@ -18,7 +18,6 @@
 ;; ════════════════════════════════════════════════════════════
 (defn node-meta [node] (ir1p/node-meta node))
 (defn kind     [node] (ir1p/kind node))
-(defn children [node] (ir1p/children node))
 (defn parent   [node] (:parent node))
 
 (defn node-with-meta   [node meta]   (assoc node :meta meta))

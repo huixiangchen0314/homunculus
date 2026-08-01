@@ -3,7 +3,6 @@
 (defprotocol INode
   (kind       [this])
   (children   [this])
+  (reduce-children [this f env])
   (attrs      [this])
-  (node-meta  [this])
-  (parent     [this])
-  (set-parent [this p]))
+  (node-meta  [this]))
