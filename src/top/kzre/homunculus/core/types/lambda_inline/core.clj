@@ -12,16 +12,19 @@
 ;; ── 辅助函数（保持不变） ──
 (defn has-non-call-usage?
   [body var-name]
-  (let [found (atom false)]
+  (let [call-fn-nodes (atom #{})   ;; 存储所有作为函数被调用的变量节点
+        found         (atom false)]
     (walk/prewalk
       (fn [node]
-        (when (and (satisfies? p/INode node)
-                   (= (n/kind node) :variable)
-                   (= (n/var-name node) var-name))
-          (let [parent (n/parent node)]
-            (when (or (nil? parent)
-                      (not= (n/kind parent) :call)
-                      (not= (n/call-fn parent) node))
+        (when (satisfies? p/INode node)
+          (let [kind (n/kind node)]
+            ;; 将 :call 节点的 call-fn 子节点记录到集合
+            (when (= kind :call)
+              (swap! call-fn-nodes conj (n/call-fn node)))
+            ;; 遇到目标变量节点且不在调用函数集合中，则标记为非调用使用
+            (when (and (= kind :variable)
+                       (= (n/var-name node) var-name)
+                       (not (contains? @call-fn-nodes node)))
               (reset! found true))))
         node)
       body)
