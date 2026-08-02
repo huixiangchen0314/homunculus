@@ -25,7 +25,7 @@
                       [(c/make-cequal then-tv tv)])
                     [])
         new-node (n/make-if test-node then-node else-node
-                            (n/attrs node) (n/node-meta node) (n/parent node))]
+                            (n/attrs node) (n/node-meta node))]
     [tv (t/set-type! new-node tv)
      (concat test-constr then-constr else-constr test-eq branch-eq)
      final-ctx]))

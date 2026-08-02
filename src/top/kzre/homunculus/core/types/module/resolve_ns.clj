@@ -72,7 +72,7 @@
     [(n/make-let new-vals new-body
                  (n/attrs node)
                  (n/node-meta node)
-                 (n/parent node))
+                )
      env]))
 
 ;; loop：类似 let
@@ -104,8 +104,7 @@
                                  exprs)]
     [(n/make-block new-exprs
                    (n/attrs node)
-                   (n/node-meta node)
-                   (n/parent node))
+                   (n/node-meta node))
      env']))
 
 ;; call：递归子节点，传递环境
@@ -118,8 +117,7 @@
                                 (n/call-args node))]
     [(n/make-call new-fn new-args
                   (n/attrs node)
-                  (n/node-meta node)
-                  (n/parent node))
+                  (n/node-meta node))
      env2]))
 
 ;; if：顺序处理，传递环境
@@ -131,8 +129,7 @@
                           [nil env2])]
     [(n/make-if new-test new-then new-else
                 (n/attrs node)
-                (n/node-meta node)
-                (n/parent node))
+                (n/node-meta node))
      env3]))
 
 ;; while：顺序处理

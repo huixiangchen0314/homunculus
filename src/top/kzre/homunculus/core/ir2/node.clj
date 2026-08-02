@@ -44,10 +44,9 @@
 (defn var-name [node] (:name node))
 
 (defn make-variable
-  ([name]                      (m/->Variable name {} nil nil))
-  ([name attrs]                (m/->Variable name attrs nil nil))
-  ([name attrs meta]           (m/->Variable name attrs meta nil))
-  ([name attrs meta parent]    (m/->Variable name attrs meta parent)))
+  ([name]                      (m/->Variable name {} nil))
+  ([name attrs]                (m/->Variable name attrs nil))
+  ([name attrs meta]           (m/->Variable name attrs meta)))
 
 (defn variable-with-name [node name] (assoc node :name name))
 (defn variable-with-attrs [node attrs] (assoc node :attrs attrs))
@@ -58,10 +57,9 @@
 (defn lit-val [node] (:val node))
 
 (defn make-literal
-  ([val]                      (m/->Literal val {} nil nil))
-  ([val attrs]                (m/->Literal val attrs nil nil))
-  ([val attrs meta]           (m/->Literal val attrs meta nil))
-  ([val attrs meta parent]    (m/->Literal val attrs meta parent)))
+  ([val]                      (m/->Literal val {} nil ))
+  ([val attrs]                (m/->Literal val attrs nil ))
+  ([val attrs meta]           (m/->Literal val attrs meta )))
 
 (defn literal-with-val [node val] (assoc node :val val))
 
@@ -72,10 +70,9 @@
 (defn call-args [node] (:args node))
 
 (defn make-call
-  ([fn args]                      (m/->Call fn args {} nil nil))
-  ([fn args attrs]                (m/->Call fn args attrs nil nil))
-  ([fn args attrs meta]           (m/->Call fn args attrs meta nil))
-  ([fn args attrs meta parent]    (m/->Call fn args attrs meta parent)))
+  ([fn args]                      (m/->Call fn args {} nil ))
+  ([fn args attrs]                (m/->Call fn args attrs nil ))
+  ([fn args attrs meta]           (m/->Call fn args attrs meta )))
 
 (defn call-with-fn   [node fn]   (assoc node :fn fn))
 (defn call-with-args [node args] (assoc node :args args))
@@ -90,10 +87,9 @@
 (defn if-else [node] (:else node))
 
 (defn make-if
-  ([test then else]                      (m/->If test then else {} nil nil))
-  ([test then else attrs]                (m/->If test then else attrs nil nil))
-  ([test then else attrs meta]           (m/->If test then else attrs meta nil))
-  ([test then else attrs meta parent]    (m/->If test then else attrs meta parent)))
+  ([test then else]                      (m/->If test then else {} nil ))
+  ([test then else attrs]                (m/->If test then else attrs nil ))
+  ([test then else attrs meta]           (m/->If test then else attrs meta )))
 
 (defn if-with-test  [node test] (assoc node :test test))
 (defn if-with-then  [node then] (assoc node :then then))
@@ -107,10 +103,9 @@
 (defn block-exprs [node] (:exprs node))
 
 (defn make-block
-  ([exprs]                      (m/->Block exprs {} nil nil))
-  ([exprs attrs]                (m/->Block exprs attrs nil nil))
-  ([exprs attrs meta]           (m/->Block exprs attrs meta nil))
-  ([exprs attrs meta parent]    (m/->Block exprs attrs meta parent)))
+  ([exprs]                      (m/->Block exprs {} nil ))
+  ([exprs attrs]                (m/->Block exprs attrs nil ))
+  ([exprs attrs meta]           (m/->Block exprs attrs meta )))
 
 (defn block-with-exprs [node exprs] (assoc node :exprs exprs))
 (defn block-node? [bode] (= (kind bode) :block))
@@ -122,10 +117,9 @@
 (defn let-body     [node] (:body node))
 
 (defn make-let
-  ([bindings body]                      (m/->Let bindings body {} nil nil))
-  ([bindings body attrs]                (m/->Let bindings body attrs nil nil))
-  ([bindings body attrs meta]           (m/->Let bindings body attrs meta nil))
-  ([bindings body attrs meta parent]    (m/->Let bindings body attrs meta parent)))
+  ([bindings body]                      (m/->Let bindings body {} nil ))
+  ([bindings body attrs]                (m/->Let bindings body attrs nil ))
+  ([bindings body attrs meta]           (m/->Let bindings body attrs meta )))
 
 (defn let-with-bindings [node bindings] (assoc node :bindings bindings))
 (defn let-with-body     [node body]     (assoc node :body body))

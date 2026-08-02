@@ -7,8 +7,7 @@
 (defn- mark-var [node mutable?]
   (n/make-variable (n/var-name node)
                    (assoc (n/attrs node) :mutable mutable?)
-                   (n/node-meta node)
-                   (n/parent node)))
+                   (n/node-meta node)))
 
 (defmulti mutable-node (fn [node _env] (n/kind node)))
 
@@ -34,7 +33,7 @@
                                      [(mark-var var true) val]   ;; 重新标记为可变
                                      [var val]))
                                  new-bindings)]
-    [(n/make-let corrected-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-let corrected-bindings new-body (n/attrs node) (n/node-meta node))
      env2]))
 
 (defmethod mutable-node :loop [node env]
@@ -78,7 +77,7 @@
         ;; 合并两个分支的可变变量（取并集）
         merged-env (into env-then env-else)
         [test env-test] (mutable-node (n/if-test node) merged-env)]
-    [(n/make-if test then else (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-if test then else (n/attrs node) (n/node-meta node))
      env-test]))
 
 (defmethod mutable-node :while [node env]

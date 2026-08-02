@@ -17,7 +17,7 @@
       (let [arg-types    (take-while some? (map ty/fun-arg (take (count args) (iterate ty/fun-ret fn-ty))))
             checked-args (mapv (fn [arg ty] (check/check-node arg (when (some? ty) ty) context)) args arg-types)
             ret-node     (n/make-call fn-node checked-args
-                                      (n/attrs node) (n/node-meta node) (n/parent node))]
+                                      (n/attrs node) (n/node-meta node))]
         (if expected
           (check/check-type ret-node expected context)
           ret-node))

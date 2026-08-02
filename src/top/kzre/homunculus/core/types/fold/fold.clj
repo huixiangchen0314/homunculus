@@ -11,7 +11,7 @@
 (defmethod fold-node :call [node folder context]
   (let [new-fn  (fold-node (n/call-fn node) folder context)
         new-args (mapv #(fold-node % folder context) (n/call-args node))
-        temp-node (n/make-call new-fn new-args (n/attrs node) (n/node-meta node) (n/parent node))]
+        temp-node (n/make-call new-fn new-args (n/attrs node) (n/node-meta node))]
     (or (p/fold-node folder temp-node context)
         temp-node)))
 

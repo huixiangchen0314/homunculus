@@ -10,4 +10,4 @@
                                bindings)
         body-node (check/check-node (n/let-body node) expected context)]
     (n/make-let checked-bindings body-node
-                (n/attrs node) (n/node-meta node) (n/parent node))))
+                (n/attrs node) (n/node-meta node))))

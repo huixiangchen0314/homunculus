@@ -5,4 +5,4 @@
 
 (defmethod ir2/lower-ast :do [node env]
   (let [expr-nodes (mapv #(first (ir2/lower-ast % env)) (n1/do-exprs node))]
-    [(n2/make-block expr-nodes {} (n1/node-meta node) nil)]))
+    [(n2/make-block expr-nodes {} (n1/node-meta node) )]))

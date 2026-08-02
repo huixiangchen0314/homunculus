@@ -19,5 +19,5 @@
         ;; 变量节点本身不消除（它们只是声明）
         new-vars (mapv first bindings)]
     [(n/make-let (mapv vector new-vars new-vals) new-body
-                 (n/attrs node) (n/node-meta node) (n/parent node))
+                 (n/attrs node) (n/node-meta node))
      (into val-defs body-defs)]))

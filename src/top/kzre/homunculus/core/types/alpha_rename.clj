@@ -17,7 +17,7 @@
   (case (p/kind node)
     :variable
     (if-let [new-name (get (:table env) (n/var-name node))]
-      [(n/make-variable new-name (n/attrs node) (n/node-meta node) (n/parent node)) env]
+      [(n/make-variable new-name (n/attrs node) (n/node-meta node)) env]
       [node env])
 
     :let
@@ -28,7 +28,7 @@
                           old-name (n/var-name var)
                           new-name (u/fresh-name old-name)
                           e2 (extend-env e1 old-name new-name)
-                          new-var (n/make-variable new-name (n/attrs var) (n/node-meta var) (n/parent var))]
+                          new-var (n/make-variable new-name (n/attrs var) (n/node-meta var))]
                       [(conj bnds [new-var new-val]) e2]))
                   [[] env] bindings)
           [new-body env''] (rename-fn (n/let-body node) env')]
@@ -42,7 +42,7 @@
                           old-name (n/var-name var)
                           new-name (u/fresh-name old-name)
                           e2 (extend-env e1 old-name new-name)
-                          new-var (n/make-variable new-name (n/attrs var) (n/node-meta var) (n/parent var))]
+                          new-var (n/make-variable new-name (n/attrs var) (n/node-meta var))]
                       [(conj bnds [new-var new-val]) e2]))
                   [[] env] bindings)
           [new-body env''] (rename-fn (n/loop-body node) env')]

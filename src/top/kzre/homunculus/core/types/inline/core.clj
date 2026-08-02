@@ -54,7 +54,7 @@
                             body
                             (map vector params args))]
         (strip-types inlined))
-      (n/make-call fn-node args (n/attrs node) (n/node-meta node) (n/parent node)))))
+      (n/make-call fn-node args (n/attrs node) (n/node-meta node)))))
 
 (defn- add-inline-def [ctx node]
   (if (and (= (p/kind node) :define)

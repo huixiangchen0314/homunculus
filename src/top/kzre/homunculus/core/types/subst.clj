@@ -19,20 +19,20 @@
                           :call
                           (m/->Call (replace-var (:fn node))
                                         (mapv replace-var (:args node))
-                                        (:attrs node) (:meta node) (:parent node))
+                                        (:attrs node) (:meta node))
                           :let
                           (m/->Let (mapv (fn [[v e]] [(replace-var v) (replace-var e)])
                                              (:bindings node))
                                        (replace-var (:body node))
-                                       (:attrs node) (:meta node) (:parent node))
+                                       (:attrs node) (:meta node))
                           :block
                           (m/->Block (mapv replace-var (:exprs node))
-                                         (:attrs node) (:meta node) (:parent node))
+                                         (:attrs node) (:meta node))
                           :if
                           (m/->If (replace-var (:test node))
                                       (replace-var (:then node))
                                       (when (:else node) (replace-var (:else node)))
-                                      (:attrs node) (:meta node) (:parent node))
+                                      (:attrs node) (:meta node))
                           :loop
                           (m/->Loop (mapv (fn [[v e]] [(replace-var v) (replace-var e)])
                                               (:bindings node))
@@ -138,7 +138,7 @@
 (defmethod replace-in-expr :call [node var-name replacement]
   (m/->Call (replace-in-expr (:fn node) var-name replacement)
                 (mapv #(replace-in-expr % var-name replacement) (:args node))
-                (:attrs node) (:meta node) (:parent node)))
+                (:attrs node) (:meta node)))
 
 
 (defmethod replace-in-expr :let [node var-name replacement]
@@ -146,17 +146,17 @@
                                   (replace-in-expr e var-name replacement)])
                      (:bindings node))
                (replace-in-expr (:body node) var-name replacement)
-               (:attrs node) (:meta node) (:parent node)))
+               (:attrs node) (:meta node)))
 
 (defmethod replace-in-expr :block [node var-name replacement]
   (m/->Block (mapv #(replace-in-expr % var-name replacement) (:exprs node))
-                 (:attrs node) (:meta node) (:parent node)))
+                 (:attrs node) (:meta node) ))
 
 (defmethod replace-in-expr :if [node var-name replacement]
   (m/->If (replace-in-expr (:test node) var-name replacement)
               (replace-in-expr (:then node) var-name replacement)
               (when (:else node) (replace-in-expr (:else node) var-name replacement))
-              (:attrs node) (:meta node) (:parent node)))
+              (:attrs node) (:meta node) ))
 
 (defmethod replace-in-expr :loop [node var-name replacement]
   (m/->Loop (mapv (fn [[v e]] [(replace-in-expr v var-name replacement) (replace-in-expr e var-name replacement)])

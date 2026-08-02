@@ -12,4 +12,4 @@
                (check/check-node (n/if-then node) expected context)
                (when-let [e (n/if-else node)]
                  (check/check-node e expected context))
-               (n/attrs node) (n/node-meta node) (n/parent node))))
+               (n/attrs node) (n/node-meta node))))

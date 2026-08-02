@@ -29,7 +29,7 @@
         [body-tv body-node body-constr _body-ctx] (gen/cg-node-raw (n/let-body node)
                                                                    (assoc context :env final-env))
         new-node (n/make-let (vec bind-nodes) body-node
-                             (n/attrs node) (n/node-meta node) (n/parent node))]
+                             (n/attrs node) (n/node-meta node))]
     ;; 返回四元组：let 的类型是 body 类型，内部绑定不泄露，返回原上下文
     [body-tv
      (t/set-type! new-node body-tv)

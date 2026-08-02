@@ -56,12 +56,12 @@
       ;; 精确匹配，直接确定返回类型
       (let [ret-ty (t/fun-return-type matched-cand (count arg-tys))
             new-node (n/make-call fn-node (vec arg-nodes)
-                                  (n/attrs node) (n/node-meta node) (n/parent node))]
+                                  (n/attrs node) (n/node-meta node))]
         [ret-ty (t/set-type! new-node ret-ty) (concat fn-constrs arg-constrs) final-ctx])
       ;; 无法精确匹配，生成 COverload 或新变量
       (let [ret-tv (gen/fresh-tvar)
             new-node (n/make-call fn-node (vec arg-nodes)
-                                  (n/attrs node) (n/node-meta node) (n/parent node))]
+                                  (n/attrs node) (n/node-meta node))]
         (if (seq candidates)
           [ret-tv
            (t/set-type! new-node ret-tv)

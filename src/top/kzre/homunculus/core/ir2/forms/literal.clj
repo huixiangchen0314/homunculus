@@ -7,4 +7,4 @@
   [(n2/make-literal (n1/lit-val node)                     ;; 使用 ir1.node 访问器
                     {}
                     (n1/node-meta node)                   ;; IR1 元数据 -> IR2
-                    nil)])
+                    )])

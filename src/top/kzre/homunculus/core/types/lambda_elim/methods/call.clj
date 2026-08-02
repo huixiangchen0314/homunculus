@@ -15,14 +15,14 @@
         new-body   (if (empty? fv-vec)
                      (n/lambda-body lam)
                      (let [bindings (mapv (fn [v] [(n/make-variable v nil nil) (n/make-variable v nil nil)]) fv-vec)]
-                       (n/make-let bindings (n/lambda-body lam) {} nil nil)))
+                       (n/make-let bindings (n/lambda-body lam) {} nil )))
         lifted-lam (n/make-lambda new-params new-body fv-vec nil
                                   (n/attrs lam) (n/node-meta lam) nil)
         new-call   (n/make-call (n/make-variable lifted-name nil nil)
                                 (if (empty? fv-vec)
                                   args
                                   (into args (mapv #(n/make-variable % nil nil) fv-vec)))
-                                (n/attrs call-node) (n/node-meta call-node) nil)
+                                (n/attrs call-node) (n/node-meta call-node) )
         new-defines [(n/make-define lifted-name lifted-lam nil nil nil nil)]]
     {:new-call new-call
      :new-defines new-defines}))
@@ -49,5 +49,5 @@
               {:keys [new-call new-defines]} (lift-and-replace-call node lam new-args config env)]
           [new-call (into all-defs new-defines)])
         ;; 普通调用
-        [(n/make-call new-fn new-args (n/attrs node) (n/node-meta node) (n/parent node))
+        [(n/make-call new-fn new-args (n/attrs node) (n/node-meta node))
          all-defs]))))

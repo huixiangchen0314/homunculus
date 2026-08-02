@@ -26,8 +26,7 @@
     (if (contains? env (n/var-name node))
       [(n/make-variable (n/var-name node)
                         (assoc (n/attrs node) :mutable true)
-                        (n/node-meta node)
-                        (n/parent node))
+                        (n/node-meta node))
        env]
       (walk node env))
 

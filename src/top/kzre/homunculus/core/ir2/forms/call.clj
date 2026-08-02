@@ -50,4 +50,4 @@
              (contains? primitive-ops (n2/var-name fn-node)))
       (make-prim (n2/var-name fn-node) args node)
       ;; 普通调用
-      [(n2/make-call fn-node args {} (n1/node-meta node) nil)])))
+      [(n2/make-call fn-node args {} (n1/node-meta node) )])))

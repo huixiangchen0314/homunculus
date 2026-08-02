@@ -16,7 +16,7 @@
   (node-meta [_] meta))
 
 ;; ── LiteralNode ─────────────────────────────
-(defrecord Literal [val attrs meta parent]
+(defrecord Literal [val attrs meta ]
   p/INode
   (kind [_] :literal)
   (children [_] [])
@@ -26,7 +26,7 @@
 )
 
 ;; ── VariableNode ────────────────────────────
-(defrecord Variable [name attrs meta parent]
+(defrecord Variable [name attrs meta]
   p/INode
   (kind [_] :variable)
   (children [_] [])
@@ -36,7 +36,7 @@
 )
 
 ;; ── CallNode ────────────────────────────────
-(defrecord Call [fn args attrs meta parent]
+(defrecord Call [fn args attrs meta ]
   p/INode
   (kind [_] :call)
   (children [_] (into (if fn [fn] []) (remove nil? args)))
@@ -49,7 +49,7 @@
 )
 
 ;; ── IfNode ──────────────────────────────────
-(defrecord If [test then else attrs meta parent]
+(defrecord If [test then else attrs meta ]
   p/INode
   (kind [_] :if)
   (children [_] (into [test then] (if else [else] [])))
@@ -63,7 +63,7 @@
 )
 
 ;; ── BlockNode ───────────────────────────────
-(defrecord Block [exprs attrs meta parent]
+(defrecord Block [exprs attrs meta ]
   p/INode
   (kind [_] :block)
   (children [_] (vec exprs))
@@ -76,7 +76,7 @@
 )
 
 ;; ── LetNode ─────────────────────────────────
-(defrecord Let [bindings body attrs meta parent]
+(defrecord Let [bindings body attrs meta ]
   p/INode
   (kind [_] :let)
   (children [_] (into (mapcat (fn [[v e]] [v e]) bindings) [body]))

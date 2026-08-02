@@ -73,7 +73,7 @@
             (recur (rest remaining) new-bindings new-body))
           (recur (rest remaining) (conj new-bindings [var val]) current-body))
         (n/make-let new-bindings current-body
-                    (n/attrs let-node) (n/node-meta let-node) (n/parent let-node))))))
+                    (n/attrs let-node) (n/node-meta let-node))))))
 
 (declare walk)
 

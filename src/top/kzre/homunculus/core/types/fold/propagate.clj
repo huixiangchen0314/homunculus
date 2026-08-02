@@ -86,7 +86,7 @@
                 [[] context]
                 bindings)
         [new-body ctx2] (propagate-node (n/let-body node) ctx1)]
-    [(n/make-let new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-let new-bindings new-body (n/attrs node) (n/node-meta node))
      ctx2]))
 
 ;; ── loop：循环变量已由 mutable 分析标记为可变，此处统一按标记处理；同时移除循环变量以遮蔽外层同名常量 ──
@@ -145,7 +145,7 @@
                     [(conj args new-arg) new-ctx]))
                 [[] context]
                 (n/call-args node))]
-    [(n/make-call new-fn new-args (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-call new-fn new-args (n/attrs node) (n/node-meta node))
      ctx1]))
 
 ;; ★ 核心：:alength 节点直接替换为已知长度 ──

@@ -15,24 +15,24 @@
 (defmethod replace-expr :call [node var-name replacement]
   (n/make-call (replace-expr (n/call-fn node) var-name replacement)
                (mapv #(replace-expr % var-name replacement) (n/call-args node))
-               (n/attrs node) (n/node-meta node) (n/parent node)))
+               (n/attrs node) (n/node-meta node)))
 
 (defmethod replace-expr :if [node var-name replacement]
   (n/make-if (replace-expr (n/if-test node) var-name replacement)
              (replace-expr (n/if-then node) var-name replacement)
              (when-let [e (n/if-else node)] (replace-expr e var-name replacement))
-             (n/attrs node) (n/node-meta node) (n/parent node)))
+             (n/attrs node) (n/node-meta node)))
 
 (defmethod replace-expr :let [node var-name replacement]
   ;; 绑定变量不替换，仅替换值表达式和 body（假设已 alpha 重命名避免阴影）
   (let [new-bindings (mapv (fn [[v e]] [v (replace-expr e var-name replacement)])
                            (n/let-bindings node))
         new-body     (replace-expr (n/let-body node) var-name replacement)]
-    (n/make-let new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))))
+    (n/make-let new-bindings new-body (n/attrs node) (n/node-meta node))))
 
 (defmethod replace-expr :block [node var-name replacement]
   (n/make-block (mapv #(replace-expr % var-name replacement) (n/block-exprs node))
-                (n/attrs node) (n/node-meta node) (n/parent node)))
+                (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :loop [node var-name replacement]
   (let [new-bindings (mapv (fn [[v e]] [v (replace-expr e var-name replacement)])

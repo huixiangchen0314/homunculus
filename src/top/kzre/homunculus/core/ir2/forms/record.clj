@@ -34,7 +34,7 @@
                                      ;; lowering 参数：每个参数描述中的 :name 是符号，直接生成 VariableNode
                                      ir2-params  (mapv (fn [p]
                                                          (let [sym (n1/param-sym p)]
-                                                           (n2/make-variable (name sym) {} (meta sym) nil)))
+                                                           (n2/make-variable (name sym) {} (meta sym))))
                                                        params)
                                      ;; lowering 方法体
                                      ir2-body    (first (ir2/lower-ast body env))

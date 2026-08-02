@@ -22,7 +22,6 @@
                     (gen/fresh-tvar))
         new-node  (n/make-block new-exprs
                                 (n/attrs node)
-                                (n/node-meta node)
-                                (n/parent node))]
+                                (n/node-meta node))]
     ;; 返回四元组：类型、节点、约束、最终上下文
     [block-tv (t/set-type! new-node block-tv) constrs final-ctx]))

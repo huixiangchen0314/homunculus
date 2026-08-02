@@ -12,4 +12,4 @@
                                              (first (ir2/lower-ast val env))))
                           bind-pairs)
         ir-body    (first (ir2/lower-ast body env))]
-    [(n2/make-let ir-bindings ir-body {} (n1/node-meta node) nil)]))
+    [(n2/make-let ir-bindings ir-body {} (n1/node-meta node) )]))

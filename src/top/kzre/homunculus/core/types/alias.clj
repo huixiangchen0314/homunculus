@@ -27,7 +27,7 @@
       (if (and (not (namespace var-name))
                (contains? alias-map var-name))
         [(n/make-variable (get alias-map var-name)
-                          (n/attrs node) (n/node-meta node) (n/parent node))
+                          (n/attrs node) (n/node-meta node))
          alias-map]
         [node alias-map]))
     (walk node alias-map)))

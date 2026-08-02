@@ -21,20 +21,20 @@
       :recur
       (let [args   (n/recur-args node)
             assigns (mapv (fn [var-name arg]
-                            (n/make-assign (n/make-variable var-name {} nil nil)
+                            (n/make-assign (n/make-variable var-name {} nil )
                                            (eliminate arg)
                                            {} nil nil))
                           var-names args)
-            set-flag (n/make-assign (n/make-variable recur-flag {} nil nil)
-                                    (n/make-literal true {} nil nil)
+            set-flag (n/make-assign (n/make-variable recur-flag {} nil )
+                                    (n/make-literal true {} nil )
                                     {} nil nil)]
-        (n/make-block (conj assigns set-flag) {} nil nil))
+        (n/make-block (conj assigns set-flag) {} nil ))
 
       :if
       (n/make-if (eliminate (n/if-test node))
                  (convert-tail (n/if-then node) ctx)
                  (when-let [else (n/if-else node)] (convert-tail else ctx))
-                 (n/attrs node) (n/node-meta node) (n/parent node))
+                 (n/attrs node) (n/node-meta node))
 
       :block
       (let [exprs     (n/block-exprs node)
@@ -42,13 +42,13 @@
             last-expr (last exprs)]
         (n/make-block (into (mapv #(eliminate %) butlast)
                             [(convert-tail last-expr ctx)])
-                      (n/attrs node) (n/node-meta node) (n/parent node)))
+                      (n/attrs node) (n/node-meta node)))
 
       :let
       (n/make-let (mapv (fn [[v e]] [(eliminate v) (eliminate e)])
                         (n/let-bindings node))
                   (convert-tail (n/let-body node) ctx)
-                  (n/attrs node) (n/node-meta node) (n/parent node))
+                  (n/attrs node) (n/node-meta node))
 
       :try
       (n/make-try (convert-tail (n/try-body node) ctx)
@@ -61,13 +61,13 @@
                   (n/attrs node) (n/node-meta node) (n/parent node))
 
       ;; 默认：将表达式赋值给 result，并设置 recur-flag = false
-      (n/make-block [(n/make-assign (n/make-variable result-var {} nil nil)
+      (n/make-block [(n/make-assign (n/make-variable result-var {} nil )
                                     (eliminate node)
                                     {} nil nil)
-                     (n/make-assign (n/make-variable recur-flag {} nil nil)
-                                    (n/make-literal false {} nil nil)
-                                    {} nil nil)]
-                    {} nil nil)
+                     (n/make-assign (n/make-variable recur-flag {} nil )
+                                    (n/make-literal false {} nil )
+                                    {} nil )]
+                    {} nil )
       )))
 
 ;; ── 主转换函数 ────────────────────────────
@@ -81,20 +81,20 @@
 
         ;; 初始绑定：loop 变量 + result + recur-flag
         loop-bindings (mapv (fn [[var init]]
-                              [(n/make-variable (n/var-name var) {} nil nil)
+                              [(n/make-variable (n/var-name var) {} nil )
                                (eliminate init)])
                             bindings)
 
         all-bindings (into loop-bindings
-                           [[(n/make-variable result-var {} nil nil) (n/make-literal nil {} nil nil)]
-                            [(n/make-variable recur-flag {} nil nil) (n/make-literal true {} nil nil)]])
+                           [[(n/make-variable result-var {} nil ) (n/make-literal nil {} nil )]
+                            [(n/make-variable recur-flag {} nil ) (n/make-literal true {} nil )]])
 
         ;; 转换后的循环体
         tail-body  (convert-tail body ctx)
-        while-test (n/make-variable recur-flag {} nil nil)
+        while-test (n/make-variable recur-flag {} nil )
         while-node (n/make-while while-test tail-body {} nil nil)
-        let-body   (n/make-block [while-node (n/make-variable result-var {} nil nil)] {} nil nil)]
-    (n/make-let all-bindings let-body {} nil nil)))
+        let-body   (n/make-block [while-node (n/make-variable result-var {} nil )] {} nil )]
+    (n/make-let all-bindings let-body {} nil )))
 
 ;; ── 分派入口 ──────────────────────────────
 (defmulti eliminate (fn [node] (n/kind node)))

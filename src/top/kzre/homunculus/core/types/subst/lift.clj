@@ -9,12 +9,12 @@
 (defmethod lift-lambda :lambda [lambda-node free-vars config]
   (let [lifted-name (p/lift-name-gen config lambda-node)
         new-lambda (if (seq free-vars)
-                     (let [extra-params (mapv #(n/make-variable % nil nil nil) free-vars)
+                     (let [extra-params (mapv #(n/make-variable % nil nil) free-vars)
                            let-bindings (mapv (fn [fv]
-                                                [(n/make-variable fv nil nil nil)
-                                                 (n/make-variable fv nil nil nil)])
+                                                [(n/make-variable fv nil nil)
+                                                 (n/make-variable fv nil nil)])
                                               free-vars)
-                           new-body (n/make-let let-bindings (n/lambda-body lambda-node) {} nil nil)]
+                           new-body (n/make-let let-bindings (n/lambda-body lambda-node) {} nil )]
                        (n/make-lambda (into (n/lambda-params lambda-node) extra-params)
                                       new-body
                                       (n/lambda-captures lambda-node)
@@ -22,7 +22,7 @@
                                       (n/attrs lambda-node) (n/node-meta lambda-node) nil))
                      lambda-node)
         define-node (n/make-define lifted-name new-lambda nil nil nil nil)
-        ref-node    (n/make-variable (name lifted-name) nil nil nil)]
+        ref-node    (n/make-variable (name lifted-name) nil nil)]
     {:define define-node :ref ref-node}))
 
 (defmethod lift-lambda :default [node _ _]
