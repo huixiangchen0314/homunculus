@@ -19,5 +19,4 @@
         new-target (ir1/->ir1 target)
         new-args   (mapv ir1/->ir1 args)]
     (n/make-member-access new-target member new-args
-                          (n/node-meta node)
-                          )))
+                          (n/node-meta node))))

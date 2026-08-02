@@ -1,24 +1,31 @@
 (ns top.kzre.homunculus.core.types.check.methods.map
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
+  (:require [top.kzre.homunculus.core.ir2.model :as m]          ; Pair, Map 记录与工厂
+            [top.kzre.homunculus.core.ir2.node :as n]            ; 访问器 (attrs, node-meta)
             [top.kzre.homunculus.core.types.check.core :as check]
             [top.kzre.homunculus.core.types.type :as ty]))
 
 (defmethod check/check-node :map [node expected context]
-  (let [kvs (n/map-kvs node)
-        pairs (partition 2 kvs)]
+  (let [pairs (:pairs node)                                   ;; Pair 向量
+        pair-count (count pairs)]
     (if (and expected (ty/hetero-map? expected))
       (let [exp-entries (ty/hetero-map-entries expected)]
-        (if (= (count pairs) (count exp-entries))
-          (let [checked-pairs (mapv (fn [[k v] [k-ty v-ty]]
-                                      (n/make-pair (check/check-node k k-ty context)
-                                                   (check/check-node v v-ty context)))
-                                    pairs exp-entries)
-                new-kvs (vec (apply concat checked-pairs))]
-            (n/make-map new-kvs (n/attrs node) (n/node-meta node) ))
+        (if (= pair-count (count exp-entries))
+          (let [checked-pairs (mapv (fn [pair-node [k-ty v-ty]]
+                                      (let [k-node (check/check-node (:key pair-node) k-ty context)
+                                            v-node (check/check-node (:val pair-node) v-ty context)]
+                                        (m/->Pair k-node v-node
+                                                  (:attrs pair-node)
+                                                  (:meta pair-node))))
+                                    pairs exp-entries)]
+            (m/->Map checked-pairs (:attrs node) (:meta node)))
           (throw (ex-info "Map entry count mismatch"
-                          {:expected (count exp-entries) :actual (count pairs)}))))
-      (let [checked-kvs (mapcat (fn [[k v]]
-                                  (n/make-pair (check/check-node k nil context)
-                                               (check/check-node v nil context)))
+                          {:expected (count exp-entries) :actual pair-count}))))
+      ;; 无期望类型或非 hetero-map：逐一检查键值，期望类型为 nil
+      (let [checked-pairs (mapv (fn [pair-node]
+                                  (let [k-node (check/check-node (:key pair-node) nil context)
+                                        v-node (check/check-node (:val pair-node) nil context)]
+                                    (m/->Pair k-node v-node
+                                              (:attrs pair-node)
+                                              (:meta pair-node))))
                                 pairs)]
-        (n/make-map (vec checked-kvs) (n/attrs node) (n/node-meta node) )))))
+        (m/->Map checked-pairs (:attrs node) (:meta node))))))

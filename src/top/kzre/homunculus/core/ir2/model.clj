@@ -76,6 +76,17 @@
 )
 
 ;; ── LetNode ─────────────────────────────────
+(defrecord Binding [var val attrs meta]
+  p/INode
+  (kind [_] :binding)
+  (children [_] [var val])
+  (reduce-children [this f env]
+    (let [[new-var env1] (f var env)
+          [new-val env2] (f val env1)]
+      [(assoc this :var new-var :val new-val) env2]))
+  (attrs [_] attrs)
+  (node-meta [_] meta))
+
 (defrecord Let [bindings body attrs meta ]
   p/INode
   (kind [_] :let)
@@ -150,13 +161,25 @@
 )
 
 ;; ── MapNode ─────────────────────────────────
-(defrecord Map [kvs attrs meta ]
+
+(defrecord Pair [key val attrs meta]
+  p/INode
+  (kind [_] :pair)
+  (children [_] [key val])
+  (reduce-children [this f env]
+    (let [[new-key env1] (f key env)
+          [new-val env2] (f val env1)]
+      [(assoc this :key new-key :val new-val) env2]))
+  (attrs [_] attrs)
+  (node-meta [_] meta))
+
+(defrecord Map [pairs attrs meta ]
   p/INode
   (kind [_] :map)
-  (children [_] (vec kvs))
+  (children [_] (vec pairs))
   (reduce-children [this f env]
-    (let [[new-kvs env1] (reduce (fn [[ks e] kv] (let [[nk e2] (f kv e)] [(conj ks nk) e2])) [[] env] kvs)]
-      [(assoc this :kvs new-kvs) env1]))
+    (let [[new-pairs env1] (reduce (fn [[ks e] pair] (let [[nk e2] (f pair e)] [(conj ks nk) e2])) [[] env] pairs)]
+      [(assoc this :pairs new-pairs) env1]))
   (attrs [_] attrs)
   (node-meta [_] meta)
 )
@@ -296,7 +319,7 @@
 )
 
 ;; ── NewArrayNode ────────────────────────────
-(defrecord NewArray [size attrs meta ]
+(defrecord NewArray [size attrs meta]
   p/INode
   (kind [_] :new-array)
   (children [_] (if (satisfies? p/INode size) [size] []))

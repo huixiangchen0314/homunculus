@@ -6,6 +6,7 @@
     [top.kzre.homunculus.core.ir2.forms.literal]          ;; :literal
     [top.kzre.homunculus.core.ir2.forms.symbol]           ;; :symbol
     [top.kzre.homunculus.core.ir2.forms.vector]           ;; :vector
+    [top.kzre.homunculus.core.ir2.forms.pair]
     [top.kzre.homunculus.core.ir2.forms.map]              ;; :map
     [top.kzre.homunculus.core.ir2.forms.call]             ;; :call
     [top.kzre.homunculus.core.ir2.forms.if]               ;; :if

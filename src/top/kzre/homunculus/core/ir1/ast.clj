@@ -21,7 +21,6 @@
                 :vector / :map
                 :record / :protocol / :member-access / :ns]
          :exprs           [:expr {:many true}]
-         :binding         [:var :expr]
          :bindings        [:binding {:many true}]
          :catches         [:catch {:many true}]
          :record-fields   [:record-field {:many true}]

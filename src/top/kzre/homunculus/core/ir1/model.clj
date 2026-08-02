@@ -25,6 +25,11 @@
   (node-meta [_] meta)
   )
 
+(defrecord Pair [key val meta]
+  p/INode
+  (kind [_] :pair)
+  (node-meta [_] meta))
+
 (defrecord Map [pairs meta]
   p/INode
   (kind [_] :map)
@@ -53,6 +58,10 @@
   (node-meta [_] meta)
   )
 
+(defrecord Binding [var val meta]
+  p/INode
+  (kind [_] :binding)
+  (node-meta [_] meta))
 
 (defrecord Let [bindings body bindings-count meta]
   p/INode

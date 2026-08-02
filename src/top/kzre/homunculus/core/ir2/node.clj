@@ -285,14 +285,14 @@
 ;; ══════════════════════════════════════════════
 ;; MapNode
 ;; ══════════════════════════════════════════════
-(defn map-kvs [node] (:kvs node))
+(defn map-pairs [node] (:pairs node))
 
 (defn make-map
   ([kvs]                      (m/->Map kvs {} nil ))
   ([kvs attrs]                (m/->Map kvs attrs nil ))
   ([kvs attrs meta]           (m/->Map kvs attrs meta )))
 
-(defn map-with-kvs [node kvs] (assoc node :kvs (vec kvs)))
+(defn map-with-kvs [node kvs] (assoc node :pairs (vec kvs)))
 
 ;; ══════════════════════════════════════════════
 ;; ConvertNode

@@ -1,28 +1,29 @@
 (ns top.kzre.homunculus.core.types.infer.methods.map
-  (:require [top.kzre.homunculus.core.types.infer.core :as infer]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.type :as type]
-            [top.kzre.homunculus.core.types.model :as t]))
+  (:require [top.kzre.homunculus.core.ir2.model :as m]
+            [top.kzre.homunculus.core.types.infer.core :as infer]
+            [top.kzre.homunculus.core.types.model :as t]
+            [top.kzre.homunculus.core.types.type :as type]))
 
 (defmethod infer/local-infer :map [node context]
-  (let [kvs (n/map-kvs node)               ;; 键值对序列，交替存放 key-node, val-node
-        pairs (n/kv-pairs kvs)
-        ;; 顺序处理每一对，累积新节点和上下文
+  (let [pairs (:pairs node)                     ;; Pair 节点向量
         [results final-ctx]
-        (reduce (fn [[pairs ctx] [k-node v-node]]
-                  (let [[k-ty k-node k-ctx] (infer/local-infer k-node ctx)
-                        [v-ty v-node v-ctx] (infer/local-infer v-node k-ctx)]
-                    [(conj pairs {:key-ty k-ty :val-ty v-ty
-                                  :key-node k-node :val-node v-node})
+        (reduce (fn [[results ctx] pair-node]
+                  (let [k-node (:key pair-node)
+                        v-node (:val pair-node)
+                        [k-ty k-node' k-ctx] (infer/local-infer k-node ctx)
+                        [v-ty v-node' v-ctx] (infer/local-infer v-node k-ctx)
+                        ;; 使用 ir2.model 中的 ->Pair 工厂重建
+                        new-pair (m/->Pair k-node' v-node'
+                                           (:attrs pair-node)
+                                           (:meta pair-node))]
+                    [(conj results {:key-ty k-ty :val-ty v-ty :pair-node new-pair})
                      v-ctx]))
                 [[] context]
                 pairs)
-        ;; 构造异构 map 类型：entries 为 [[key-type val-type] ...]
-        entries (mapv (fn [{:keys [key-ty val-ty]}] [key-ty val-ty]) results)
+        entries  (mapv (fn [{:keys [key-ty val-ty]}] [key-ty val-ty]) results)
         map-type (t/->THeteroMap entries)
-        ;; 重建节点：将新子节点展平放回 :kvs
-        new-kvs  (mapcat (fn [{:keys [key-node val-node]}] [key-node val-node]) results)
-        new-node (n/map-with-kvs node new-kvs)]
+        new-pairs (mapv :pair-node results)
+        new-node (m/->Map new-pairs (:attrs node) (:meta node))]
     (if (every? (fn [{:keys [key-ty val-ty]}] (and key-ty val-ty)) results)
       (infer/success map-type (type/set-type! new-node map-type) final-ctx)
       (infer/nothing (type/set-type! new-node map-type) final-ctx))))
