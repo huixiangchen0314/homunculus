@@ -299,11 +299,14 @@
 (defrecord NewArray [size attrs meta parent]
   p/INode
   (kind [_] :new-array)
-  (children [_] [])
-  (reduce-children [this _f env] [this env])
+  (children [_] (if (satisfies? p/INode size) [size] []))
+  (reduce-children [this f env]
+    (if (satisfies? p/INode size)
+      (let [[new-size env'] (f size env)]
+        [(assoc this :size new-size) env'])
+      [this env]))
   (attrs [_] attrs)
-  (node-meta [_] meta)
-)
+  (node-meta [_] meta))
 
 ;; ── AGetNode ────────────────────────────────
 (defrecord AGet [target idx attrs meta parent]

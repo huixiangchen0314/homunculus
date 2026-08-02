@@ -3,7 +3,8 @@
    环境包含 :constants 和 :array-lens 两个映射，不依赖类型推导。
    对 :alength 节点直接替换为已知长度。
    传播时依据 attrs 中的 :mutable 标记，只对不可变变量进行常量传播。"
-  (:require [top.kzre.homunculus.core.ir2.node :as n]))
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.ir2.protocol :as p]))
 
 ;; ── 环境操作 ──────────────────────────────
 (defn- make-empty-env []
@@ -66,10 +67,8 @@
 ;; ── 多方法分派 ──────────────────────────
 (defmulti propagate-node
           "返回 [new-node, updated-context]"
-          (fn [node context] (n/kind node)))
+          (fn [node _context] (n/kind node)))
 
-(defmethod propagate-node :literal [node context] [node context])
-(defmethod propagate-node :variable [node context] [node context])
 
 ;; ── let：根据 :mutable 标记决定是否收集常量 ──
 (defmethod propagate-node :let [node context]
@@ -161,33 +160,6 @@
       (let [[new-target ctx1] (propagate-node (maybe-subst-constant target (:env context)) context)]
         [(n/make-alength new-target (n/node-meta node) (n/parent node)) ctx1]))))
 
-;; ── 控制流：测试条件不替换 ──────────────
-(defmethod propagate-node :if [node context]
-  (let [[test ctx1] (propagate-node (n/if-test node) context)
-        [then ctx2] (propagate-node (n/if-then node) ctx1)
-        [else ctx3] (if-let [e (n/if-else node)]
-                      (propagate-node e ctx2)
-                      [nil ctx2])]
-    [(n/make-if test then else (n/attrs node) (n/node-meta node) (n/parent node))
-     ctx3]))
-
-(defmethod propagate-node :while [node context]
-  (let [[test ctx1] (propagate-node (n/while-test node) context)
-        [body ctx2] (propagate-node (n/while-body node) ctx1)]
-    [(n/make-while test body (n/attrs node) (n/node-meta node) (n/parent node))
-     ctx2]))
-
-(defmethod propagate-node :block [node context]
-  (let [[exprs ctx1]
-        (reduce (fn [[exps ctx] expr]
-                  (let [subbed (maybe-subst-constant expr (:env ctx))
-                        [new-expr new-ctx] (propagate-node subbed ctx)]
-                    [(conj exps new-expr) new-ctx]))
-                [[] context]
-                (n/block-exprs node))]
-    [(n/make-block exprs (n/attrs node) (n/node-meta node) (n/parent node))
-     ctx1]))
-
 (defmethod propagate-node :lambda [node context]
   (let [param-names (set (map n/var-name (n/lambda-params node)))
         inner-env (env-remove-vars (:env context) param-names)
@@ -198,28 +170,14 @@
                     (n/attrs node) (n/node-meta node) (n/parent node))
      ctx2]))
 
-;; 数组节点 size 替换
-(defmethod propagate-node :new-array [node context]
-  (let [[size ctx1] (propagate-node (maybe-subst-constant (n/new-array-size node) (:env context)) context)]
-    [(n/make-new-array size (n/attrs node) (n/node-meta node) (n/parent node)) ctx1]))
 
-(defmethod propagate-node :aget [node context]
-  (let [subbed-target (maybe-subst-constant (n/aget-target node) (:env context))
-        [target ctx1] (propagate-node subbed-target context)
-        subbed-idx (maybe-subst-constant (n/aget-idx node) (:env ctx1))
-        [idx ctx2] (propagate-node subbed-idx ctx1)]
-    [(n/make-aget target idx (n/attrs node) (n/node-meta node) (n/parent node)) ctx2]))
-
-(defmethod propagate-node :aset [node context]
-  (let [subbed-target (maybe-subst-constant (n/aset-target node) (:env context))
-        [target ctx1] (propagate-node subbed-target context)
-        subbed-idx (maybe-subst-constant (n/aset-idx node) (:env ctx1))
-        [idx ctx2] (propagate-node subbed-idx ctx1)
-        subbed-val (maybe-subst-constant (n/aset-val node) (:env ctx2))
-        [val ctx3] (propagate-node subbed-val ctx2)]
-    [(n/make-aset target idx val (n/attrs node) (n/node-meta node) (n/parent node)) ctx3]))
-
-(defmethod propagate-node :default [node context] [node context])
+(defmethod propagate-node :default [node context]
+  (p/reduce-children node
+                     (fn [child ctx]
+                       (let [subbed (maybe-subst-constant child (:env ctx))
+                             [new-child new-ctx] (propagate-node subbed ctx)]
+                         [new-child new-ctx]))
+                     context))
 
 ;; ── 上下文构造 ──
 (defn make-context [compile-ctx frontend backend]

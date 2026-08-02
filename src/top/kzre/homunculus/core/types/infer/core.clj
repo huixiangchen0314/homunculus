@@ -51,8 +51,13 @@
   [node context] [nil node context])
 
 
+(defn- infer-fn [node context]
+  (let [[_ new-node new-ctx] (local-infer node context)]
+    [new-node new-ctx]))
+
 (defmethod local-infer :default [node context]
-  (nothing node context))
+  (let [[new-node new-ctx] (ir2p/reduce-children node infer-fn context)]
+    [nil new-node new-ctx]))
 
 (defn make-context
   "构建局部推断所需的上下文 map。合并前端内置符号表与编译上下文用户符号表。"
