@@ -24,7 +24,7 @@
         new-node (n/make-try body-node
                              (vec catch-nodes)
                              finally-node
-                             (n/attrs node) (n/node-meta node) (n/parent node))]
+                             (n/attrs node) (n/node-meta node) )]
     [tv (ty/set-type! new-node tv)
      (concat body-constr catch-constr finally-constr)
      final-ctx]))
@@ -41,7 +41,7 @@
                 (n/catch-body node))
         tv (gen/fresh-tvar)
         new-node (n/make-catch class-node sym-node (vec body-nodes)
-                               (n/attrs node) (n/node-meta node) (n/parent node))]
+                               (n/attrs node) (n/node-meta node) )]
     [tv (ty/set-type! new-node tv)
      (concat class-constr sym-constr body-constr)
      body-ctx]))
@@ -50,7 +50,7 @@
   (let [[_expr-tv expr-node expr-constr expr-ctx] (gen/cg-node-raw (n/throw-expr node) context)
         tv (gen/fresh-tvar)
         new-node (n/make-throw expr-node
-                               (n/attrs node) (n/node-meta node) (n/parent node))]
+                               (n/attrs node) (n/node-meta node) )]
     [tv (ty/set-type! new-node tv)
      expr-constr
      expr-ctx]))

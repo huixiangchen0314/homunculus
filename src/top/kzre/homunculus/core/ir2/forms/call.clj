@@ -17,22 +17,22 @@
 (defmethod make-prim '%%aget
   [_ args node]
   (let [[target idx] args]
-    [(n2/make-aget target idx {} (n1/node-meta node) nil)]))
+    [(n2/make-aget target idx {} (n1/node-meta node) )]))
 
 (defmethod make-prim '%%aset
   [_ args node]
   (let [[target idx val] args]
-    [(n2/make-aset target idx val {} (n1/node-meta node) nil)]))
+    [(n2/make-aset target idx val {} (n1/node-meta node) )]))
 
 (defmethod make-prim '%%new-array
   [_ args node]
   (let [[size] args]
-    [(n2/make-new-array size {} (n1/node-meta node) nil)]))
+    [(n2/make-new-array size {} (n1/node-meta node) )]))
 
 (defmethod make-prim '%%alength
   [_ args node]
   (let [[target] args]
-    [(n2/make-alength target {} (n1/node-meta node) nil)]))
+    [(n2/make-alength target {} (n1/node-meta node) )]))
 
 (defmethod make-prim :default
   [op _ _]

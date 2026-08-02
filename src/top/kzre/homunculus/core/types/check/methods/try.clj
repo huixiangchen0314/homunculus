@@ -11,16 +11,16 @@
         new-finally (when-let [f (n/try-finally node)]
                       (check/check-node f nil context))]
     (n/make-try new-body new-catches new-finally
-                (n/attrs node) (n/node-meta node) (n/parent node))))
+                (n/attrs node) (n/node-meta node) )))
 
 (defmethod check/check-node :catch [node expected context]
   (let [new-class (check/check-node (n/catch-class node) nil context)
         new-sym   (check/check-node (n/catch-sym node) nil context)
         new-body  (mapv #(check/check-node % expected context) (n/catch-body node))]
     (n/make-catch new-class new-sym new-body
-                  (n/attrs node) (n/node-meta node) (n/parent node))))
+                  (n/attrs node) (n/node-meta node) )))
 
 (defmethod check/check-node :throw [node expected context]
   ;; throw 内的表达式仍要检查，但本身无期望类型
   (let [new-expr (check/check-node (n/throw-expr node) nil context)]
-    (n/make-throw new-expr (n/attrs node) (n/node-meta node) (n/parent node))))
+    (n/make-throw new-expr (n/attrs node) (n/node-meta node) )))

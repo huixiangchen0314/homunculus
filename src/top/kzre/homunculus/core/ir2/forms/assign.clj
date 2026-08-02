@@ -6,4 +6,4 @@
 (defmethod ir2/lower-ast :set [node env]
   (let [var-node (first (ir2/lower-ast (n1/set-var node) env))
         val-node (first (ir2/lower-ast (n1/set-val node) env))]
-    [(n2/make-assign var-node val-node {} (n1/node-meta node) nil)]))
+    [(n2/make-assign var-node val-node {} (n1/node-meta node))]))

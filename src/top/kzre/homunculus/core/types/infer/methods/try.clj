@@ -19,7 +19,7 @@
         new-node (n/make-try new-body
                              new-catches
                              new-finally
-                             (n/attrs node) (n/node-meta node) (n/parent node))]
+                             (n/attrs node) (n/node-meta node) )]
     (infer/nothing new-node final-ctx)))
 
 (defmethod infer/local-infer :catch [node context]
@@ -36,11 +36,11 @@
         new-node (n/make-catch new-class
                                new-sym
                                new-body
-                               (n/attrs node) (n/node-meta node) (n/parent node))]
+                               (n/attrs node) (n/node-meta node) )]
     (infer/nothing new-node body-ctx)))
 
 (defmethod infer/local-infer :throw [node context]
   (let [[_ new-expr expr-ctx] (infer/local-infer (n/throw-expr node) context)
         new-node (n/make-throw new-expr
-                               (n/attrs node) (n/node-meta node) (n/parent node))]
+                               (n/attrs node) (n/node-meta node) )]
     (infer/nothing new-node expr-ctx)))

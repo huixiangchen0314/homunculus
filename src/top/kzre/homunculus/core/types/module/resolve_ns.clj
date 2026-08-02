@@ -37,7 +37,7 @@
                     (n/define-doc node)
                     (n/attrs node)
                     (n/node-meta node)
-                    (n/parent node))
+                    )
      env'']))
 
 ;; lambda：进入新作用域，添加参数到局部变量，环境不变传出
@@ -53,7 +53,7 @@
                     (n/lambda-fn-name node)
                     (n/attrs node)
                     (n/node-meta node)
-                    (n/parent node))
+                   )
      env]))
 
 ;; let：新作用域，添加局部变量，环境不变传出
@@ -91,7 +91,7 @@
     [(n/make-loop new-bindings new-body
                   (n/attrs node)
                   (n/node-meta node)
-                  (n/parent node))
+                  )
      env]))
 
 ;; block：顺序处理，传递环境
@@ -139,7 +139,7 @@
     [(n/make-while new-test new-body
                    (n/attrs node)
                    (n/node-meta node)
-                   (n/parent node))
+                   )
      env2]))
 
 ;; assign：顺序处理
@@ -149,7 +149,7 @@
     [(n/make-assign new-var new-val
                     (n/attrs node)
                     (n/node-meta node)
-                    (n/parent node))
+                    )
      env2]))
 
 ;; ★ 变量引用：根据环境决定是否正规化
@@ -183,25 +183,25 @@
 
 (defmethod resolve-node :new-array [node env]
   (let [[new-size env'] (resolve-node (n/new-array-size node) env)]
-    [(n/make-new-array new-size (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-new-array new-size (n/attrs node) (n/node-meta node) )
      env']))
 
 (defmethod resolve-node :aget [node env]
   (let [[new-target env1] (resolve-node (n/aget-target node) env)
         [new-idx env2] (resolve-node (n/aget-idx node) env1)]
-    [(n/make-aget new-target new-idx (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-aget new-target new-idx (n/attrs node) (n/node-meta node) )
      env2]))
 
 (defmethod resolve-node :aset [node env]
   (let [[new-target env1] (resolve-node (n/aset-target node) env)
         [new-idx env2] (resolve-node (n/aset-idx node) env1)
         [new-val env3] (resolve-node (n/aset-val node) env2)]
-    [(n/make-aset new-target new-idx new-val (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-aset new-target new-idx new-val (n/attrs node) (n/node-meta node) )
      env3]))
 
 (defmethod resolve-node :alength [node env]
   (let [[new-target env'] (resolve-node (n/alength-target node) env)]
-    [(n/make-alength new-target (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-alength new-target (n/attrs node) (n/node-meta node) )
      env']))
 
 (defmethod resolve-node :vector [node env]
@@ -211,7 +211,7 @@
                                      [(conj is new-item) e2]))
                                  [[] env]
                                  items)]
-    [(n/make-vector new-items (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-vector new-items (n/attrs node) (n/node-meta node) )
      env']))
 
 (defmethod resolve-node :map [node env]
@@ -223,7 +223,7 @@
                                    [(conj new-kv-pairs new-k new-v) e2]))
                                [[] env]
                                pairs)]
-    [(n/make-map (vec new-kvs) (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-map (vec new-kvs) (n/attrs node) (n/node-meta node) )
      env']))
 
 (defmethod resolve-node :member-access [node env]
@@ -235,13 +235,13 @@
                                 [[] env1]
                                 args)]
     [(n/make-member-access new-target (n/access-member node) new-args
-                           (n/attrs node) (n/node-meta node) (n/parent node))
+                           (n/attrs node) (n/node-meta node) )
      env2]))
 
 (defmethod resolve-node :convert [node env]
   (let [[new-expr env'] (resolve-node (n/convert-expr node) env)]
     [(n/make-convert new-expr (n/convert-src-ty node) (n/convert-dst-ty node) (n/convert-cost node)
-                     (n/attrs node) (n/node-meta node) (n/parent node))
+                     (n/attrs node) (n/node-meta node) )
      env']))
 
 (defmethod resolve-node :try [node env]
@@ -255,7 +255,7 @@
                              (resolve-node f env2)
                              [nil env2])]
     [(n/make-try new-body new-catches new-finally
-                 (n/attrs node) (n/node-meta node) (n/parent node))
+                 (n/attrs node) (n/node-meta node) )
      env3]))
 
 (defmethod resolve-node :catch [node env]
@@ -267,12 +267,12 @@
                                 [[] env2]
                                 (n/catch-body node))]
     [(n/make-catch new-class new-sym new-body
-                   (n/attrs node) (n/node-meta node) (n/parent node))
+                   (n/attrs node) (n/node-meta node) )
      env3]))
 
 (defmethod resolve-node :throw [node env]
   (let [[new-expr env'] (resolve-node (n/throw-expr node) env)]
-    [(n/make-throw new-expr (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-throw new-expr (n/attrs node) (n/node-meta node) )
      env']))
 
 (defmethod resolve-node :recur [node env]
@@ -282,7 +282,7 @@
                                     [(conj as new-arg) e2]))
                                 [[] env]
                                 args)]
-    [(n/make-recur new-args (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-recur new-args (n/attrs node) (n/node-meta node) )
      env']))
 
 ;; record：名称正规化
@@ -303,7 +303,7 @@
     [(n/make-record new-name new-fields protocols
                     (n/attrs node)
                     (n/node-meta node)
-                    (n/parent node))
+                    )
      env]))
 
 ;; protocol：名称正规化
@@ -316,7 +316,7 @@
     [(n/make-protocol new-name funcs
                       (n/attrs node)
                       (n/node-meta node)
-                      (n/parent node))
+                      )
      env]))
 
 ;; 默认：字面量等直接返回原节点，环境不变

@@ -23,11 +23,11 @@
             assigns (mapv (fn [var-name arg]
                             (n/make-assign (n/make-variable var-name {} nil )
                                            (eliminate arg)
-                                           {} nil nil))
+                                           {} nil))
                           var-names args)
             set-flag (n/make-assign (n/make-variable recur-flag {} nil )
                                     (n/make-literal true {} nil )
-                                    {} nil nil)]
+                                    {} nil)]
         (n/make-block (conj assigns set-flag) {} nil ))
 
       :if
@@ -55,15 +55,15 @@
                   (mapv (fn [c] (n/make-catch (eliminate (n/catch-class c))
                                               (eliminate (n/catch-sym c))
                                               (mapv #(eliminate %) (n/catch-body c))
-                                              (n/attrs c) (n/node-meta c) (n/parent c)))
+                                              (n/attrs c) (n/node-meta c)))
                         (n/try-catches node))
                   (when-let [f (n/try-finally node)] (eliminate f))
-                  (n/attrs node) (n/node-meta node) (n/parent node))
+                  (n/attrs node) (n/node-meta node) )
 
       ;; 默认：将表达式赋值给 result，并设置 recur-flag = false
       (n/make-block [(n/make-assign (n/make-variable result-var {} nil )
                                     (eliminate node)
-                                    {} nil nil)
+                                    {} nil)
                      (n/make-assign (n/make-variable recur-flag {} nil )
                                     (n/make-literal false {} nil )
                                     {} nil )]
@@ -92,7 +92,7 @@
         ;; 转换后的循环体
         tail-body  (convert-tail body ctx)
         while-test (n/make-variable recur-flag {} nil )
-        while-node (n/make-while while-test tail-body {} nil nil)
+        while-node (n/make-while while-test tail-body {} nil)
         let-body   (n/make-block [while-node (n/make-variable result-var {} nil )] {} nil )]
     (n/make-let all-bindings let-body {} nil )))
 

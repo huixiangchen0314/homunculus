@@ -109,7 +109,7 @@
         env-body (env-remove-vars (:env ctx1) loop-var-names)
         ctx-body (assoc ctx1 :env env-body)
         [new-body ctx2] (propagate-node (n/loop-body node) ctx-body)]
-    [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) )
      (assoc ctx2 :env (:env context))]))
 
 ;; ── define：顶级定义视为不可变，仍收集常量 ──
@@ -119,7 +119,7 @@
           [new-val ctx1] (propagate-node subbed context)
           env' (collect-env (:env ctx1) (n/define-name node) new-val)]
       [(n/make-define (n/define-name node) new-val (n/define-doc node)
-                      (n/attrs node) (n/node-meta node) (n/parent node))
+                      (n/attrs node) (n/node-meta node) )
        (assoc ctx1 :env env')])
     [node context]))
 
@@ -132,7 +132,7 @@
               (env-remove-var (:env ctx1) (n/var-name new-var))
               (:env ctx1))
         ctx2 (assoc ctx1 :env env)]
-    [(n/make-assign new-var new-val (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-assign new-var new-val (n/attrs node) (n/node-meta node) )
      ctx2]))
 
 ;; ── call：普通调用，仅实参替换 ──
@@ -158,7 +158,7 @@
       [(n/make-literal len nil nil) context]
       ;; 未找到，保留原节点并递归处理目标
       (let [[new-target ctx1] (propagate-node (maybe-subst-constant target (:env context)) context)]
-        [(n/make-alength new-target (n/node-meta node) (n/parent node)) ctx1]))))
+        [(n/make-alength new-target (n/node-meta node) ) ctx1]))))
 
 (defmethod propagate-node :lambda [node context]
   (let [param-names (set (map n/var-name (n/lambda-params node)))
@@ -167,7 +167,7 @@
         [new-body ctx2] (propagate-node (n/lambda-body node) ctx-inner)]
     [(n/make-lambda (n/lambda-params node) new-body
                     (n/lambda-captures node) (n/lambda-fn-name node)
-                    (n/attrs node) (n/node-meta node) (n/parent node))
+                    (n/attrs node) (n/node-meta node))
      ctx2]))
 
 

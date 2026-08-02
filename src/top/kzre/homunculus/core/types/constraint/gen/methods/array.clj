@@ -17,7 +17,7 @@
         hetero?  (when backend (tp/support-hetero-vec backend))]
     (if hetero?
       (let [tv (ty/make-hetero-vec [])
-            new-node (n/make-new-array size-node (n/node-meta node) (n/parent node))]
+            new-node (n/make-new-array size-node (n/node-meta node) )]
         [tv (ty/set-type! new-node tv) (concat size-constrs [size-eq]) size-ctx])
       (let [;; 长度：若 size 是字面量整数则直接提取值，否则使用 size-tv 作为长度变量
             len      (if (and (n/literal-node? size-node) (integer? (n/lit-val size-node)))
@@ -25,7 +25,7 @@
                        size-tv)   ;; 使用与 size 关联的类型变量
             elem-tv  (gen/fresh-tvar)
             tv       (ty/make-tvec elem-tv len)
-            new-node (n/make-new-array size-node (n/node-meta node) (n/parent node))]
+            new-node (n/make-new-array size-node (n/node-meta node) )]
         [tv (ty/set-type! new-node tv) (concat size-constrs [size-eq]) size-ctx]))))
 
 
@@ -49,7 +49,7 @@
         target-eq (when (and (not (ty/vec-type? target-tv))
                              (not (ty/hetero-vec? target-tv)))
                     (c/make-cequal target-tv vec-tv))
-        new-node (n/make-aget target-node idx-node (n/node-meta node) (n/parent node))
+        new-node (n/make-aget target-node idx-node (n/node-meta node) )
         constrs (concat target-constrs idx-constrs (when target-eq [target-eq]))]
     [elem-tv (ty/set-type! new-node elem-tv) constrs idx-ctx]))
 
@@ -74,7 +74,7 @@
                              (not (ty/hetero-vec? target-tv)))
                     (c/make-cequal target-tv vec-tv))
         val-eq (c/make-cequal val-tv elem-tv)
-        new-node (n/make-aset target-node idx-node val-node (n/node-meta node) (n/parent node))
+        new-node (n/make-aset target-node idx-node val-node (n/node-meta node) )
         constrs (concat target-constrs idx-constrs val-constrs
                         (when target-eq [target-eq]) [val-eq])]
     [nil (ty/set-type! new-node nil) constrs val-ctx]))
@@ -89,5 +89,5 @@
             lit-node (n/make-literal len-val nil nil)]
         [int-ty (ty/set-type! lit-node int-ty) target-constrs target-ctx])
       ;; 长度未知，保留原调用
-      (let [new-node (n/make-alength target-node (n/node-meta node) (n/parent node))]
+      (let [new-node (n/make-alength target-node (n/node-meta node) )]
         [int-ty (ty/set-type! new-node int-ty) target-constrs target-ctx]))))

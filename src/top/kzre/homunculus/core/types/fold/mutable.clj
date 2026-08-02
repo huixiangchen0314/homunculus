@@ -44,14 +44,14 @@
         loop-vars (set (map (fn [[v]] (n/var-name v)) bindings))
         inner-env (into env loop-vars)
         [new-body _] (mutable-node (n/loop-body node) inner-env)]
-    [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) )
      env]))
 
 (defmethod mutable-node :define [node env]
   (if-let [val (n/define-val node)]
     (let [[new-val env1] (mutable-node val env)]
       [(n/make-define (n/define-name node) new-val (n/define-doc node)
-                      (n/attrs node) (n/node-meta node) (n/parent node))
+                      (n/attrs node) (n/node-meta node) )
        env1])
     [node env]))
 
@@ -63,7 +63,7 @@
                (conj env (n/var-name new-var))
                env1)]
     [(n/make-assign (mark-var new-var true) new-val
-                    (n/attrs node) (n/node-meta node) (n/parent node))
+                    (n/attrs node) (n/node-meta node) )
      env2]))
 
 
@@ -84,7 +84,7 @@
   ;; 先分析 body，收集其中被赋值的变量，再用更新后的 env 分析 test
   (let [[body env1] (mutable-node (n/while-body node) env)
         [test env2] (mutable-node (n/while-test node) env1)]
-    [(n/make-while test body (n/attrs node) (n/node-meta node) (n/parent node))
+    [(n/make-while test body (n/attrs node) (n/node-meta node) )
      env2]))
 
 
@@ -92,7 +92,7 @@
   (let [params (n/lambda-params node)
         [new-body _] (mutable-node (n/lambda-body node) env)]
     [(n/make-lambda params new-body (n/lambda-captures node) (n/lambda-fn-name node)
-                    (n/attrs node) (n/node-meta node) (n/parent node))
+                    (n/attrs node) (n/node-meta node))
      env]))
 
 

@@ -32,7 +32,7 @@
                       [(conj bnds [new-var new-val]) e2]))
                   [[] env] bindings)
           [new-body env''] (rename-fn (n/let-body node) env')]
-      [(n/make-let new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node)) env''])
+      [(n/make-let new-bindings new-body (n/attrs node) (n/node-meta node)) env''])
 
     :loop
     (let [bindings (n/loop-bindings node)
@@ -46,7 +46,7 @@
                       [(conj bnds [new-var new-val]) e2]))
                   [[] env] bindings)
           [new-body env''] (rename-fn (n/loop-body node) env')]
-      [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node)) env''])
+      [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) ) env''])
 
     :lambda
     (let [params (n/lambda-params node)

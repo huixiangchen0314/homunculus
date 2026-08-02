@@ -10,5 +10,5 @@
                                (elim/eliminate val config env)
                                [nil []])]
       [(n/make-define (n/define-name node) new-val (n/define-doc node)
-                      (n/attrs node) (n/node-meta node) (n/parent node))
+                      (n/attrs node) (n/node-meta node) )
        val-defs])))

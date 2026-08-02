@@ -8,5 +8,5 @@
         [_ new-val ctx2] (infer/local-infer (n/assign-val node) ctx1)
         ;; 重建赋值节点，类型为 nil（赋值无返回值）
         new-node (n/make-assign new-var new-val
-                                (n/attrs node) (n/node-meta node) (n/parent node))]
+                                (n/attrs node) (n/node-meta node) )]
     (infer/nothing new-node ctx2)))

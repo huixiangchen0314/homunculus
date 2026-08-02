@@ -9,5 +9,5 @@
     [(n/make-lambda (n/lambda-params node) new-body
                     (n/lambda-captures node)
                     (n/lambda-fn-name node)
-                    (n/attrs node) (n/node-meta node) (n/parent node))
+                    (n/attrs node) (n/node-meta node))
      body-defs]))

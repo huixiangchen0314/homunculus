@@ -24,7 +24,7 @@
                                        arg-nodes
                                        (n/attrs node)          ; 补充 attrs
                                        (n/node-meta node)
-                                       (n/parent node))]
+                                       )]
     [ret-tv (ty/set-type! new-node ret-tv)
      (concat target-constr arg-constr [proj-constr])
      final-ctx]))

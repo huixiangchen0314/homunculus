@@ -15,7 +15,7 @@
                              [(c/make-cequal var-tv val-tv)]))]
     [var-tv
      (t/set-type! (n/make-assign var-node val-node
-                                  (n/attrs node) (n/node-meta node) (n/parent node))
+                                  (n/attrs node) (n/node-meta node) )
                    var-tv)
      all-constr
      val-ctx]))

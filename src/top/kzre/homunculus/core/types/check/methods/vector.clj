@@ -13,7 +13,7 @@
           (let [checked-items (mapv (fn [item exp-ty]
                                       (check/check-node item exp-ty context))
                                     items exp-types)]
-            (n/make-vector checked-items (n/attrs node) (n/node-meta node) (n/parent node)))
+            (n/make-vector checked-items (n/attrs node) (n/node-meta node) ))
           (throw (ex-info "Vector length mismatch"
                           {:expected (count exp-types) :actual (count items)}))))
 
@@ -26,9 +26,9 @@
         (when (and (integer? vec-len) (not= vec-len actual-len))
           (throw (ex-info "Vector length mismatch" {:expected vec-len :actual actual-len})))
         (let [checked-items (mapv #(check/check-node % elem-ty context) items)]
-          (n/make-vector checked-items (n/attrs node) (n/node-meta node) (n/parent node))))
+          (n/make-vector checked-items (n/attrs node) (n/node-meta node) )))
 
       ;; 无期望或未知期望：逐元素无类型检查
       :else
       (let [checked-items (mapv #(check/check-node % nil context) items)]
-        (n/make-vector checked-items (n/attrs node) (n/node-meta node) (n/parent node))))))
+        (n/make-vector checked-items (n/attrs node) (n/node-meta node) )))))

@@ -18,5 +18,5 @@
                                        (n/access-member node)
                                        new-args
                                        (n/attrs node)
-                                       (n/node-meta node) (n/parent node))]
+                                       (n/node-meta node) )]
     (infer/nothing new-node final-ctx)))

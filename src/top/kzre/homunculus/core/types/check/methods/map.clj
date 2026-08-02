@@ -14,11 +14,11 @@
                                                    (check/check-node v v-ty context)))
                                     pairs exp-entries)
                 new-kvs (vec (apply concat checked-pairs))]
-            (n/make-map new-kvs (n/attrs node) (n/node-meta node) (n/parent node)))
+            (n/make-map new-kvs (n/attrs node) (n/node-meta node) ))
           (throw (ex-info "Map entry count mismatch"
                           {:expected (count exp-entries) :actual (count pairs)}))))
       (let [checked-kvs (mapcat (fn [[k v]]
                                   (n/make-pair (check/check-node k nil context)
                                                (check/check-node v nil context)))
                                 pairs)]
-        (n/make-map (vec checked-kvs) (n/attrs node) (n/node-meta node) (n/parent node))))))
+        (n/make-map (vec checked-kvs) (n/attrs node) (n/node-meta node) )))))

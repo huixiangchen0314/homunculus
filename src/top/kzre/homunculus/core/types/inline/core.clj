@@ -87,11 +87,11 @@
           final-ctx (add-inline-def (assoc ctx :local-inline-defs (:local-inline-defs new-ctx))
                                     (n/make-define (n/define-name node) new-val
                                                    (n/define-doc node) (n/attrs node)
-                                                   (n/node-meta node) (n/parent node)))]
+                                                   (n/node-meta node) ))]
       ;; 返回新的 define 节点和最终环境
       [(n/make-define (n/define-name node) new-val
                       (n/define-doc node) (n/attrs node)
-                      (n/node-meta node) (n/parent node))
+                      (n/node-meta node) )
        final-ctx])
 
     ;; 其他节点：原样返回，由 reduce-children 递归子节点

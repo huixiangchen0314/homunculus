@@ -12,4 +12,4 @@
     [(n2/make-member-access new-target accessor new-args
                             {}                           ;; attrs
                             (n1/node-meta node)
-                            nil)]))
+                            )]))

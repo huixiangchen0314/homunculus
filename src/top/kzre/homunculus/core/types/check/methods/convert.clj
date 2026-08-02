@@ -12,4 +12,4 @@
                     (n/convert-src-ty node)
                     dst-ty
                     (n/convert-cost node)
-                    (n/attrs node) (n/node-meta node) (n/parent node))))
+                    (n/attrs node) (n/node-meta node) )))

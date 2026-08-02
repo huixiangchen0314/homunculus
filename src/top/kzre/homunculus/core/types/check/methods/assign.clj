@@ -7,4 +7,4 @@
   (let [var-node (check/check-node (n/assign-var node) nil context)
         val-node (check/check-node (n/assign-val node) (ty/get-type var-node) context)]
     (n/make-assign var-node val-node
-                   (n/attrs node) (n/node-meta node) (n/parent node))))
+                   (n/attrs node) (n/node-meta node) )))

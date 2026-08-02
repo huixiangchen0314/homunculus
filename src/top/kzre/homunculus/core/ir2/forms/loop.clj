@@ -12,8 +12,8 @@
                                              (first (ir2/lower-ast val env))))
                           bind-pairs)
         ir-body     (first (ir2/lower-ast body env))]
-    [(n2/make-loop ir-bindings ir-body {} (n1/node-meta node) nil)]))
+    [(n2/make-loop ir-bindings ir-body {} (n1/node-meta node))]))
 
 (defmethod ir2/lower-ast :recur [node env]
   (let [args (mapv #(first (ir2/lower-ast % env)) (n1/recur-exprs node))]
-    [(n2/make-recur args {} (n1/node-meta node) nil)]))
+    [(n2/make-recur args {} (n1/node-meta node))]))

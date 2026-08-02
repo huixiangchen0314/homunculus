@@ -16,4 +16,4 @@
     [(n2/make-lambda param-nodes body-node captures name-node
                      {}                         ;; attrs 暂空
                      (n1/node-meta node)
-                     nil)]))
+                     )]))

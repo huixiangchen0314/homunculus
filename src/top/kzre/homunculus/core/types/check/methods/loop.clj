@@ -13,7 +13,7 @@
         body-context (assoc context :loop-var-tys loop-var-tys)
         body-node (check/check-node (n/loop-body node) nil body-context)]
     (n/make-loop checked-bindings body-node
-                 (n/attrs node) (n/node-meta node) (n/parent node))))
+                 (n/attrs node) (n/node-meta node) )))
 
 (defmethod check/check-node :recur [node expected context]
   (let [loop-var-tys (get context :loop-var-tys)]
@@ -24,4 +24,4 @@
               (throw (ex-info "recur arg count mismatch" {})))
           checked-args (mapv (fn [arg exp-ty] (check/check-node arg exp-ty context))
                              args loop-var-tys)]
-      (n/make-recur checked-args (n/attrs node) (n/node-meta node) (n/parent node)))))
+      (n/make-recur checked-args (n/attrs node) (n/node-meta node) ))))

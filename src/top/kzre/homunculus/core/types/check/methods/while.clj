@@ -11,4 +11,4 @@
     (let [test-node (check/check-node (n/while-test node) (ty/make-tcon :bool) context)
           body-node (check/check-node (n/while-body node) nil context)]
       (n/make-while test-node body-node
-                    (n/attrs node) (n/node-meta node) (n/parent node)))))
+                    (n/attrs node) (n/node-meta node) ))))

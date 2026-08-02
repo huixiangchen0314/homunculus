@@ -30,7 +30,7 @@
         ;; 在包含 loop 变量的环境中推导 body
         [body-tv body-node body-constr _body-ctx] (gen/cg-node-raw (n/loop-body node) (assoc context :env env-loop))
         new-node (n/make-loop (vec bind-nodes) body-node
-                              (n/attrs node) (n/node-meta node) (n/parent node))]
+                              (n/attrs node) (n/node-meta node) )]
     [body-tv (t/set-type! new-node body-tv)
      (concat bind-constraints body-constr)
      context]))  ;; 内部绑定不泄露
@@ -54,7 +54,7 @@
                                   (c/make-cequal arg-ty vty)))))
 
           new-node (n/make-recur (vec arg-nodes)
-                                 (n/attrs node) (n/node-meta node) (n/parent node))]
+                                 (n/attrs node) (n/node-meta node) )]
       [nil (t/set-type! new-node nil)
        (concat arg-constraints loop-eqs)
        context])))   ;; 返回原上下文

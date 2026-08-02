@@ -14,7 +14,7 @@
                                   (n/define-doc node)
                                   (n/attrs node)
                                   (n/node-meta node)
-                                  (n/parent node))]
+                                  )]
       [tv (t/set-type! new-node tv) nil context])
 
     (let [[val-tv val-node val-constr val-ctx] (gen/cg-node-raw (n/define-val node) context)
@@ -28,7 +28,7 @@
                                       (n/define-doc node)
                                       (n/attrs node)
                                       (n/node-meta node)
-                                      (n/parent node))
+                                      )
           ;; 将定义名与最终类型写入环境
           new-ctx      (u/extend-env val-ctx (n/define-name node) final-tv)]
       [final-tv (t/set-type! new-node final-tv)

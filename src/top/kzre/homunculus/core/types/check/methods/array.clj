@@ -11,7 +11,7 @@
         int-ty (ty/make-tcon (check/integer-type context))]
     (n/make-new-array (check/check-node size int-ty context)
                       (n/node-meta node)
-                      (n/parent node))))
+                      )))
 
 (defmethod check/check-node :aget [node expected context]
   (let [target (n/aget-target node)
@@ -23,7 +23,7 @@
         checked-target (check/check-node target nil context)
         ;; aget 的返回类型已由约束求解标记在节点上，expected 可用来验证或插入转换
         new-node (n/make-aget checked-target checked-idx
-                              (n/node-meta node) (n/parent node))
+                              (n/node-meta node) )
         actual (ty/get-type new-node (check/known-types context))]
     (if (and expected actual)
       (check/check-type new-node expected context)
@@ -44,11 +44,11 @@
                    (check/check-node val elem-ty context)   ; 期望值类型匹配数组元素类型
                    (check/check-node val nil context))
                  (n/node-meta node)
-                 (n/parent node))))
+                 )))
 
 (defmethod check/check-node :alength [node expected context]
   (let [target (n/alength-target node)
         int-ty (ty/make-tcon (check/integer-type context))]
     (n/make-alength (check/check-node target nil context)
                     (n/node-meta node)
-                    (n/parent node))))
+                    )))

@@ -36,7 +36,7 @@
                         (assoc (n/attrs node) :ho? true)
                         (n/attrs node))
                       (n/node-meta node)
-                      (n/parent node))
+                      )
        env])
     (walk node env)))
 

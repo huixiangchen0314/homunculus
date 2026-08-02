@@ -5,4 +5,4 @@
 
 (defmethod ir2/lower-ast :vector [node env]
   (let [items (mapv #(first (ir2/lower-ast % env)) (n1/vec-items node))]
-    [(n2/make-vector items {} (n1/node-meta node) nil)]))
+    [(n2/make-vector items {} (n1/node-meta node) )]))

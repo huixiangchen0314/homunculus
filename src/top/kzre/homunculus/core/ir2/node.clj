@@ -26,9 +26,6 @@
 (defn node-meta [node]
   (when node
     (ir2p/node-meta node)))
-(defn parent [node]
-  (when node
-    (:parent node)))
 
 (defn children [node]
   (when node
@@ -135,10 +132,9 @@
 (defn lambda-fn-name  [node] (:fn-name node))
 
 (defn make-lambda
-  ([params body captures fn-name]                      (m/->Lambda params body captures fn-name {} nil nil))
-  ([params body captures fn-name attrs]                (m/->Lambda params body captures fn-name attrs nil nil))
-  ([params body captures fn-name attrs meta]           (m/->Lambda params body captures fn-name attrs meta nil))
-  ([params body captures fn-name attrs meta parent]    (m/->Lambda params body captures fn-name attrs meta parent)))
+  ([params body captures fn-name]                      (m/->Lambda params body captures fn-name {} nil ))
+  ([params body captures fn-name attrs]                (m/->Lambda params body captures fn-name attrs nil ))
+  ([params body captures fn-name attrs meta]           (m/->Lambda params body captures fn-name attrs meta )))
 
 (defn lambda-with-params   [node params]   (assoc node :params params))
 (defn lambda-with-body     [node body]     (assoc node :body body))
@@ -155,11 +151,10 @@
 (defn define-doc  [node] (:doc node))
 
 (defn make-define
-  ([name val]                      (m/->Define name val nil {} nil nil))
-  ([name val doc]                  (m/->Define name val doc {} nil nil))
-  ([name val doc attrs]            (m/->Define name val doc attrs nil nil))
-  ([name val doc attrs meta]       (m/->Define name val doc attrs meta nil))
-  ([name val doc attrs meta parent] (m/->Define name val doc attrs meta parent)))
+  ([name val]                      (m/->Define name val nil {} nil ))
+  ([name val doc]                  (m/->Define name val doc {} nil ))
+  ([name val doc attrs]            (m/->Define name val doc attrs nil ))
+  ([name val doc attrs meta]       (m/->Define name val doc attrs meta )))
 
 (defn define-with-val [node val] (assoc node :val val))
 (defn define-with-doc [node doc] (assoc node :doc doc))
@@ -173,10 +168,9 @@
 (defn loop-body     [node] (:body node))
 
 (defn make-loop
-  ([bindings body]                      (m/->Loop bindings body {} nil nil))
-  ([bindings body attrs]                (m/->Loop bindings body attrs nil nil))
-  ([bindings body attrs meta]           (m/->Loop bindings body attrs meta nil))
-  ([bindings body attrs meta parent]    (m/->Loop bindings body attrs meta parent)))
+  ([bindings body]                      (m/->Loop bindings body {} nil ))
+  ([bindings body attrs]                (m/->Loop bindings body attrs nil ))
+  ([bindings body attrs meta]           (m/->Loop bindings body attrs meta )))
 
 (defn loop-with-bindings [node bindings] (assoc node :bindings bindings))
 (defn loop-with-body     [node body]     (assoc node :body body))
@@ -189,10 +183,9 @@
 (defn recur-args [node] (:args node))
 
 (defn make-recur
-  ([args]                      (m/->Recur args {} nil nil))
-  ([args attrs]                (m/->Recur args attrs nil nil))
-  ([args attrs meta]           (m/->Recur args attrs meta nil))
-  ([args attrs meta parent]    (m/->Recur args attrs meta parent)))
+  ([args]                      (m/->Recur args {} nil ))
+  ([args attrs]                (m/->Recur args attrs nil ))
+  ([args attrs meta]           (m/->Recur args attrs meta )))
 
 (defn recur-with-args [node args] (assoc node :args args))
 
@@ -203,10 +196,9 @@
 (defn while-body [node] (:body node))
 
 (defn make-while
-  ([test body]                      (m/->While test body {} nil nil))
-  ([test body attrs]                (m/->While test body attrs nil nil))
-  ([test body attrs meta]           (m/->While test body attrs meta nil))
-  ([test body attrs meta parent]    (m/->While test body attrs meta parent)))
+  ([test body]                      (m/->While test body {} nil ))
+  ([test body attrs]                (m/->While test body attrs nil ))
+  ([test body attrs meta]           (m/->While test body attrs meta )))
 
 (defn while-with-test  [node test] (assoc node :test test))
 (defn while-with-body  [node body] (assoc node :body body))
@@ -220,10 +212,9 @@
 (defn assign-val [node] (:val node))
 
 (defn make-assign
-  ([var val]                      (m/->Assign var val {} nil nil))
-  ([var val attrs]                (m/->Assign var val attrs nil nil))
-  ([var val attrs meta]           (m/->Assign var val attrs meta nil))
-  ([var val attrs meta parent]    (m/->Assign var val attrs meta parent)))
+  ([var val]                      (m/->Assign var val {} nil ))
+  ([var val attrs]                (m/->Assign var val attrs nil ))
+  ([var val attrs meta]           (m/->Assign var val attrs meta )))
 
 (defn assign-with-var [node var] (assoc node :var var))
 (defn assign-with-val [node val] (assoc node :val val))
@@ -239,13 +230,11 @@
   "创建 TryNode。body 为单个 INode（可能为 BlockNode），catches 为 CatchNode 列表，
    finally 为单个 INode 或 nil。"
   ([body catches finally]
-   (m/->Try body catches finally {} nil nil))
+   (m/->Try body catches finally {} nil ))
   ([body catches finally attrs]
-   (m/->Try body catches finally attrs nil nil))
+   (m/->Try body catches finally attrs nil ))
   ([body catches finally attrs meta]
-   (m/->Try body catches finally attrs meta nil))
-  ([body catches finally attrs meta parent]
-   (m/->Try body catches finally attrs meta parent)))
+   (m/->Try body catches finally attrs meta )))
 
 (defn try-with-body    [node body]    (assoc node :body body))
 (defn try-with-catches [node catches] (assoc node :catches catches))
@@ -259,10 +248,9 @@
 (defn catch-body  [node] (:body node))
 
 (defn make-catch
-  ([class sym body]                      (m/->Catch class sym body {} nil nil))
-  ([class sym body attrs]                (m/->Catch class sym body attrs nil nil))
-  ([class sym body attrs meta]           (m/->Catch class sym body attrs meta nil))
-  ([class sym body attrs meta parent]    (m/->Catch class sym body attrs meta parent)))
+  ([class sym body]                      (m/->Catch class sym body {} nil ))
+  ([class sym body attrs]                (m/->Catch class sym body attrs nil ))
+  ([class sym body attrs meta]           (m/->Catch class sym body attrs meta )))
 
 
 (defn catch-with-class [node class] (assoc node :class class))
@@ -275,10 +263,9 @@
 (defn throw-expr [node] (:expr node))
 
 (defn make-throw
-  ([expr]                      (m/->Throw expr {} nil nil))
-  ([expr attrs]                (m/->Throw expr attrs nil nil))
-  ([expr attrs meta]           (m/->Throw expr attrs meta nil))
-  ([expr attrs meta parent]    (m/->Throw expr attrs meta parent)))
+  ([expr]                      (m/->Throw expr {} nil ))
+  ([expr attrs]                (m/->Throw expr attrs nil ))
+  ([expr attrs meta]           (m/->Throw expr attrs meta )))
 
 (defn throw-with-expr [node expr] (assoc node :expr expr))
 
@@ -289,10 +276,9 @@
 (defn vector-items [node] (:items node))
 
 (defn make-vector
-  ([items]                      (m/->Vector items {} nil nil))
-  ([items attrs]                (m/->Vector items attrs nil nil))
-  ([items attrs meta]           (m/->Vector items attrs meta nil))
-  ([items attrs meta parent]    (m/->Vector items attrs meta parent)))
+  ([items]                      (m/->Vector items {} nil ))
+  ([items attrs]                (m/->Vector items attrs nil ))
+  ([items attrs meta]           (m/->Vector items attrs meta )))
 
 (defn vector-with-items [node items] (assoc node :items (vec items)))
 
@@ -302,10 +288,9 @@
 (defn map-kvs [node] (:kvs node))
 
 (defn make-map
-  ([kvs]                      (m/->Map kvs {} nil nil))
-  ([kvs attrs]                (m/->Map kvs attrs nil nil))
-  ([kvs attrs meta]           (m/->Map kvs attrs meta nil))
-  ([kvs attrs meta parent]    (m/->Map kvs attrs meta parent)))
+  ([kvs]                      (m/->Map kvs {} nil ))
+  ([kvs attrs]                (m/->Map kvs attrs nil ))
+  ([kvs attrs meta]           (m/->Map kvs attrs meta )))
 
 (defn map-with-kvs [node kvs] (assoc node :kvs (vec kvs)))
 
@@ -318,10 +303,9 @@
 (defn convert-cost    [node] (:cost node))
 
 (defn make-convert
-  ([expr src-ty dst-ty cost]                      (m/->Convert expr src-ty dst-ty cost {} nil nil))
-  ([expr src-ty dst-ty cost attrs]                (m/->Convert expr src-ty dst-ty cost attrs nil nil))
-  ([expr src-ty dst-ty cost attrs meta]           (m/->Convert expr src-ty dst-ty cost attrs meta nil))
-  ([expr src-ty dst-ty cost attrs meta parent]    (m/->Convert expr src-ty dst-ty cost attrs meta parent)))
+  ([expr src-ty dst-ty cost]                      (m/->Convert expr src-ty dst-ty cost {} nil ))
+  ([expr src-ty dst-ty cost attrs]                (m/->Convert expr src-ty dst-ty cost attrs nil ))
+  ([expr src-ty dst-ty cost attrs meta]           (m/->Convert expr src-ty dst-ty cost attrs meta )))
 
 (defn convert-with-expr [node expr] (assoc node :expr expr))
 
@@ -336,11 +320,10 @@
 (defn namespace-references [node] (:references node))
 
 (defn make-ns
-  ([name references]                      (m/->Ns name nil nil references {} nil nil))
-  ([name docstring attr-map references]    (m/->Ns name docstring attr-map references {} nil nil))
-  ([name docstring attr-map references attrs] (m/->Ns name docstring attr-map references attrs nil nil))
-  ([name docstring attr-map references attrs meta] (m/->Ns name docstring attr-map references attrs meta nil))
-  ([name docstring attr-map references attrs meta parent] (m/->Ns name docstring attr-map references attrs meta parent)))
+  ([name references]                      (m/->Ns name nil nil references {} nil ))
+  ([name docstring attr-map references]    (m/->Ns name docstring attr-map references {} nil ))
+  ([name docstring attr-map references attrs] (m/->Ns name docstring attr-map references attrs nil ))
+  ([name docstring attr-map references attrs meta] (m/->Ns name docstring attr-map references attrs meta )))
 
 (defn ns-with-name       [node name]       (assoc node :name name))
 (defn ns-with-references [node references] (assoc node :references references))
@@ -353,10 +336,9 @@
 (defn record-protocols [node] (:protocols node))
 
 (defn make-record
-  ([name fields protocols]                      (m/->Record name fields protocols {} nil nil))
-  ([name fields protocols attrs]                (m/->Record name fields protocols attrs nil nil))
-  ([name fields protocols attrs meta]           (m/->Record name fields protocols attrs meta nil))
-  ([name fields protocols attrs meta parent]    (m/->Record name fields protocols attrs meta parent)))
+  ([name fields protocols]                      (m/->Record name fields protocols {} nil ))
+  ([name fields protocols attrs]                (m/->Record name fields protocols attrs nil ))
+  ([name fields protocols attrs meta]           (m/->Record name fields protocols attrs meta )))
 
 (defn record-with-name      [node name]      (assoc node :name name))
 (defn record-with-fields    [node fields]    (assoc node :fields fields))
@@ -372,10 +354,9 @@
 
 ;; 构造函数
 (defn make-protocol
-  ([name funcs]                      (m/->Protocol name funcs {} nil nil))
-  ([name funcs attrs]                (m/->Protocol name funcs attrs nil nil))
-  ([name funcs attrs meta]           (m/->Protocol name funcs attrs meta nil))
-  ([name funcs attrs meta parent]    (m/->Protocol name funcs attrs meta parent)))
+  ([name funcs]                      (m/->Protocol name funcs {} nil ))
+  ([name funcs attrs]                (m/->Protocol name funcs attrs nil ))
+  ([name funcs attrs meta]           (m/->Protocol name funcs attrs meta )))
 
 ;; 更新器
 (defn protocol-with-name  [node name]  (assoc node :name name))
@@ -428,13 +409,11 @@
 ;; top.kzre.homunculus.core.ir2.node
 (defn make-member-access
   ([target accessor args]
-   (m/->MemberAccess target accessor args {} nil nil))
+   (m/->MemberAccess target accessor args {} nil ))
   ([target accessor args attrs]
-   (m/->MemberAccess target accessor args attrs nil nil))
+   (m/->MemberAccess target accessor args attrs nil ))
   ([target accessor args attrs meta]
-   (m/->MemberAccess target accessor args attrs meta nil))
-  ([target accessor args attrs meta parent]
-   (m/->MemberAccess target accessor args attrs meta parent)))
+   (m/->MemberAccess target accessor args attrs meta )))
 
 ;; 更新器
 (defn member-access-with-target   [node target]   (assoc node :target target))
@@ -505,10 +484,9 @@
 (defn new-array-size [node] (:size node))
 
 (defn make-new-array
-  ([size]                      (m/->NewArray size {} nil nil))
-  ([size attrs]                (m/->NewArray size attrs nil nil))
-  ([size attrs meta]           (m/->NewArray size attrs meta nil))
-  ([size attrs meta parent]    (m/->NewArray size attrs meta parent)))
+  ([size]                      (m/->NewArray size {} nil ))
+  ([size attrs]                (m/->NewArray size attrs nil ))
+  ([size attrs meta]           (m/->NewArray size attrs meta )))
 
 ;; AGetNode
 (defn aget-node? [node] (= (kind node) :aget))
@@ -516,10 +494,9 @@
 (defn aget-idx    [node] (:idx node))
 
 (defn make-aget
-  ([target idx]              (m/->AGet target idx {} nil nil))
-  ([target idx attrs]        (m/->AGet target idx attrs nil nil))
-  ([target idx attrs meta]   (m/->AGet target idx attrs meta nil))
-  ([target idx attrs meta parent] (m/->AGet target idx attrs meta parent)))
+  ([target idx]              (m/->AGet target idx {} nil ))
+  ([target idx attrs]        (m/->AGet target idx attrs nil ))
+  ([target idx attrs meta]   (m/->AGet target idx attrs meta )))
 
 ;; ASetNode
 (defn aset-node? [node] (= (kind node) :aset))
@@ -528,18 +505,16 @@
 (defn aset-val    [node] (:val node))
 
 (defn make-aset
-  ([target idx val]              (m/->ASet target idx val {} nil nil))
-  ([target idx val attrs]        (m/->ASet target idx val attrs nil nil))
-  ([target idx val attrs meta]   (m/->ASet target idx val attrs meta nil))
-  ([target idx val attrs meta parent] (m/->ASet target idx val attrs meta parent)))
+  ([target idx val]              (m/->ASet target idx val {} nil ))
+  ([target idx val attrs]        (m/->ASet target idx val attrs nil ))
+  ([target idx val attrs meta]   (m/->ASet target idx val attrs meta )))
 
 ;; ALengthNode
 (defn alength-node? [node] (= (kind node) :alength))
 (defn alength-target [node] (:target node))
 
 (defn make-alength
-  ([target]              (m/->ALength target {} nil nil))
-  ([target attrs]        (m/->ALength target attrs nil nil))
-  ([target attrs meta]   (m/->ALength target attrs meta nil))
-  ([target attrs meta parent] (m/->ALength target attrs meta parent)))
+  ([target]              (m/->ALength target {} nil ))
+  ([target attrs]        (m/->ALength target attrs nil ))
+  ([target attrs meta]   (m/->ALength target attrs meta )))
 

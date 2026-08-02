@@ -6,4 +6,4 @@
 (defmethod ir2/lower-ast :map [node env]
   (let [pairs (n1/map-pairs node)                     ;; 交替的键/值 IR1 节点序列
         kvs   (mapv #(first (ir2/lower-ast % env)) pairs)]
-    [(n2/make-map kvs {} (n1/node-meta node) nil)]))
+    [(n2/make-map kvs {} (n1/node-meta node) )]))

@@ -20,7 +20,7 @@
         ;; 构建 RecordNode（声明）
         record-node (n2/make-record name new-fields
                                     (mapv :protocol protocols)   ;; 仅保留协议名列表
-                                    {} meta nil)
+                                    {} meta )
 
         ;; 为每个方法生成 DefineNode（函数实现）
         method-defs (mapcat
@@ -40,10 +40,10 @@
                                      ir2-body    (first (ir2/lower-ast body env))
                                      ;; 构造 LambdaNode
                                      lambda-node (n2/make-lambda ir2-params ir2-body [] nil
-                                                                 {} nil nil)
+                                                                 {} nil)
                                      ;; 定义节点
                                      ]
-                                 (n2/make-define fn-name lambda-node nil {} {} nil)))
+                                 (n2/make-define fn-name lambda-node nil {} {} )))
                              (:methods proto)))
                       protocols)]
 

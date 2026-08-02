@@ -9,5 +9,4 @@
                (n1/namespace-attr-map node)
                (n1/namespace-references node)
                {}
-               (n1/node-meta node)
-               nil)])
+               (n1/node-meta node))])

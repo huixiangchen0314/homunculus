@@ -30,7 +30,7 @@
         param-nodes (mapv (fn [p ty] (t/set-type! p ty)) params param-tys)
         new-node    (n/make-lambda param-nodes body-node
                                    (n/lambda-captures node) (n/lambda-fn-name node)
-                                   (n/attrs node) (n/node-meta node) (n/parent node))
+                                   (n/attrs node) (n/node-meta node))
         ;; 约束：返回值类型 = 函数体类型
         ret-constr  (when body-tv [(c/make-cequal (t/fun-ret fn-ty) body-tv)])
         ;; 若 lambda 整体有标注（如 ^float4），添加约束

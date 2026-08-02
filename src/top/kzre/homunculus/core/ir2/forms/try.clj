@@ -20,14 +20,14 @@
                                   sym-node   (first (ir2/lower-ast sym-ir1 env))
                                   body-nodes (mapv #(first (ir2/lower-ast % env)) body-ir1s)]
                               (n2/make-catch class-node sym-node body-nodes
-                                             {} (n1/node-meta c) nil)))
+                                             {} (n1/node-meta c) )))
                           catches-ir1)
         ;; lowering finally（若存在）
         ir-finally  (when finally-ir1
                       (first (ir2/lower-ast finally-ir1 env)))]
-    [(n2/make-try ir-body ir-catches ir-finally {} (n1/node-meta node) nil)]))
+    [(n2/make-try ir-body ir-catches ir-finally {} (n1/node-meta node))]))
 
 ;; ── throw ─────────────────────────────────
 (defmethod ir2/lower-ast :throw [node env]
   (let [expr (first (ir2/lower-ast (n1/throw-expr node) env))]
-    [(n2/make-throw expr {} (n1/node-meta node) nil)]))
+    [(n2/make-throw expr {} (n1/node-meta node) )]))

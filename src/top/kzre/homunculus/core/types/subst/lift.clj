@@ -19,9 +19,9 @@
                                       new-body
                                       (n/lambda-captures lambda-node)
                                       (n/lambda-fn-name lambda-node)
-                                      (n/attrs lambda-node) (n/node-meta lambda-node) nil))
+                                      (n/attrs lambda-node) (n/node-meta lambda-node)))
                      lambda-node)
-        define-node (n/make-define lifted-name new-lambda nil nil nil nil)
+        define-node (n/make-define lifted-name new-lambda nil nil nil )
         ref-node    (n/make-variable (name lifted-name) nil nil)]
     {:define define-node :ref ref-node}))
 

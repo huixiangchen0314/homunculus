@@ -18,7 +18,7 @@
   (n/make-convert node src dst cost
                   {:type dst :src-type src :cost cost}
                   (n/node-meta node)
-                  (n/parent node)))
+                  ))
 
 ;; ── 辅助：尝试转换 ──
 (defn- try-convert [node actual expected context]

@@ -38,88 +38,88 @@
   (let [new-bindings (mapv (fn [[v e]] [v (replace-expr e var-name replacement)])
                            (n/loop-bindings node))
         new-body     (replace-expr (n/loop-body node) var-name replacement)]
-    (n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) (n/parent node))))
+    (n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) )))
 
 (defmethod replace-expr :while [node var-name replacement]
   (n/make-while (replace-expr (n/while-test node) var-name replacement)
                 (replace-expr (n/while-body node) var-name replacement)
-                (n/attrs node) (n/node-meta node) (n/parent node)))
+                (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :assign [node var-name replacement]
   (n/make-assign (replace-expr (n/assign-var node) var-name replacement)
                  (replace-expr (n/assign-val node) var-name replacement)
-                 (n/attrs node) (n/node-meta node) (n/parent node)))
+                 (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :try [node var-name replacement]
   (n/make-try (replace-expr (n/try-body node) var-name replacement)
               (mapv #(replace-expr % var-name replacement) (n/try-catches node))
               (when-let [f (n/try-finally node)] (replace-expr f var-name replacement))
-              (n/attrs node) (n/node-meta node) (n/parent node)))
+              (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :catch [node var-name replacement]
   (n/make-catch (n/catch-class node) (n/catch-sym node)
                 (mapv #(replace-expr % var-name replacement) (n/catch-body node))
-                (n/attrs node) (n/node-meta node) (n/parent node)))
+                (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :throw [node var-name replacement]
   (n/make-throw (replace-expr (n/throw-expr node) var-name replacement)
-                (n/attrs node) (n/node-meta node) (n/parent node)))
+                (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :vector [node var-name replacement]
   (n/make-vector (mapv #(replace-expr % var-name replacement) (n/vector-items node))
-                 (n/attrs node) (n/node-meta node) (n/parent node)))
+                 (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :map [node var-name replacement]
   (n/make-map (mapv #(replace-expr % var-name replacement) (n/map-kvs node))
-              (n/attrs node) (n/node-meta node) (n/parent node)))
+              (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :lambda [node var-name replacement]
   (n/make-lambda (mapv #(replace-expr % var-name replacement) (n/lambda-params node))
                  (replace-expr (n/lambda-body node) var-name replacement)
                  (n/lambda-captures node)
                  (n/lambda-fn-name node)
-                 (n/attrs node) (n/node-meta node) (n/parent node)))
+                 (n/attrs node) (n/node-meta node)))
 
 (defmethod replace-expr :define [node var-name replacement]
   (n/make-define (n/define-name node)
                  (replace-expr (n/define-val node) var-name replacement)
                  (n/define-doc node)
-                 (n/attrs node) (n/node-meta node) (n/parent node)))
+                 (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :recur [node var-name replacement]
   (n/make-recur (mapv #(replace-expr % var-name replacement) (n/recur-args node))
-                (n/attrs node) (n/node-meta node) (n/parent node)))
+                (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :convert [node var-name replacement]
   (n/make-convert (replace-expr (n/convert-expr node) var-name replacement)
                   (n/convert-src-ty node) (n/convert-dst-ty node) (n/convert-cost node)
-                  (n/attrs node) (n/node-meta node) (n/parent node)))
+                  (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :member-access [node var-name replacement]
   (n/make-member-access (replace-expr (n/access-target node) var-name replacement)
                         (n/access-member node)
                         (mapv #(replace-expr % var-name replacement) (n/access-args node))
-                        (n/attrs node) (n/node-meta node) (n/parent node)))
+                        (n/attrs node) (n/node-meta node) ))
 
 ;; 数组特殊节点（补充 attrs）
 (defmethod replace-expr :new-array [node var-name replacement]
   (n/make-new-array (replace-expr (n/new-array-size node) var-name replacement)
-                    (n/attrs node) (n/node-meta node) (n/parent node)))
+                    (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :aget [node var-name replacement]
   (n/make-aget (replace-expr (n/aget-target node) var-name replacement)
                (replace-expr (n/aget-idx node) var-name replacement)
-               (n/attrs node) (n/node-meta node) (n/parent node)))
+               (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :aset [node var-name replacement]
   (n/make-aset (replace-expr (n/aset-target node) var-name replacement)
                (replace-expr (n/aset-idx node) var-name replacement)
                (replace-expr (n/aset-val node) var-name replacement)
-               (n/attrs node) (n/node-meta node) (n/parent node)))
+               (n/attrs node) (n/node-meta node) ))
 
 (defmethod replace-expr :alength [node var-name replacement]
   (n/make-alength (replace-expr (n/alength-target node) var-name replacement)
-                  (n/attrs node) (n/node-meta node) (n/parent node)))
+                  (n/attrs node) (n/node-meta node) ))
 
 ;; 无子节点类型
 (defmethod replace-expr :ns [node _ _] node)

@@ -30,5 +30,5 @@
         new-node (n/make-vector (vec item-nodes)
                                 (n/attrs node)
                                 (n/node-meta node)
-                                (n/parent node))]
+                                )]
     [vec-type (ty/set-type! new-node vec-type) (into constrs extra-constrs) final-ctx]))

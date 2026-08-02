@@ -9,4 +9,4 @@
                    (first (ir2/lower-ast v env)))]
     [(n2/make-define name-sym val-node nil    ;; doc 暂忽略
                      {}                       ;; attr 暂忽略
-                     (n1/node-meta node) nil)]))
+                     (n1/node-meta node) )]))

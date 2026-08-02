@@ -12,4 +12,4 @@
     (n/make-record (n/record-name node)
                    new-fields
                    (n/record-protocols node)
-                   (n/attrs node) (n/node-meta node) (n/parent node))))
+                   (n/attrs node) (n/node-meta node) )))

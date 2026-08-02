@@ -16,7 +16,7 @@
                   (when test-tv
                     [(c/make-cequal test-tv (ty/make-tcon req-ty))]))
         new-node (n/make-while test-node body-node
-                               (n/attrs node) (n/node-meta node) (n/parent node))]
+                               (n/attrs node) (n/node-meta node) )]
     ;; 返回四元组：类型、新节点、约束、最终上下文
     [nil (ty/set-type! new-node nil)
      (concat test-constr body-constr test-eq)
