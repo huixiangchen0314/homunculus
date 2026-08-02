@@ -32,7 +32,6 @@
 
         :literal   ['val]
         :symbol    ['name]
-        :keyword   ['ns 'name]
         :vector    [:exprs 'items]
         :pair      [:expr 'key :expr 'val]
         :map       [:pairs 'pairs]

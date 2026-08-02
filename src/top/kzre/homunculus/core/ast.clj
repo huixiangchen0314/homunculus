@@ -2,9 +2,8 @@
   "抽象语法树宏工具。
    提供 defast 宏，用声明式 DSL 定义 AST 节点及其协议，
    自动生成：
-   - 一个协议（含 kind, children, map-children, node-meta 方法）
+   - 一个协议（含 kind, children, reduce-children, node-meta 方法）
    - 各节点的 defrecord 实现
-   - 通用的后序/前序树遍历函数 (postwalk, prewalk)
    记录的字段顺序与 DSL 中声明的顺序严格一致（属性、子节点交错），末尾追加 meta 字段。"
   (:require [clojure.string :as str]))
 
@@ -17,14 +16,13 @@
 
 (defrecord TypeInfo [name subtypes many?])
 (defrecord ChildSpec [field many?])
-;; 增加 field-order 保留字段的声明顺序
 (defrecord NodeDef [kind record-name attrs children-specs field-order])
 
 (defn emit-ast-protocol [name]
   `(defprotocol ~name
      (~'kind       [~'this] "返回节点类型关键字")
      (~'children   [~'this] "返回直接子节点的向量")
-     (~'map-children [~'this ~'f] "用转换函数 f 映射所有直接子节点，返回新节点")
+     (~'reduce-children [~'this ~'f ~'env] "用 f 折叠子节点，f 接收 [child env] 返回 [new-child new-env]，返回 [new-node final-env]")
      (~'node-meta  [~'this] "返回元数据 map")))
 
 (defn- parse-type-map [type-map]
@@ -38,7 +36,6 @@
 
 (defn- parse-node-def [type-infos kind fields]
   (let [kind (if (keyword? kind) kind (keyword kind))
-        ;; 在循环中同时收集属性、子节点规范和字段顺序
         {:keys [attrs children-specs field-order]}
         (loop [remaining fields
                attrs []
@@ -49,12 +46,10 @@
             (let [elem (first remaining)
                   rst  (rest remaining)]
               (cond
-                ;; 属性字段 'name
                 (and (seq? elem) (= 'quote (first elem)))
                 (let [field-name (second elem)]
                   (recur rst (conj attrs field-name) specs (conj field-order field-name)))
 
-                ;; 子节点字段 :type 或 :type 'fieldname
                 (keyword? elem)
                 (let [type-key elem
                       [field-name rst']
@@ -83,54 +78,45 @@
                      `(when (satisfies? ~protocol-name ~field) [~field])))]
     `(vec (concat ~@segments))))
 
-(defn- emit-map-children-body [node-def]
-  (let [updates (for [{:keys [field many?]} (:children-specs node-def)]
-                  (if many?
-                    `[~field (mapv ~'f ~field)]
-                    `[~field (some-> ~field ~'f)]))]
-    `(assoc ~'this ~@(mapcat identity updates))))
+(defn- emit-reduce-children-body [node-def]
+  (let [specs (:children-specs node-def)]
+    (if (empty? specs)
+      `[~'this ~'env]   ;; 无子节点
+      (let [env-sym (gensym "env")   ;; 用 gensym 承载折叠环境
+            bindings (vec (for [spec specs]
+                            (let [field (:field spec)
+                                  many? (:many? spec)]
+                              (if many?
+                                `[~field
+                                  (let [result#
+                                        (reduce
+                                          (fn [[xs# e#] item#]
+                                            (let [[new-item# e2#] (~'f item# e#)]
+                                              [(conj xs# new-item#) e2#]))
+                                          [[] ~env-sym] ~field)]
+                                    [(first result#) (second result#)])]
+                                `[~field (~'f ~field ~env-sym)]))))
+            body
+            (reduce
+              (fn [inner [field expr]]          ;; 正确解构出 field 和 expr
+                `(let [[~field ~env-sym] ~expr] ;; 使用 expr 并绑定 env-sym
+                   ~inner))
+              `[(assoc ~'this
+                  ~@(mapcat (fn [spec] [(:field spec) (:field spec)]) specs))
+                ~env-sym]
+              (reverse bindings))]
+        `(let [~env-sym ~'env]  ;; 将参数 env 注入 env-sym，开始传递
+           ~body)))))
 
 (defn- emit-ast-node [protocol-name node-def]
-  ;; 使用 field-order 保持声明顺序，末尾追加 meta
   (let [fields (conj (:field-order node-def) 'meta)]
     `(defrecord ~(:record-name node-def) ~fields
        ~protocol-name
        (~'kind [~'this] ~(:kind node-def))
        (~'children [~'this] ~(emit-children-body node-def protocol-name))
-       (~'map-children [~'this ~'f] ~(emit-map-children-body node-def))
+       (~'reduce-children [~'this ~'f ~'env]
+         ~(emit-reduce-children-body node-def))
        (~'node-meta [~'this] (:meta ~'this)))))
-
-(defn- emit-walk-fns [protocol-name]
-  `((defn ~'postwalk [f# node#]
-      (letfn [(walk# [n#]
-                (if (satisfies? ~protocol-name n#)
-                  (f# (~'map-children n# walk#))
-                  (f# n#)))]
-        (walk# node#)))
-
-    (defn ~'prewalk [f# node#]
-      (letfn [(walk# [n#]
-                (if (satisfies? ~protocol-name n#)
-                  (let [n'# (f# n#)]
-                    (~'map-children n'# walk#))
-                  (f# n#)))]
-        (walk# node#)))
-
-    (defn ~'postwalk-env [f# env# node#]
-      (letfn [(walk# [env'# n#]
-                (if (satisfies? ~protocol-name n#)
-                  (let [[new-node# new-env#] (f# (~'map-children n# (partial walk# env'#)) env'#)]
-                    [new-node# new-env#])
-                  (f# n# env'#)))]
-        (walk# env# node#)))
-
-    (defn ~'prewalk-env [f# env# node#]
-      (letfn [(walk# [env'# n#]
-                (if (satisfies? ~protocol-name n#)
-                  (let [[n'# new-env#] (f# n# env'#)]
-                    [n'# (~'map-children n'# (partial walk# new-env#))])
-                  (f# n# env'#)))]
-        (walk# env# node#)))))
 
 (defmacro defast
   "声明式定义 AST 节点系统。
@@ -139,14 +125,11 @@
   1. 协议 ProtocolName：
      - kind       : 节点类型关键字
      - children   : 返回直接子节点向量
-     - map-children : 用函数 f 映射所有子节点，返回新节点
+     - reduce-children : 用 f 从左到右折叠子节点，f 接收 [child env] 返回 [new-child new-env]，最终返回 [new-node final-env]
      - node-meta  : 返回节点元数据
   2. 每个节点类型的 defrecord：
-     - 字段顺序与 DSL 声明完全一致（属性与子节点按声明顺序出现），最后为 meta 字段。
-     - 实现上述协议方法（children/map-children 由类型声明自动推导）
-  3. 通用遍历函数：
-     - postwalk : 后序遍历，子节点递归后应用 f
-     - prewalk  : 前序遍历，先应用 f 再递归子节点
+     - 字段顺序与 DSL 声明完全一致，最后为 meta 字段。
+     - 实现上述协议方法（children/reduce-children 由类型声明自动推导）
   注意：
   - 属性字段用 'name 表示；子节点字段用 :type 或 :type 'field 表示。
   - 类型声明中可以用 / 分隔备选类型（仅作可读标记，不影响逻辑）。
@@ -156,6 +139,5 @@
   (let [type-infos (parse-type-map type-map)
         nodes (parse-all-nodes type-infos node-defs)
         protocol-form (emit-ast-protocol name)
-        node-forms (map #(emit-ast-node name %) nodes)
-        walk-forms (emit-walk-fns name)]
-    `(do ~protocol-form ~@node-forms ~@walk-forms)))
+        node-forms (map #(emit-ast-node name %) nodes)]
+    `(do ~protocol-form ~@node-forms)))

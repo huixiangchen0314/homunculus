@@ -23,7 +23,7 @@
               (number? form)    :literal
               (string? form)    :literal
               (char? form)      :literal
-              (keyword? form)   :keyword
+              (keyword? form)   :literal
               (symbol? form)    :symbol
               (vector? form)    :vector
               (map? form)       :map
@@ -44,11 +44,6 @@
 
 (defmethod parse-form :symbol [form]
   (ast/->Symbol form (meta form)))
-
-(defmethod parse-form :keyword [form]
-  (let [ns (namespace form)
-        name (name form)]
-    (ast/->Keyword ns name (meta form))))
 
 (defmethod parse-form :vector [form]
   (ast/->Vector (parse-forms form) (meta form)))
