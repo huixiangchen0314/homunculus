@@ -8,5 +8,4 @@
 
 (defmethod ir1/build-tree :var [node]
   (n/make-var (ir1/->ir1 (n/var-sym node))
-              (n/node-meta node)
-              (n/parent node)))
+              (n/node-meta node)))

@@ -17,11 +17,6 @@
 ;; 通用节点访问
 ;; ════════════════════════════════════════════════════════════
 (defn node-meta [node] (ir1p/node-meta node))
-(defn kind     [node] (ir1p/kind node))
-(defn parent   [node] (:parent node))
-
-(defn node-with-meta   [node meta]   (assoc node :meta meta))
-(defn with-parent [node parent] (assoc node :parent parent))
 
 ;; ════════════════════════════════════════════════════════════
 ;; 字面量
@@ -29,25 +24,16 @@
 (defn lit-val [node] (:val node))
 
 (defn make-literal
-  ([val] (m/->Literal val nil nil))
-  ([val meta] (m/->Literal val meta nil)))
+  ([val] (m/->Literal val nil))
+  ([val meta] (m/->Literal val meta)))
 
-(defn literal-with-val [node val] (assoc node :val val))
-
-;; ════════════════════════════════════════════════════════════
-;; 符号
 ;; ════════════════════════════════════════════════════════════
 (defn sym-name [node] (:name node))
 
 (defn make-symbol
-  ([name] (m/->Symbol name nil ))
-  ([name meta] (m/->Symbol name meta )))
+  ([name] (m/->Symbol name nil))
+  ([name meta] (m/->Symbol name meta)))
 
-(defn symbol-with-name [node name] (assoc node :name name))
-
-;; ════════════════════════════════════════════════════════════
-;; 向量 / 映射
-;; ════════════════════════════════════════════════════════════
 (defn vec-items [node] (:items node))
 (defn map-pairs [node] (:pairs node))
 
@@ -56,9 +42,8 @@
   ([items meta] (m/->Vector items meta)))
 
 (defn make-map
-  ([pairs] (m/->Map pairs nil nil))
-  ([pairs meta] (m/->Map pairs meta nil))
-  ([pairs meta parent] (m/->Map pairs meta parent)))
+  ([pairs] (m/->Map pairs nil))
+  ([pairs meta] (m/->Map pairs meta)))
 
 (defn vector-with-items [node items] (assoc node :items items))
 (defn map-with-pairs    [node pairs] (assoc node :pairs pairs))
@@ -167,11 +152,9 @@
 
 (defn make-loop
   ([bindings body]
-   (m/->Loop bindings body (/ (count bindings) 2) nil nil))
+   (m/->Loop bindings body (/ (count bindings) 2) nil))
   ([bindings body meta]
-   (m/->Loop bindings body (/ (count bindings) 2) meta nil))
-  ([bindings body meta parent]
-   (m/->Loop bindings body (/ (count bindings) 2) meta parent)))
+   (m/->Loop bindings body (/ (count bindings) 2) meta)))
 
 (defn loop-with-bindings [node bindings] (assoc node :bindings bindings))
 (defn loop-with-body     [node body]      (assoc node :body body))
@@ -182,9 +165,8 @@
 (defn recur-exprs [node] (:exprs node))
 
 (defn make-recur
-  ([exprs] (m/->Recur exprs nil nil))
-  ([exprs meta] (m/->Recur exprs meta nil))
-  ([exprs meta parent] (m/->Recur exprs meta parent)))
+  ([exprs] (m/->Recur exprs nil))
+  ([exprs meta] (m/->Recur exprs meta)))
 
 (defn recur-with-exprs [node exprs] (assoc node :exprs exprs))
 
@@ -194,9 +176,8 @@
 (defn quoted-expr [node] (:expr node))
 
 (defn make-quote
-  ([expr] (m/->Quote expr nil nil))
-  ([expr meta] (m/->Quote expr meta nil))
-  ([expr meta parent] (m/->Quote expr meta parent)))
+  ([expr] (m/->Quote expr nil))
+  ([expr meta] (m/->Quote expr meta)))
 
 (defn quote-with-expr [node expr] (assoc node :expr expr))
 
@@ -206,9 +187,8 @@
 (defn var-sym [node] (:var-sym node))
 
 (defn make-var
-  ([var-sym] (m/->Var var-sym nil nil))
-  ([var-sym meta] (m/->Var var-sym meta nil))
-  ([var-sym meta parent] (m/->Var var-sym meta parent)))
+  ([var-sym] (m/->Var var-sym nil))
+  ([var-sym meta] (m/->Var var-sym meta)))
 
 (defn var-with-sym [node var-sym] (assoc node :var-sym var-sym))
 
@@ -218,9 +198,8 @@
 (defn throw-expr [node] (:expr node))
 
 (defn make-throw
-  ([expr] (m/->Throw expr nil nil))
-  ([expr meta] (m/->Throw expr meta nil))
-  ([expr meta parent] (m/->Throw expr meta parent)))
+  ([expr] (m/->Throw expr nil))
+  ([expr meta] (m/->Throw expr meta)))
 
 (defn throw-with-expr [node expr] (assoc node :expr expr))
 
@@ -231,9 +210,8 @@
 (defn set-val [node] (:val node))
 
 (defn make-set!
-  ([var val] (m/->Set var val nil nil))
-  ([var val meta] (m/->Set var val meta nil))
-  ([var val meta parent] (m/->Set var val meta parent)))
+  ([var val] (m/->Set var val nil))
+  ([var val meta] (m/->Set var val meta)))
 
 (defn set-with-var [node var] (assoc node :var var))
 (defn set-with-val [node val] (assoc node :val val))
@@ -246,10 +224,9 @@
 (defn try-finally [node] (:finally node))
 
 (defn make-try
-  ([body catches] (m/->Try body catches nil nil nil))
-  ([body catches finally] (m/->Try body catches finally nil nil))
-  ([body catches finally meta] (m/->Try body catches finally meta nil))
-  ([body catches finally meta parent] (m/->Try body catches finally meta parent)))
+  ([body catches] (m/->Try body catches nil nil))
+  ([body catches finally] (m/->Try body catches finally nil))
+  ([body catches finally meta] (m/->Try body catches finally meta)))
 
 (defn try-with-body    [node body]    (assoc node :body body))
 (defn try-with-catches [node catches] (assoc node :catches catches))
@@ -260,9 +237,8 @@
 (defn catch-body  [node] (:body node))
 
 (defn make-catch
-  ([class sym body] (m/->Catch class sym body nil nil))
-  ([class sym body meta] (m/->Catch class sym body meta nil))
-  ([class sym body meta parent] (m/->Catch class sym body meta parent)))
+  ([class sym body] (m/->Catch class sym body nil ))
+  ([class sym body meta] (m/->Catch class sym body meta )))
 
 (defn catch-with-class [node class] (assoc node :class class))
 (defn catch-with-sym   [node sym]   (assoc node :sym sym))
@@ -278,11 +254,9 @@
 
 (defn make-ns
   ([name references]
-   (m/->Ns name nil nil references nil nil))
+   (m/->Ns name nil nil references nil))
   ([name docstring attr-map references meta]
-   (m/->Ns name docstring attr-map references meta nil))
-  ([name docstring attr-map references meta parent]
-   (m/->Ns name docstring attr-map references meta parent)))
+   (m/->Ns name docstring attr-map references meta)))
 
 (defn ns-with-name       [node name]       (assoc node :name name))
 (defn ns-with-references [node references] (assoc node :references references))
@@ -376,8 +350,7 @@
 (defn arity-with-body   [arity body]   (assoc arity :body body))
 (defn arity-with-meta   [arity meta]   (assoc arity :meta meta))
 
-;; ── 协议实现 (protocol-impl) ──────────────
-;; （保留原有 make-protocol-impl, protocol-impl-protocol, protocol-impl-methods 等）
+
 
 (defn protocol-impl-map-methods
   "对协议实现中的每个方法应用 f，返回新的协议实现。"
@@ -391,20 +364,13 @@
 (defn protocol-funcs [node] (:funcs node))
 
 (defn make-protocol
-  ([name funcs] (m/->Protocol name funcs nil nil))
-  ([name funcs meta] (m/->Protocol name funcs meta nil)))
+  ([name funcs] (m/->Protocol name funcs nil))
+  ([name funcs meta] (m/->Protocol name funcs meta)))
 
-(defn protocol-with-name  [node name]  (assoc node :name name))
-(defn protocol-with-funcs [node funcs] (assoc node :funcs funcs))
 
-;; ════════════════════════════════════════════════════════════
-;; member-access
-;; ════════════════════════════════════════════════════════════
 (defn member-access-target   [node] (:target node))
 (defn member-access-accessor [node] (:accessor node))
 (defn member-access-args     [node] (:args node))
-
-(defn keyword-access? [node] (keyword? (:accessor node)))
 
 ;; 向后兼容别名
 (defn access-target [node] (member-access-target node))
@@ -412,15 +378,8 @@
 (defn access-args   [node] (member-access-args node))
 
 (defn make-member-access
-  ([target accessor args] (m/->MemberAccess target accessor args nil nil))
-  ([target accessor args meta] (m/->MemberAccess target accessor args meta nil))
-  ([target accessor args meta parent] (m/->MemberAccess target accessor args meta parent)))
-
-(defn member-access-with-target   [node target]   (assoc node :target target))
-(defn member-access-with-accessor [node accessor] (assoc node :accessor accessor))
-(defn member-access-with-args     [node args]     (assoc node :args args))
-
-
+  ([target accessor args] (m/->MemberAccess target accessor args nil))
+  ([target accessor args meta] (m/->MemberAccess target accessor args meta)))
 
 
 (defn wrap-body

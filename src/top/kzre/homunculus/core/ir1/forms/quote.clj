@@ -8,5 +8,4 @@
 
 (defmethod ir1/build-tree :quote [node]
   (n/make-quote (ir1/->ir1 (n/quoted-expr node))
-                (n/node-meta node)
-                (n/parent node)))
+                (n/node-meta node)))

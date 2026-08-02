@@ -21,7 +21,6 @@
         params    (n/fn-params node)        ;; 参数描述列表
         body      (n/fn-body node)          ;; 原始表单向量（来自 form->node）
         meta      (n/node-meta node)
-        parent    (n/parent node)
         ;; 将参数描述中的符号构建为 IR1 节点
         param-iris (mapv (fn [p] (ir1/->ir1 (n/param-sym p))) params)
         ;; 递归构建函数体，得到子节点向量

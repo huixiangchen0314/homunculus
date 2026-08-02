@@ -9,5 +9,4 @@
 (defmethod ir1/build-tree :set [node]
   (n/make-set! (ir1/->ir1 (n/set-var node))
                (ir1/->ir1 (n/set-val node))
-               (n/node-meta node)
-               (n/parent node)))
+               (n/node-meta node)))

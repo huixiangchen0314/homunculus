@@ -10,8 +10,7 @@
 
 (defmethod ir1/build-tree :throw [node]
   (n/make-throw (ir1/->ir1 (n/throw-expr node))
-                (n/node-meta node)
-                (n/parent node)))
+                (n/node-meta node)))
 
 ;; ── try ───────────────────────────────────
 (defmethod ir1/form->node 'try [form]
@@ -34,7 +33,6 @@
         catch-nodes  (n/try-catches node)       ;; CatchNode 列表
         finally-expr (n/try-finally node)       ;; 原始 finally 表单（单个节点？其实是表达式序列）
         meta         (n/node-meta node)
-        parent       (n/parent node)
         ;; 构建 body 子节点（向量 -> 合并为单个节点）
         ir-body      (n/wrap-body (mapv ir1/->ir1 body-exprs))
         ;; 构建每个 catch（通过 ir1/->ir1 触发 build-tree :catch）
@@ -42,12 +40,11 @@
         ;; 构建 finally：如果有，将其表达式列表包装为单个节点，否则 nil
         ir-finally   (when finally-expr
                        (n/wrap-body (mapv ir1/->ir1 finally-expr)))]
-    (n/make-try ir-body ir-catches ir-finally meta parent)))
+    (n/make-try ir-body ir-catches ir-finally meta)))
 
 ;; ── catch ─────────────────────────────────
 (defmethod ir1/build-tree :catch [node]
   (n/make-catch (ir1/->ir1 (n/catch-class node))
                 (ir1/->ir1 (n/catch-sym node))
                 (mapv ir1/->ir1 (n/catch-body node))   ;; body 保持为向量
-                (n/node-meta node)
-                (n/parent node)))
+                (n/node-meta node)))

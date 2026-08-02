@@ -62,7 +62,7 @@
   (let [[_ name field-vec & body-forms] form
         fields    (parse-fields field-vec)
         protocols (parse-protocols body-forms)]
-    (m/->Record name fields protocols (meta form) nil)))
+    (m/->Record name fields protocols (meta form))))
 
 ;; ── build-tree ：递归构建 IR1 子树 ───────
 (defmethod ir1/build-tree :record [node]
@@ -70,7 +70,7 @@
         fields    (n/record-fields node)
         protocols (n/record-protocols node)
         meta      (n/node-meta node)
-        parent    (n/parent node)
+
         ;; 转换字段默认值
         new-fields (mapv (fn [f]
                            (if-let [init (n/field-init f)]
@@ -87,4 +87,4 @@
                                 (n/arity-with-body m (ir1/->ir1 body))
                                 m))))
                         protocols)]
-    (m/->Record name new-fields new-protocols meta parent)))
+    (m/->Record name new-fields new-protocols meta)))

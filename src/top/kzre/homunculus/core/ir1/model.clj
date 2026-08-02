@@ -1,14 +1,13 @@
 (ns top.kzre.homunculus.core.ir1.model
-  "IR1 AST 节点记录定义。所有节点实现 INode 协议，支持 parent 指针。
+  "IR1 AST 节点记录定义。所有节点实现 INode 协议。
    不再包含 children 字段，children 通过协议方法动态返回。
    注意：多表达式体（如 let/loop/fn/try 的 body）会被展开为多个子节点。"
   (:require [top.kzre.homunculus.core.ir1.protocol :as p]))
 
 ;; ── 基础节点 ──────────────────────────────
-(defrecord Literal [val meta parent]
+(defrecord Literal [val meta]
   p/INode
   (kind [_] :literal)
-
   (node-meta [_] meta)
   )
 
@@ -26,10 +25,9 @@
   (node-meta [_] meta)
   )
 
-(defrecord Map [pairs meta parent]
+(defrecord Map [pairs meta]
   p/INode
   (kind [_] :map)
-
   (node-meta [_] meta)
   )
 
@@ -77,28 +75,26 @@
   (node-meta [_] meta)
   )
 
-(defrecord Loop [bindings body bindings-count meta parent]
+(defrecord Loop [bindings body bindings-count meta]
   p/INode
   (kind [_] :loop)
-
   (node-meta [_] meta)
   )
 
-(defrecord Recur [exprs meta parent]
+(defrecord Recur [exprs meta]
   p/INode
   (kind [_] :recur)
-
   (node-meta [_] meta)
   )
 
-(defrecord Quote [expr meta parent]
+(defrecord Quote [expr meta]
   p/INode
   (kind [_] :quote)
 
   (node-meta [_] meta)
   )
 
-(defrecord Var [var-sym meta parent]
+(defrecord Var [var-sym meta]
   p/INode
   (kind [_] :var)
 
@@ -107,7 +103,7 @@
 
 
 
-(defrecord Set [var val meta parent]
+(defrecord Set [var val meta]
   p/INode
   (kind [_] :set)
 
@@ -115,28 +111,27 @@
   )
 
 
-(defrecord Try [body catches finally meta parent]
+(defrecord Try [body catches finally meta]
   p/INode
   (kind [_] :try)
   (node-meta [_] meta)
   )
 
 
-(defrecord Catch [class sym body meta parent]
+(defrecord Catch [class sym body meta ]
   p/INode
   (kind [_] :catch)
 
   (node-meta [_] meta)
   )
 
-(defrecord Throw [expr meta parent]
+(defrecord Throw [expr meta]
   p/INode
   (kind [_] :throw)
-
   (node-meta [_] meta)
   )
 
-(defrecord Ns [name docstring attr-map references meta parent]
+(defrecord Ns [name docstring attr-map references meta]
   p/INode
   (kind [_] :ns)
 
@@ -160,7 +155,7 @@
 ;; :body <block-node>
 ;; }]
 ;; }... ]
-(defrecord Record [name fields protocols meta parent]
+(defrecord Record [name fields protocols meta]
   p/INode
   (kind     [_] :record)
   (node-meta  [_] meta)
@@ -172,7 +167,7 @@
 ;;                        {:name x, :meta nil}]
 ;;               :ret :nil
 ;;               :meta nil}]
-(defrecord Protocol [name funcs meta parent]
+(defrecord Protocol [name funcs meta]
   p/INode
   (kind       [_] :protocol)
   (node-meta  [_] meta)
@@ -181,7 +176,7 @@
 ;; :关键字 表示属性访问，不支持设置
 ;; .xyz 表示方法调用
 ;; 不支持Clojure 风格 assoc 设置
-(defrecord MemberAccess [target accessor args meta parent]
+(defrecord MemberAccess [target accessor args meta]
   p/INode
   (kind       [_] :member-access)
   (node-meta  [_] meta)

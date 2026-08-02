@@ -8,5 +8,4 @@
 
 (defmethod ir1/build-tree :map [node]
   (n/make-map (mapv ir1/->ir1 (n/map-pairs node))
-              (n/node-meta node)
-              (n/parent node)))
+              (n/node-meta node)))

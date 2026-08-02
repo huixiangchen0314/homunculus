@@ -12,7 +12,6 @@
   (let [bindings   (n/loop-bindings node)
         body       (n/loop-body node)
         meta       (n/node-meta node)
-        parent     (n/parent node)
         bind-pairs (n/binding-pairs bindings)
         ir-bindings (mapcat (fn [pair]
                               (let [[sym val] pair]
@@ -20,7 +19,7 @@
                             bind-pairs)
         ir-body-exprs (mapv ir1/->ir1 body)
         wrapped-body (n/wrap-body ir-body-exprs)]
-    (n/make-loop ir-bindings wrapped-body meta parent)))
+    (n/make-loop ir-bindings wrapped-body meta)))
 
 ;; ── recur ─────────────────────────────────
 (defmethod ir1/form->node 'recur [form]
@@ -29,5 +28,4 @@
 
 (defmethod ir1/build-tree :recur [node]
   (n/make-recur (mapv ir1/->ir1 (n/recur-exprs node))
-                (n/node-meta node)
-                (n/parent node)))
+                (n/node-meta node)))

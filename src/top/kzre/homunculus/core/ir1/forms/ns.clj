@@ -17,5 +17,4 @@
              (n/namespace-docstring node)
              (n/namespace-attr-map node)
              (n/namespace-references node)
-             (n/node-meta node)
-             (n/parent node)))
+             (n/node-meta node)))
