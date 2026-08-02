@@ -8,8 +8,7 @@
     [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.core.types.type :as ty]))
 
-(defn- concrete? [ty]
-  (and (satisfies? tp/IType ty) (not (ty/var-type? ty))))
+
 
 (defn- try-convert [conversion-fn src-ty dst-ty]
   (when conversion-fn (conversion-fn src-ty dst-ty)))

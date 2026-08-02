@@ -65,7 +65,7 @@
                     actual)]
       (when (or (nil? actual*)
                 (ty/var-type? actual*))
-        (throw (ex-info (str "Node type is not determined")
+        (throw (ex-info "Node type is not determined"
                         {:node node :actual actual})))
       (if (= actual* expected)
         node
