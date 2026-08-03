@@ -3,21 +3,22 @@
             [top.kzre.homunculus.core.types.lambda-elim.core :as elim]))
 
 (defmethod elim/eliminate :let [node config env]
-  (let [bindings (n/let-bindings node)
-        ;; 先处理所有右侧表达式，使用外部环境
-        [new-vals val-defs]
-        (reduce (fn [[vals defs] [_ e]]
-                  (let [[new-e e-defs] (elim/eliminate e config env)]
-                    [(conj vals new-e) (into defs e-defs)]))
+  (let [bindings (n/let-bindings node)         ;; 现在是 Binding 向量
+        ;; 处理所有值表达式，使用外部环境；变量节点保留
+        [new-bindings val-defs]
+        (reduce (fn [[bnds defs] b]
+                  (let [val-node (:val b)
+                        [new-val val-defs'] (elim/eliminate val-node config env)
+                        new-b (assoc b :val new-val)]
+                    [(conj bnds new-b) (into defs val-defs')]))
                 [[] []]
                 bindings)
         ;; 收集绑定变量名，扩展内部环境
-        binding-names (map (fn [[v]] (n/var-name v)) bindings)
+        binding-names (map #(:name (:var %)) bindings)
         inner-env (into env binding-names)
-        ;; 使用扩展环境处理 body
+        ;; 在扩展环境中处理 body
         [new-body body-defs] (elim/eliminate (n/let-body node) config inner-env)
-        ;; 变量节点本身不消除（它们只是声明）
-        new-vars (mapv first bindings)]
-    [(n/make-let (mapv vector new-vars new-vals) new-body
-                 (n/attrs node) (n/node-meta node))
-     (into val-defs body-defs)]))
+        ;; 构造新 let 节点
+        new-let (n/make-let new-bindings new-body
+                            (n/attrs node) (n/node-meta node))]
+    [new-let (into val-defs body-defs)]))

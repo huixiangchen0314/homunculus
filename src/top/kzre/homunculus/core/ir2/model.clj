@@ -87,40 +87,37 @@
   (attrs [_] attrs)
   (node-meta [_] meta))
 
-(defrecord Let [bindings body attrs meta ]
+(defrecord Let [bindings body attrs meta]
   p/INode
   (kind [_] :let)
-  (children [_] (into (mapcat (fn [[v e]] [v e]) bindings) [body]))
+  (children [_]
+    (conj (vec bindings) body))
   (reduce-children [this f env]
     (let [[new-bindings env1]
-          (reduce (fn [[bnds e] [v val]]
-                    (let [[new-val e1] (f val e)
-                          [new-v e2] (f v e1)]
-                      [(conj bnds [new-v new-val]) e2]))
+          (reduce (fn [[bnds e] binding]
+                    (let [[new-binding e2] (f binding e)]
+                      [(conj bnds new-binding) e2]))
                   [[] env] bindings)
           [new-body env2] (f body env1)]
       [(assoc this :bindings new-bindings :body new-body) env2]))
   (attrs [_] attrs)
-  (node-meta [_] meta)
-)
+  (node-meta [_] meta))
 
 ;; ── LoopNode ────────────────────────────────
-(defrecord Loop [bindings body attrs meta ]
+(defrecord Loop [bindings body attrs meta]
   p/INode
   (kind [_] :loop)
-  (children [_] (into (mapcat (fn [[v e]] [v e]) bindings) [body]))
+  (children [_] (conj (vec bindings) body))
   (reduce-children [this f env]
     (let [[new-bindings env1]
-          (reduce (fn [[bnds e] [v val]]
-                    (let [[new-val e1] (f val e)
-                          [new-v e2] (f v e1)]
-                      [(conj bnds [new-v new-val]) e2]))
+          (reduce (fn [[bnds e] binding]
+                    (let [[new-binding e2] (f binding e)]
+                      [(conj bnds new-binding) e2]))
                   [[] env] bindings)
           [new-body env2] (f body env1)]
       [(assoc this :bindings new-bindings :body new-body) env2]))
   (attrs [_] attrs)
-  (node-meta [_] meta)
-)
+  (node-meta [_] meta))
 
 ;; ── RecurNode ───────────────────────────────
 (defrecord Recur [args attrs meta ]

@@ -9,12 +9,12 @@
   "返回 node 子树内所有被 let/lambda/loop 引入的变量名集合。"
   [node]
   (if (satisfies? ir2p/INode node)
-    (let [here (case (n/kind node)
-                 :let    (into #{} (map (fn [[v _]] (n/var-name v)) (n/let-bindings node)))
-                 :lambda (into #{} (map n/var-name (n/lambda-params node)))
-                 :loop   (into #{} (map (fn [[v _]] (n/var-name v)) (n/loop-bindings node)))
+    (let [here (case (:kind node)                 ;; 直接使用 :kind 字段
+                 :let    (into #{} (map #(:name (:var %)) (:bindings node)))
+                 :lambda (into #{} (map :name (:params node)))
+                 :loop   (into #{} (map #(:name (:var %)) (:bindings node)))
                  #{})
-          children-bounds (reduce into #{} (map collect-bound (n/children node)))]
+          children-bounds (reduce into #{} (map collect-bound (ir2p/children node)))]
       (into here children-bounds))
     #{}))
 

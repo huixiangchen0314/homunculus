@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.core.types.module.resolve-ns
   "命名空间解析。利用 reduce-children 自动遍历，只保留需要环境/名称特殊处理的节点。"
   (:require
+    [top.kzre.homunculus.core.ir2.model :as m]
     [top.kzre.homunculus.core.ir2.protocol :as ir2p]
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.protocol :as types]
@@ -55,31 +56,37 @@
 
 ;; ★ let：创建新作用域，绑定变量加入局部变量，顺序处理值表达式和体
 (defmethod resolve-node :let [node env]
-  (let [bindings (n/let-bindings node)
-        binding-names (set (map (comp n/var-name first) bindings))
+  (let [bindings (n/let-bindings node)          ;; 现在返回 Binding 向量
+        binding-names (set (map #(:name (:var %)) bindings))
         env-inner (-> env
                       (assoc :toplevel? false)
                       (add-locals binding-names))
-        ;; 处理绑定值表达式（顺序传递环境）
-        [new-vals env'] (reduce (fn [[vs e] [v expr]]
-                                  (let [[new-expr e2] (resolve-node expr e)]
-                                    [(conj vs [v new-expr]) e2]))
-                                [[] env]
-                                bindings)
+        ;; 顺序处理每个 Binding 的值表达式，保留变量不处理
+        [new-bindings env']
+        (reduce (fn [[bnds e] b]
+                  (let [var-node (:var b)
+                        val-node (:val b)
+                        [new-val e2] (resolve-node val-node e)
+                        new-binding (assoc b :var var-node :val new-val)]
+                    [(conj bnds new-binding) e2]))
+                [[] env]
+                bindings)
         [new-body _] (resolve-node (n/let-body node) env-inner)]
-    [(n/make-let new-vals new-body (n/attrs node) (n/node-meta node))
+    [(m/->Let new-bindings new-body (:attrs node) (:meta node))
      env]))
 
-;; ★ loop：类似 let，创建新作用域
+;; loop：类似 let，创建新作用域
 (defmethod resolve-node :loop [node env]
-  (let [bindings (n/loop-bindings node)
-        binding-names (set (map (comp n/var-name first) bindings))
+  (let [bindings (n/loop-bindings node)                    ;; 现在返回 Binding 向量
+        binding-names (set (map #(:name (:var %)) bindings))
         env-inner (-> env
                       (assoc :toplevel? false)
                       (add-locals binding-names))
-        [new-bindings env'] (reduce (fn [[bnds e] [v expr]]
-                                      (let [[new-expr e2] (resolve-node expr e)]
-                                        [(conj bnds [v new-expr]) e2]))
+        [new-bindings _env'] (reduce (fn [[bnds e] b]       ;; b 是 Binding 记录
+                                      (let [expr      (:val b)
+                                            [new-expr e2] (resolve-node expr e)
+                                            new-b     (assoc b :val new-expr)]
+                                        [(conj bnds new-b) e2]))
                                     [[] env]
                                     bindings)
         [new-body _] (resolve-node (n/loop-body node) env-inner)]

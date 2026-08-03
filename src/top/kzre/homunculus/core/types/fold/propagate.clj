@@ -72,16 +72,19 @@
 
 ;; ── let：根据 :mutable 标记决定是否收集常量 ──
 (defmethod propagate-node :let [node context]
-  (let [bindings (n/let-bindings node)
+  (let [bindings (n/let-bindings node)           ;; 返回 Binding 向量
         [new-bindings ctx1]
-        (reduce (fn [[bnds ctx] [var val-expr]]
-                  (let [subbed (maybe-subst-constant val-expr (:env ctx))
+        (reduce (fn [[bnds ctx] b]
+                  (let [var-node (:var b)
+                        val-expr (:val b)
+                        subbed (maybe-subst-constant val-expr (:env ctx))
                         [new-val new-ctx] (propagate-node subbed ctx)
-                        ;; ★ 只在变量不可变时才将其值作为常量加入环境
-                        env' (if (var-mutable? var)
+                        ;; 仅在变量不可变时将常量加入环境
+                        env' (if (var-mutable? var-node)
                                (:env new-ctx)
-                               (collect-env (:env new-ctx) (n/var-name var) new-val))]
-                    [(conj bnds [var new-val])
+                               (collect-env (:env new-ctx) (:name var-node) new-val))
+                        new-b (assoc b :val new-val)]
+                    [(conj bnds new-b)
                      (assoc new-ctx :env env')]))
                 [[] context]
                 bindings)
@@ -91,25 +94,27 @@
 
 ;; ── loop：循环变量已由 mutable 分析标记为可变，此处统一按标记处理；同时移除循环变量以遮蔽外层同名常量 ──
 (defmethod propagate-node :loop [node context]
-  (let [bindings (n/loop-bindings node)
+  (let [bindings (n/loop-bindings node)             ;; 现在返回 Binding 向量
         [new-bindings ctx1]
-        (reduce (fn [[bnds ctx] [var val-expr]]
-                  (let [subbed (maybe-subst-constant val-expr (:env ctx))
+        (reduce (fn [[bnds ctx] b]                  ;; b 为 Binding 节点
+                  (let [var-node (:var b)
+                        val-expr (:val b)
+                        subbed (maybe-subst-constant val-expr (:env ctx))
                         [new-val new-ctx] (propagate-node subbed ctx)
-                        ;; ★ 统一依据 :mutable 决定是否收集（当前循环变量均为可变，因此不会收集）
-                        env' (if (var-mutable? var)
+                        env' (if (var-mutable? var-node)
                                (:env new-ctx)
-                               (collect-env (:env new-ctx) (n/var-name var) new-val))]
-                    [(conj bnds [var new-val])
+                               (collect-env (:env new-ctx) (:name var-node) new-val))
+                        new-b (assoc b :val new-val)]
+                    [(conj bnds new-b)
                      (assoc new-ctx :env env')]))
                 [[] context]
                 bindings)
-        ;; 循环体内移除所有循环变量名，实现正确的遮蔽并避免误用外层常量
-        loop-var-names (set (map (fn [[v _]] (n/var-name v)) bindings))
+        ;; 循环体内移除所有循环变量名，遮蔽外层同名常量
+        loop-var-names (set (map #(:name (:var %)) bindings))
         env-body (env-remove-vars (:env ctx1) loop-var-names)
         ctx-body (assoc ctx1 :env env-body)
         [new-body ctx2] (propagate-node (n/loop-body node) ctx-body)]
-    [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) )
+    [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node))
      (assoc ctx2 :env (:env context))]))
 
 ;; ── define：顶级定义视为不可变，仍收集常量 ──

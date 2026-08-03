@@ -3,7 +3,8 @@
    统一使用 make-* 构造函数，不再使用旧的 ->* 风格。"
   (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
             [top.kzre.homunculus.core.ir1.node :as n1]
-            [top.kzre.homunculus.core.ir2.model :as m]))
+            [top.kzre.homunculus.core.ir2.model :as m])
+  (:import (top.kzre.homunculus.core.ir2.model Binding)))
 
 
 ;; 纯数据工具：将扁平绑定列表划分为 [sym val] 对
@@ -106,17 +107,23 @@
 
 (defn block-with-exprs [node exprs] (assoc node :exprs exprs))
 (defn block-node? [bode] (= (kind bode) :block))
-;; ══════════════════════════════════════════════
-;; LetNode
-;; ══════════════════════════════════════════════
-(defn let-node? [bode] (= (kind bode) :let))
-(defn let-bindings [node] (:bindings node))
+
+(defn let-bindings [node]
+  (let [binds (:bindings node)]
+    (if (and (seq binds) (instance? Binding (first binds)))
+      binds
+      (throw (ex-info "Invalid bindings form" {})))))
+
 (defn let-body     [node] (:body node))
 
 (defn make-let
-  ([bindings body]                      (m/->Let bindings body {} nil ))
-  ([bindings body attrs]                (m/->Let bindings body attrs nil ))
-  ([bindings body attrs meta]           (m/->Let bindings body attrs meta )))
+  ([bindings body]                      (make-let bindings body {} nil))
+  ([bindings body attrs]                (make-let bindings body attrs nil))
+  ([bindings body attrs meta]
+   (when (and (seq bindings) (not (instance? Binding (first bindings))))
+     (throw (ex-info "make-let requires bindings to be Binding nodes, got old [var val] format"
+                     {:bindings bindings})))
+   (m/->Let (vec bindings) body attrs meta)))
 
 (defn let-with-bindings [node bindings] (assoc node :bindings bindings))
 (defn let-with-body     [node body]     (assoc node :body body))
@@ -164,13 +171,21 @@
 ;; ══════════════════════════════════════════════
 ;; LoopNode
 ;; ══════════════════════════════════════════════
-(defn loop-bindings [node] (:bindings node))
+(defn loop-bindings [node]
+  (:bindings node))
+
 (defn loop-body     [node] (:body node))
 
 (defn make-loop
-  ([bindings body]                      (m/->Loop bindings body {} nil ))
-  ([bindings body attrs]                (m/->Loop bindings body attrs nil ))
-  ([bindings body attrs meta]           (m/->Loop bindings body attrs meta )))
+  ([bindings body]                      (make-loop bindings body {} nil))
+  ([bindings body attrs]                (make-loop bindings body attrs nil))
+  ([bindings body attrs meta]
+   (let [binds (if (and (seq bindings)
+                        (not (instance? Binding (first bindings))))
+                 ;; 旧格式 [var val] → Binding 向量，保留原有 attrs/meta 为空
+                 (mapv (fn [[var val]] (m/->Binding var val {} nil)) bindings)
+                 bindings)]
+     (m/->Loop (vec binds) body attrs meta))))
 
 (defn loop-with-bindings [node bindings] (assoc node :bindings bindings))
 (defn loop-with-body     [node body]     (assoc node :body body))

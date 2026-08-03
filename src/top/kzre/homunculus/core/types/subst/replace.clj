@@ -13,13 +13,15 @@
 ;; ── 需要保留绑定侧变量的特殊形式 ────────────
 ;; 这些节点的绑定变量符号不参与替换（假设已 alpha 重命名）
 (defmethod replace-expr :let [node var-name replacement]
-  (let [new-bindings (mapv (fn [[v e]] [v (replace-expr e var-name replacement)])
+  (let [new-bindings (mapv (fn [b]
+                             (assoc b :val (replace-expr (:val b) var-name replacement)))
                            (n/let-bindings node))
         new-body     (replace-expr (n/let-body node) var-name replacement)]
     (n/make-let new-bindings new-body (n/attrs node) (n/node-meta node))))
 
 (defmethod replace-expr :loop [node var-name replacement]
-  (let [new-bindings (mapv (fn [[v e]] [v (replace-expr e var-name replacement)])
+  (let [new-bindings (mapv (fn [b]
+                             (assoc b :val (replace-expr (:val b) var-name replacement)))
                            (n/loop-bindings node))
         new-body     (replace-expr (n/loop-body node) var-name replacement)]
     (n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node))))

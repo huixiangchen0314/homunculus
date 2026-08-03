@@ -21,32 +21,38 @@
       [node env])
 
     :let
-    (let [bindings (n/let-bindings node)
+    (let [bindings (n/let-bindings node)          ;; Binding 向量
           [new-bindings env']
-          (reduce (fn [[bnds e] [var val]]
-                    (let [[new-val e1] (rename-fn val e)
-                          old-name (n/var-name var)
+          (reduce (fn [[bnds e] b]                ;; b 是 Binding 记录
+                    (let [var (:var b)
+                          val (:val b)
+                          [new-val e1] (rename-fn val e)
+                          old-name (:name var)
                           new-name (u/fresh-name old-name)
                           e2 (extend-env e1 old-name new-name)
-                          new-var (n/make-variable new-name (n/attrs var) (n/node-meta var))]
-                      [(conj bnds [new-var new-val]) e2]))
+                          new-var (assoc var :name new-name)   ;; 变量重命名
+                          new-b   (assoc b :var new-var :val new-val)]
+                      [(conj bnds new-b) e2]))
                   [[] env] bindings)
           [new-body env''] (rename-fn (n/let-body node) env')]
       [(n/make-let new-bindings new-body (n/attrs node) (n/node-meta node)) env''])
 
     :loop
-    (let [bindings (n/loop-bindings node)
+    (let [bindings (n/loop-bindings node)          ;; Binding 向量
           [new-bindings env']
-          (reduce (fn [[bnds e] [var val]]
-                    (let [[new-val e1] (rename-fn val e)
-                          old-name (n/var-name var)
+          (reduce (fn [[bnds e] b]                 ;; b 是 Binding 记录
+                    (let [var (:var b)
+                          val (:val b)
+                          [new-val e1] (rename-fn val e)
+                          old-name (:name var)
                           new-name (u/fresh-name old-name)
                           e2 (extend-env e1 old-name new-name)
-                          new-var (n/make-variable new-name (n/attrs var) (n/node-meta var))]
-                      [(conj bnds [new-var new-val]) e2]))
+                          new-var (assoc var :name new-name)   ;; 重命名变量
+                          new-b   (assoc b :var new-var :val new-val)]
+                      [(conj bnds new-b) e2]))
                   [[] env] bindings)
           [new-body env''] (rename-fn (n/loop-body node) env')]
-      [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) ) env''])
+      [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node)) env''])
 
     :lambda
     (let [params (n/lambda-params node)

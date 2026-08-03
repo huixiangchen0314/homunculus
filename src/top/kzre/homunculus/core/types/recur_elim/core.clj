@@ -1,8 +1,10 @@
 (ns top.kzre.homunculus.core.types.recur-elim.core
   "消除 loop-recur 递归，将 LoopNode 转换为 WhileNode。"
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
-            [top.kzre.homunculus.core.types.utils :as u]))
+  (:require
+   [top.kzre.homunculus.core.ir2.model :as m]
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+   [top.kzre.homunculus.core.types.utils :as u]))
 
 ;; ── 辅助：上下文 ──────────────────────────
 (defn- make-ctx [var-names result-var recur-flag]
@@ -45,10 +47,15 @@
                       (n/attrs node) (n/node-meta node)))
 
       :let
-      (n/make-let (mapv (fn [[v e]] [(eliminate v) (eliminate e)])
-                        (n/let-bindings node))
-                  (convert-tail (n/let-body node) ctx)
-                  (n/attrs node) (n/node-meta node))
+      (let [bindings (n/let-bindings node)
+            new-bindings (mapv (fn [b]
+                                 (assoc b
+                                   :var (eliminate (:var b))
+                                   :val (eliminate (:val b))))
+                               bindings)]
+        (n/make-let new-bindings
+                    (convert-tail (n/let-body node) ctx)
+                    (n/attrs node) (n/node-meta node)))
 
       :try
       (n/make-try (convert-tail (n/try-body node) ctx)
@@ -72,29 +79,34 @@
 
 ;; ── 主转换函数 ────────────────────────────
 (defn transform-loop [loop-node]
-  (let [bindings   (n/loop-bindings loop-node)
+  (let [bindings   (n/loop-bindings loop-node)               ;; Binding 向量
         body       (n/loop-body loop-node)
-        var-names  (mapv (fn [[v _]] (n/var-name v)) bindings)
+        var-names  (mapv #(:name (:var %)) bindings)          ;; 变量名列表
         result-var (u/fresh-name 'result)
         recur-flag (u/fresh-name 'recur?)
         ctx        (make-ctx var-names result-var recur-flag)
 
-        ;; 初始绑定：loop 变量 + result + recur-flag
-        loop-bindings (mapv (fn [[var init]]
-                              [(n/make-variable (n/var-name var) {} nil )
-                               (eliminate init)])
+        ;; 初始绑定：保留 loop 变量节点，消除初始化表达式
+        loop-bindings (mapv (fn [b]
+                              (let [init-expr (:val b)
+                                    new-init  (eliminate init-expr)]
+                                (assoc b :val new-init)))   ;; 仅更新值表达式
                             bindings)
 
-        all-bindings (into loop-bindings
-                           [[(n/make-variable result-var {} nil ) (n/make-literal nil {} nil )]
-                            [(n/make-variable recur-flag {} nil ) (n/make-literal true {} nil )]])
+        ;; 追加 result 和 recur-flag 绑定
+        result-binding (m/->Binding (n/make-variable result-var {} nil)
+                                    (n/make-literal nil {} nil) {} nil)
+        recur-binding  (m/->Binding (n/make-variable recur-flag {} nil)
+                                    (n/make-literal true {} nil) {} nil)
+
+        all-bindings (into (vec loop-bindings) [result-binding recur-binding])
 
         ;; 转换后的循环体
         tail-body  (convert-tail body ctx)
-        while-test (n/make-variable recur-flag {} nil )
+        while-test (n/make-variable recur-flag {} nil)
         while-node (n/make-while while-test tail-body {} nil)
-        let-body   (n/make-block [while-node (n/make-variable result-var {} nil )] {} nil )]
-    (n/make-let all-bindings let-body {} nil )))
+        let-body   (n/make-block [while-node (n/make-variable result-var {} nil)] {} nil)]
+    (n/make-let all-bindings let-body {} nil)))
 
 ;; ── 分派入口 ──────────────────────────────
 (defmulti eliminate (fn [node] (n/kind node)))

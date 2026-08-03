@@ -17,34 +17,43 @@
     [node env]))
 
 (defmethod mutable-node :let [node env]
-  (let [bindings (n/let-bindings node)
-        ;; 初始处理，变量暂标记为不可变
+  (let [bindings (n/let-bindings node)           ;; Binding 向量
+        ;; 初始处理：值表达式递归，变量暂标记为不可变
         [new-bindings ctx]
-        (reduce (fn [[bnds env] [var val]]
-                  (let [[new-val env1] (mutable-node val env)]
-                    [(conj bnds [(mark-var var false) new-val]) env1]))
+        (reduce (fn [[bnds env] b]
+                  (let [var-node (:var b)
+                        val-node (:val b)
+                        [new-val env1] (mutable-node val-node env)
+                        ;; 标记变量为不可变，重建绑定
+                        new-b (assoc b :var (mark-var var-node false) :val new-val)]
+                    [(conj bnds new-b) env1]))
                 [[] env]
                 bindings)
+        ;; 分析 body，获取可变变量集合
         [new-body env2] (mutable-node (n/let-body node) ctx)
-        ;; 从 body 分析结果 env2 中获取可变变量名集合，修正绑定变量的 :mutable 标记
-        mutable-vars env2                       ;; env2 是一个 set，元素为变量名
-        corrected-bindings (mapv (fn [[var val]]
-                                   (if (contains? mutable-vars (n/var-name var))
-                                     [(mark-var var true) val]   ;; 重新标记为可变
-                                     [var val]))
-                                 new-bindings)]
+        mutable-vars env2                         ;; 变量名集合
+        ;; 根据可变集合修正绑定变量的 :mutable 标记
+        corrected-bindings
+        (mapv (fn [b]
+                (let [var-node (:var b)]
+                  (if (contains? mutable-vars (:name var-node))
+                    (assoc b :var (mark-var var-node true))   ;; 重新标记为可变
+                    b)))
+              new-bindings)]
     [(n/make-let corrected-bindings new-body (n/attrs node) (n/node-meta node))
      env2]))
 
 (defmethod mutable-node :loop [node env]
-  (let [bindings (n/loop-bindings node)
-        ;; 循环变量标记为可变
-        new-bindings (mapv (fn [[var val]] [(mark-var var true) val]) bindings)
-        ;; 收集循环变量名，在循环体内这些变量是可变的
-        loop-vars (set (map (fn [[v]] (n/var-name v)) bindings))
+  (let [bindings (n/loop-bindings node)               ;; 现在是 Binding 向量
+        new-bindings (mapv (fn [b]
+                             ;; 循环变量标记为可变
+                             (assoc b :var (mark-var (:var b) true)))
+                           bindings)
+        ;; 收集循环变量名，加入环境
+        loop-vars (set (map #(:name (:var %)) bindings))
         inner-env (into env loop-vars)
         [new-body _] (mutable-node (n/loop-body node) inner-env)]
-    [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node) )
+    [(n/make-loop new-bindings new-body (n/attrs node) (n/node-meta node))
      env]))
 
 (defmethod mutable-node :define [node env]
@@ -97,9 +106,10 @@
 
 
 (defmethod mutable-node :default [node env]
-  (p/reduce-children node
-                     (fn [child e] (mutable-node child e))
-                     env))
+  (when node
+    (p/reduce-children node
+                       (fn [child e] (mutable-node child e))
+                       env)))
 
 
 (defn analyze [nodes]
