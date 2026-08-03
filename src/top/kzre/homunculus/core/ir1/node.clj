@@ -101,9 +101,9 @@
 
 (defn make-let
   ([bindings body]
-   (m/->Let bindings body (/ (count bindings) 2) nil))
+   (m/->Let bindings body nil))
   ([bindings body meta]
-   (m/->Let bindings body (/ (count bindings) 2) meta)))
+   (m/->Let bindings body meta)))
 (def binding-pairs kv-pairs)
 (def make-binding make-pair)
 

@@ -63,7 +63,7 @@
   (kind [_] :binding)
   (node-meta [_] meta))
 
-(defrecord Let [bindings body bindings-count meta]
+(defrecord Let [bindings body meta]
   p/INode
   (kind [_] :let)
 
