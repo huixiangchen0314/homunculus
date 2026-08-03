@@ -33,6 +33,7 @@
 
 (defmulti build-tree (fn [node] (p/kind node)))
 
+(defmethod build-tree :default [node] node)
 
 (defn ->ir1 [form]
   (let [raw-node (form->node form)

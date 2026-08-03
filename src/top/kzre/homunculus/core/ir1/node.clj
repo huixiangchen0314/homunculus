@@ -90,7 +90,8 @@
 ;; ════════════════════════════════════════════════════════════
 ;; let
 ;; ════════════════════════════════════════════════════════════
-(defn let-bindings [node] (:bindings node))
+(defn let-bindings [node]
+  (:bindings node))
 (defn let-body     [node] (:body node))
 
 (defn make-let
