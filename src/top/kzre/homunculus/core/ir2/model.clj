@@ -3,13 +3,27 @@
    使用 reduce-children，每个节点直接处理字段。"
   (:require [top.kzre.homunculus.core.ir2.protocol :as p]))
 
-;; ── LambdaNode ──────────────────────────────
-(defrecord Lambda [params body captures fn-name attrs meta ]
+
+;; ── Param 节点（补充 INode 实现） ──
+(defrecord Param [name attrs meta]
+  p/INode
+  (kind [_] :param)
+  (children [_] [])                   ; 叶子节点，无子节点
+  (reduce-children [this _f env]      ; 不遍历子节点，直接返回自身
+    [this env])
+  (attrs [_] attrs)
+  (node-meta [_] meta))
+
+;; ── Lambda 节点（保持原有逻辑，兼容 Param 向量） ──
+(defrecord Lambda [params body captures fn-name attrs meta]
   p/INode
   (kind [_] :lambda)
-  (children [_] (into (vec params) [body]))
+  (children [_] (into (vec params) [body]))   ; params 是 Param 节点向量
   (reduce-children [this f env]
-    (let [[new-params env1] (reduce (fn [[ps e] p] (let [[np e2] (f p e)] [(conj ps np) e2])) [[] env] params)
+    (let [[new-params env1] (reduce (fn [[ps e] p]   ; p 是 Param 节点
+                                      (let [[np e2] (f p e)]
+                                        [(conj ps np) e2]))
+                                    [[] env] params)
           [new-body env2] (f body env1)]
       [(assoc this :params new-params :body new-body) env2]))
   (attrs [_] attrs)

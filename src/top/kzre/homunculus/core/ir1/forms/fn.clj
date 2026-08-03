@@ -10,7 +10,7 @@
         [name params body] (if (symbol? maybe-name)
                              [maybe-name params body]
                              [nil maybe-name (cons params body)])
-        ;; 将参数符号转换为参数描述 map
+        ;; 将参数符号转换为参数 param 节点
         param-descs (mapv (fn [p] (n/make-param p (meta p))) params)
         ;; 合并 fn-sym、form、params 的元数据，确保各种位置标注都能传递
         merged-meta (merge (meta fn-sym) (meta form) (meta params))]

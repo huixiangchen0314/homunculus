@@ -280,7 +280,7 @@
 (defn field-with-init [field init] (assoc field :init init))
 (defn field-with-meta [field meta] (assoc field :meta meta))
 
-(defn make-param [name meta] {:name name :meta meta})
+(defn make-param [name meta] (m/->Param name meta))
 
 (defn make-arity
   "创建一个方法元数描述 map"
@@ -288,8 +288,8 @@
   {:name method-name :params params :body body :meta meta})
 
 (defn make-record
-  ([name fields protocols] (m/->Record name fields protocols nil nil))
-  ([name fields protocols meta] (m/->Record name fields protocols meta nil)))
+  ([name fields protocols] (m/->Record name fields protocols nil))
+  ([name fields protocols meta] (m/->Record name fields protocols meta)))
 
 (defn record-with-name      [node name]      (assoc node :name name))
 (defn record-with-fields    [node fields]    (assoc node :fields fields))

@@ -12,6 +12,7 @@
     [top.kzre.homunculus.core.ir2.forms.if]               ;; :if
     [top.kzre.homunculus.core.ir2.forms.block]            ;; :do → BlockNode
     [top.kzre.homunculus.core.ir2.forms.let]              ;; :let
+    [top.kzre.homunculus.core.ir2.forms.param]
     [top.kzre.homunculus.core.ir2.forms.lambda]           ;; :fn → LambdaNode
     [top.kzre.homunculus.core.ir2.forms.define]           ;; :def → DefineNode
     [top.kzre.homunculus.core.ir2.forms.loop]             ;; :loop

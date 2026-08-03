@@ -70,6 +70,11 @@
   (node-meta [_] meta)
   )
 
+(defrecord Param [name meta]
+  p/INode
+  (kind [_] :param)
+  (node-meta [_] meta)
+  )
 
 (defrecord Fn [name params body meta ]
   p/INode
@@ -146,6 +151,8 @@
 
   (node-meta [_] meta)
   )
+
+
 
 ;; RecordNode: 表示 defrecord 定义
 ;; name symbol?

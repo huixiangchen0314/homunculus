@@ -130,6 +130,11 @@
 (defn let-with-children [node bindings body]
   (-> node (assoc :bindings bindings) (assoc :body body)))
 
+(defn make-param
+  ([name]                      (m/->Param name {} nil))
+  ([name attrs]                (m/->Param name attrs nil))
+  ([name attrs meta]           (m/->Param name attrs meta)))
+
 ;; ══════════════════════════════════════════════
 ;; LambdaNode
 ;; ══════════════════════════════════════════════
