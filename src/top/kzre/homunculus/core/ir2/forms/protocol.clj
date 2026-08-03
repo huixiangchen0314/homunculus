@@ -5,6 +5,6 @@
 
 (defmethod ir2/lower-ast :protocol [node env]
   [(n2/make-protocol (n1/protocol-name node)
-                     (n1/protocol-funcs node)
+                     (n1/protocol-methods node)
                      {}
                      (n1/node-meta node))])

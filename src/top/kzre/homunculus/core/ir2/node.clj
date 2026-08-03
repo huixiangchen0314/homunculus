@@ -370,7 +370,7 @@
 ;; ══════════════════════════════════════════════
 ;; 访问器
 (defn protocol-name  [node] (:name node))
-(defn protocol-funcs [node] (:funcs node))        ;; 原 protocol-method-sigs
+
 
 ;; 构造函数
 (defn make-protocol
@@ -380,14 +380,14 @@
 
 ;; 更新器
 (defn protocol-with-name  [node name]  (assoc node :name name))
-(defn protocol-with-funcs [node funcs] (assoc node :funcs funcs))  ;; 原 protocol-with-method-sigs
+(defn protocol-with-funcs [node funcs] (assoc node :methods funcs))  ;; 原 protocol-with-method-sigs
 
 ;; ── ProtocolNode 方法访问器 ────────────────
 (defn protocol-methods
   "返回协议节点的 funcs 向量，每一项为方法描述 map：
    {:name method-name, :params [...], :ret type, :meta ...}"
   [node]
-  (:funcs node))
+  (:methods node))
 
 (defn method-name
   "返回单个方法描述中的 :name。"

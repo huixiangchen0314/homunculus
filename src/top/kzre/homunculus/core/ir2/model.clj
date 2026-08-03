@@ -306,8 +306,10 @@
   (node-meta [_] meta)
 )
 
+
+
 ;; ── ProtocolNode ────────────────────────────
-(defrecord Protocol [name funcs attrs meta ]
+(defrecord Protocol [name methods attrs meta ]
   p/INode
   (kind [_] :protocol)
   (children [_] [])

@@ -23,5 +23,5 @@
   ;; 无递归子节点，直接重建
   (n/make-protocol
     (n/protocol-name node)
-    (n/protocol-funcs node)
+    (n/protocol-methods node)
     (n/node-meta node)))

@@ -11,7 +11,8 @@
 (s/def ::meta map?)
 
 ;; 条目种类
-(s/def ::kind #{:function :record :protocol :variable :primitive :alias})
+(s/def ::kind #{:primitive :variable :function :alias
+                :record :protocol })
 
 (s/def ::ho? boolean?)
 (s/def ::inline boolean?)    ;; 新增：标记函数是否应被内联

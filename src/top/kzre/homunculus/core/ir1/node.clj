@@ -362,7 +362,7 @@
 ;; protocol
 ;; ════════════════════════════════════════════════════════════
 (defn protocol-name  [node] (:name node))
-(defn protocol-funcs [node] (:funcs node))
+(defn protocol-methods [node] (:methods node))
 
 (defn make-protocol
   ([name funcs] (m/->Protocol name funcs nil))

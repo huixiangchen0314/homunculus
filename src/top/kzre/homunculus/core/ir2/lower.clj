@@ -193,7 +193,7 @@
                 {} (ir1/node-meta node)))
 
 (defmethod lower-ast :protocol [node _env]
-  (ir2/->Protocol (:name node) (:funcs node) {} (ir1/node-meta node)))
+  (ir2/->Protocol (:name node) (:methods node) {} (ir1/node-meta node)))
 
 ;; ═══════════════════════════════════════════════
 ;; 成员访问

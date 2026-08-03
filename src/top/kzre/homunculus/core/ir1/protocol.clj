@@ -3,4 +3,5 @@
 
 (defprotocol INode
   (kind       [this] "返回节点类型关键字")
-  (node-meta  [this] "返回元数据 map"))
+  (node-meta  [this] "返回元数据 map")
+  )

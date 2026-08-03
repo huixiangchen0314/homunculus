@@ -177,13 +177,8 @@
   (node-meta  [_] meta)
   )
 
-;; ProtocolNode: 表示 defprotocol 定义
-;; funcs 示例: [{:name draw
-;;               :params [ ;; 不包括this
-;;                        {:name x, :meta nil}]
-;;               :ret :nil
-;;               :meta nil}]
-(defrecord Protocol [name funcs meta]
+
+(defrecord Protocol [name methods meta]
   p/INode
   (kind       [_] :protocol)
   (node-meta  [_] meta)
