@@ -6,8 +6,23 @@
             [top.kzre.homunculus.core.ir2.model :as m])
   (:import (top.kzre.homunculus.core.ir2.model Binding)))
 
-(defn make-method [name params doc attrs meta]
-  (m/->Method name params doc attrs meta))
+
+(defn make-field
+  ([name]                      (m/->Field name {} nil))
+  ([name attrs]                (m/->Field name attrs nil))
+  ([name attrs meta]           (m/->Field name attrs meta)))
+
+(defn make-protocol-impl
+  ([proto-name methods]        (m/->ProtocolImpl proto-name methods {} nil))
+  ([proto-name methods attrs]  (m/->ProtocolImpl proto-name methods attrs nil))
+  ([proto-name methods attrs meta]
+   (m/->ProtocolImpl proto-name methods attrs meta)))
+
+(defn make-method
+  ([name params doc attrs meta]
+   (m/->Method name params nil doc attrs meta))
+  ([name params body doc attrs meta]
+   (m/->Method name params body doc attrs meta)))
 
 (defn protocol-name [node] (:name node))          ; 返回符号
 (defn protocol-methods [node] (:methods node))    ; IR1 Method 向量
@@ -489,10 +504,6 @@
   [field init-node]
   (assoc field :init init-node))
 
-(defn make-field
-  "创建一个字段描述 map。"
-  [name init meta]
-  {:name name :init init :meta meta})
 
 
 ;; ── 节点类型判断（protocol-based，更安全） ──

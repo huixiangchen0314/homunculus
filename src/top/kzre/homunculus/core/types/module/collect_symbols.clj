@@ -36,25 +36,36 @@
                          :meta (n/node-meta node)))))
 
 (defn- collect-record [node context]
-  (let [s          (n/record-name node)
-        fields     (mapv (fn [f]
-                           (sym/make-field (n/field-name f)
-                                           :type (ty/get-type f)
-                                           :meta (n/field-meta f)))
-                         (n/record-fields node))
-        protocols  (n/record-protocols node)
-        record-entry (sym/make-record s :fields fields :protocols protocols
-                                      :type (ty/get-type node)
+  (let [s              (n/record-name node)                ; 记录名符号
+        fields-vec     (:fields node)                     ; Field 节点向量
+        protocol-impls (:protocols node)                  ; ProtocolImpl 向量
+
+        ;; 收集字段信息
+        fields (mapv (fn [f]
+                       (sym/make-field (:name f)
+                                       :type (ty/get-type f)
+                                       :meta (:meta f)))
+                     fields-vec)
+
+        protocols (mapv (fn [impl]
+                          {:protocol-name (:proto-name impl)
+                           :impl-method-names (mapv :name (:methods impl))})
+                        protocol-impls)
+
+        record-entry (sym/make-record s
+                                      :fields fields
+                                      :protocols protocols
                                       :meta (n/node-meta node))
-        ;; 构造构造器条目 ->RecordName
+
+        ;; 生成构造器条目 ->RecordName
         ctor-name   (symbol (str "->" (name s)))
-        field-tys   (mapv :type fields)
-        record-ty   (ty/make-tcon s)   ;; 修正：记录类型是 TCon
+        field-tys   (mapv :type fields)                   ; 从字段条目中取类型
+        record-ty   (ty/make-tcon s)
         ctor-type   (reduce (fn [ret arg] (ty/make-tfun arg ret))
                             record-ty
                             (reverse field-tys))
         ctor-params (mapv (fn [f]
-                            (sym/make-param (:field-name f)
+                            (sym/make-param (get f :field-name)   ; sym/make-field 返回包含 :field-name
                                             :type (:type f)
                                             :meta (:meta f)))
                           fields)
@@ -63,7 +74,6 @@
                                    :ret (sym/make-ret record-ty)
                                    :type ctor-type
                                    :meta {})]
-    ;; 注册记录条目和构造器条目
     (p/register-sym context record-entry)
     (p/register-sym context ctor-entry)
     record-entry))
@@ -82,7 +92,8 @@
                           (sym/make-method mname
                                            [(sym/make-func-arity params :ret ret)])))
                       (n/protocol-methods node))
-        entry   (sym/make-protocol proto-name :methods methods
+        entry   (sym/make-protocol proto-name
+                                   :methods methods
                                    :meta (n/node-meta node))]
     entry))
 

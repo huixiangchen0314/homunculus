@@ -178,8 +178,25 @@
 
 
 (defmethod parse-table-entry :record
-  [[_ sym & rest]]
+  [[_ sym & more]]
   (let [sym (unquote-name sym)
+        ;; 将 rest 分为字段部分和可选的协议实现部分
+        [field-vec proto-impls]
+        (loop [remaining more
+               fields  []
+               protos  []]
+          (if (empty? remaining)
+            [fields protos]
+            (let [fst (first remaining)]
+              (if (= fst :protocols)
+                ;; 遇到 :protocols 关键字，后面的每个元素是协议实现描述
+                (let [proto-descs (rest remaining)]
+                  [fields (vec proto-descs)])
+                ;; 否则当作字段定义 [field-name type]
+                (recur (rest remaining)
+                       (conj fields fst)
+                       protos)))))
+        ;; 解析字段
         fields (mapv (fn [fdef]
                        (let [[fname ftype] fdef
                              fname (unquote-name fname)]
@@ -187,9 +204,17 @@
                            (throw (ex-info "Record field name must be a symbol"
                                            {:fname fname :fdef fdef})))
                          (make-field fname :type (parse-type ftype))))
-                     rest)
+                     field-vec)
+        ;; 解析协议实现：每个实现描述形如 [ProtocolName method1 method2 ...]
+        protocols (mapv (fn [impl-desc]
+                          (let [[proto-name & method-names] impl-desc
+                                proto-name (unquote-name proto-name)]
+                            {:protocol-name proto-name
+                             :impl-method-names (vec method-names)}))
+                        proto-impls)
         record-sym sym
-        record-entry (make-record record-sym :fields fields)
+        record-entry (make-record record-sym :fields fields :protocols protocols)
+        ;; 构造器部分保持不变
         ctor-sym (symbol (str "->" (name record-sym)))
         ctor-params (mapv (fn [field]
                             (make-param (:field-name field) :type (:type field)))

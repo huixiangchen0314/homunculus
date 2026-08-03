@@ -1,21 +1,30 @@
 (ns top.kzre.homunculus.core.ir1.forms.record
-  "defrecord 的 IR1 构建。所有节点字段访问均通过 ir1.node 工具函数。"
-  (:require [top.kzre.homunculus.core.ir1.core :as ir1]
-            [top.kzre.homunculus.core.ir1.model :as m]
-            [top.kzre.homunculus.core.ir1.node :as n]))
+  "defrecord 的 IR1 构建。使用新的 Field / Method / ProtocolImpl 节点。"
+  (:require
+   [top.kzre.homunculus.core.ir1.core :as ir1]
+   [top.kzre.homunculus.core.ir1.model :as m]
+   [top.kzre.homunculus.core.ir1.node :as n]))
 
-;; ── 解析方法体 ────────────────────────────
-(defn- parse-method-bodies [method-form]
-  (let [method-name (first method-form)
-        arities     (rest method-form)]
-    (mapv (fn [arity-form]
-            (let [[this-sym & params] (first arity-form)
-                  new-params (mapv (fn [p] (n/make-param p (meta p))) params)
-                  body-exprs (rest arity-form)          ;; 剩余表单是方法体
-                  body       (n/wrap-body body-exprs)
-                  arity-meta (meta arity-form)]
-              (n/make-arity method-name new-params body arity-meta)))
-          arities)))
+;; ── 解析字段（仅保留符号，忽略默认值） ──
+(defn- parse-fields [field-vec]
+  (->> field-vec
+       (filter symbol?)
+       (mapv (fn [sym] (m/->Field sym (meta sym))))))
+
+;; ── 解析单个方法定义 ──────────────────────
+(defn- parse-method [method-form]
+  ;; 形式：(method-name [this & params] body...)
+  (let [[method-name params-vec & body-exprs] method-form
+        docstring (when (string? (first body-exprs)) (first body-exprs))
+        body-forms (if docstring (rest body-exprs) body-exprs)
+        method-meta (merge (meta method-name) (meta method-form) (meta params-vec))
+        ;; 参数跳过 this，并转为 Param 节点
+        param-nodes (mapv (fn [p] (m/->Param p (meta p))) (rest params-vec))
+        ;; 递归转换方法体表达式
+        ir-body (when (seq body-forms)
+                  (let [nodes (mapv ir1/->ir1 body-forms)]
+                    (n/wrap-body nodes (meta body-forms))))]
+    (m/->Method method-name param-nodes ir-body docstring method-meta)))
 
 ;; ── 解析协议实现 ──────────────────────────
 (defn- parse-protocols [body-forms]
@@ -23,68 +32,30 @@
          current-proto nil
          result []]
     (if-let [form (first forms)]
-      (if (symbol? form)                     ;; 协议名
+      (if (symbol? form)   ;; 协议名
         (recur (rest forms)
-               (n/make-protocol-impl form [])
-               (if current-proto
-                 (conj result current-proto)
-                 result))
-        (let [method-arities (parse-method-bodies form)]
+               {:proto-name form :methods []}
+               (if current-proto (conj result current-proto) result))
+        ;; 方法定义
+        (let [method (parse-method form)]
           (if current-proto
             (recur (rest forms)
-                   (n/protocol-impl-add-methods current-proto method-arities)
+                   (update current-proto :methods conj method)
                    result)
             (throw (ex-info "Method without protocol" {:method form})))))
-      ;; 结束，加入最后一个协议实现
-      (if current-proto
-        (conj result current-proto)
-        result))))
+      ;; 结束，将最后一个协议实现加入结果
+      (if current-proto (conj result current-proto) result))))
 
-(defn- parse-fields [field-vec]
-  (loop [items (seq field-vec)
-         result []]
-    (if-let [f (first items)]
-      (if (symbol? f)
-        (let [rest-items (rest items)
-              next (first rest-items)]
-          (if (and next (not (symbol? next)))
-            ;; 下一个元素不是符号 → 它是当前字段的默认值
-            (recur (rest rest-items)
-                   (conj result (n/make-field f next (meta f))))
-            ;; 下一个元素是符号（或无元素）→ 当前字段无默认值
-            (recur rest-items
-                   (conj result (n/make-field f nil (meta f))))))
-        (throw (ex-info "Record field name must be a symbol" {:found f})))
-      result)))
-
-;; ── form->node ：只提取原始数据 ───────────
+;; ── form->node：一次性递归构建完整 IR1 ──
 (defmethod ir1/form->node 'defrecord [form]
   (let [[_ name field-vec & body-forms] form
-        fields    (parse-fields field-vec)
-        protocols (parse-protocols body-forms)]
-    (m/->Record name fields protocols (meta form))))
-
-;; ── build-tree ：递归构建 IR1 子树 ───────
-(defmethod ir1/build-tree :record [node]
-  (let [name      (n/record-name node)                      ;; 保持简单符号
-        fields    (n/record-fields node)
-        protocols (n/record-protocols node)
-        meta      (n/node-meta node)
-
-        ;; 转换字段默认值
-        new-fields (mapv (fn [f]
-                           (if-let [init (n/field-init f)]
-                             (n/field-with-init f (ir1/->ir1 init))
-                             f))
-                         fields)
-        ;; 转换协议方法体
-        new-protocols (mapv
-                        (fn [impl]
-                          (n/protocol-impl-map-methods
-                            impl
-                            (fn [m]
-                              (if-let [body (n/arity-body m)]
-                                (n/arity-with-body m (ir1/->ir1 body))
-                                m))))
-                        protocols)]
-    (m/->Record name new-fields new-protocols meta)))
+        fields     (parse-fields field-vec)
+        proto-maps (parse-protocols body-forms)
+        ;; 转换为 ProtocolImpl 节点
+        protocol-impls (mapv (fn [pm]
+                               (m/->ProtocolImpl (:proto-name pm)
+                                                 (:methods pm)
+                                                 (meta form))) ; 使用 defrecord 的 meta
+                             proto-maps)]
+    ;; name 保持原始符号，meta 使用整个 form 的 meta
+    (m/->Record name fields protocol-impls (meta form))))

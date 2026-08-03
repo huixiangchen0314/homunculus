@@ -45,9 +45,18 @@
 (s/def ::field (s/keys :req-un [::field-name]
                        :opt-un [::meta ::type]))
 (s/def ::fields (s/coll-of ::field :kind vector?))
-(s/def ::protocol ::sym)
-(s/def ::protocols (s/coll-of ::protocol :kind vector?))
 
+
+;; 单个协议实现条目（纯数据）
+(s/def ::protocol-name symbol?)                 ; 实现的协议名称
+(s/def ::impl-method-names (s/coll-of symbol? :kind vector?))  ; 方法名向量
+(s/def ::protocol-impl
+  (s/keys :req-un [::protocol-name ::impl-method-names]))
+
+;; 记录条目的协议列表
+(s/def ::protocols (s/coll-of ::protocol-impl :kind vector?))
+
+;; 更新记录条目 spec（原本的 :opt-un 中已有 ::protocols）
 (s/def ::record-entry
   (s/merge ::common-entry
            (s/keys :opt-un [::fields ::protocols])))

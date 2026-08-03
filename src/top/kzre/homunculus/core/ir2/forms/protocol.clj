@@ -18,5 +18,4 @@
     [(n2/make-protocol (n1/protocol-name node)
                        ir2-methods
                        {}
-                       (n1/node-meta node))
-     env]))
+                       (n1/node-meta node))]))

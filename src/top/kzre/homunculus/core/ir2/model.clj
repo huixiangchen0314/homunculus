@@ -285,39 +285,67 @@
   (node-meta [_] meta)
 )
 
-;; ── RecordNode ──────────────────────────────
-(defrecord Record [name fields protocols attrs meta ]
-  p/INode
-  (kind [_] :record)
-  (children [_] (keep :init fields))
-  (reduce-children [this f env]
-    (let [inits (keep :init fields)
-          [new-inits env1] (reduce (fn [[is e] init] (let [[ni e2] (f init e)] [(conj is ni) e2])) [[] env] inits)
-          new-fields (loop [i 0, fs fields, res []]
-                       (if (empty? fs)
-                         res
-                         (let [fld (first fs)
-                               init (:init fld)]
-                           (if init
-                             (recur (inc i) (rest fs) (conj res (assoc fld :init (nth new-inits i))))
-                             (recur i (rest fs) (conj res fld))))))]
-      [(assoc this :fields new-fields) env1]))
-  (attrs [_] attrs)
-  (node-meta [_] meta)
-)
-
 
 ;; ── MethodNode ──────────────────────────────
-(defrecord Method [name params doc attrs meta]
+(defrecord Method [name params body doc attrs meta]
   p/INode
   (kind [_] :method)
-  (children [_] (vec params))                    ;; 子节点为 Param 向量
+  ;; children：params 向量，若 body 非空则追加 body
+  (children [_] (cond-> (vec params) body (conj body)))
   (reduce-children [this f env]
+    ;; 先递归处理所有 params，再处理 body（若存在）
     (let [[new-params env1] (reduce (fn [[ps e] p]
                                       (let [[np e2] (f p e)]
                                         [(conj ps np) e2]))
-                                    [[] env] params)]
-      [(assoc this :params new-params) env1]))
+                                    [[] env] params)
+          [new-body env2] (if body
+                            (f body env1)
+                            [nil env1])]
+      [(assoc this :params new-params :body new-body) env2]))
+  (attrs [_] attrs)
+  (node-meta [_] meta))
+
+
+
+;; ── FieldNode─────────────────────────
+(defrecord Field [name attrs meta]
+  p/INode
+  (kind [_] :field)
+  (children [_] [])
+  (reduce-children [this _f env] [this env])
+  (attrs [_] attrs)
+  (node-meta [_] meta))
+
+;; ── ProtocolImplNode）───────────────────
+(defrecord ProtocolImpl [proto-name methods attrs meta]
+  p/INode
+  (kind [_] :protocol-impl)
+  (children [_] (vec methods))                  ; 子节点为 Method 向量
+  (reduce-children [this f env]
+    (let [[new-methods env1] (reduce (fn [[ms e] m]
+                                       (let [[nm e2] (f m e)]
+                                         [(conj ms nm) e2]))
+                                     [[] env] methods)]
+      [(assoc this :methods new-methods) env1]))
+  (attrs [_] attrs)
+  (node-meta [_] meta))
+
+(defrecord Record [name fields protocols attrs meta]
+  p/INode
+  (kind [_] :record)
+  ;; 子节点：所有字段 + 所有协议实现（字段目前无子节点，但保留在列表中以便未来扩展）
+  (children [_] (into (vec fields) protocols))
+  (reduce-children [this f env]
+    ;; 顺序遍历 fields（无子节点，直接保留）和 protocols，传递环境
+    (let [[new-fields env1] (reduce (fn [[fs e] field]
+                                      (let [[new-field e2] (f field e)]
+                                        [(conj fs new-field) e2]))
+                                    [[] env] fields)
+          [new-protocols env2] (reduce (fn [[ps e] proto-impl]
+                                         (let [[new-proto e2] (f proto-impl e)]
+                                           [(conj ps new-proto) e2]))
+                                       [[] env1] protocols)]
+      [(assoc this :fields new-fields :protocols new-protocols) env2]))
   (attrs [_] attrs)
   (node-meta [_] meta))
 

@@ -153,34 +153,28 @@
   )
 
 
+(defrecord Method [name params body doc meta]
+  p/INode
+  (kind       [_] :method)
+  (node-meta  [_] meta))
 
-;; RecordNode: 表示 defrecord 定义
-;; name symbol?
-;; field map?
-;; {
-;; :name :user
-;; :meta nil
-;; :init <expr-node>
-;; }
-;; protocols vector
-;; [ {
-;; :protocol 'top.kzre.homunculus.internal/ICompiler
-;; :methods [{
-;; :name 'emit
-;; :params [{:name 'this, :meta nil} {:name 'context, meta: nil}...]
-;; :body <block-node>
-;; }]
-;; }... ]
+(defrecord Field [name meta]
+  p/INode
+  (kind       [_] :field)
+  (node-meta  [_] meta))
+
+(defrecord ProtocolImpl [proto-name methods meta]
+  p/INode
+  (kind       [_] :protocol-impl)
+  (node-meta  [_] meta)
+  )
+
 (defrecord Record [name fields protocols meta]
   p/INode
   (kind     [_] :record)
   (node-meta  [_] meta)
   )
 
-(defrecord Method [name params doc meta]
-  p/INode
-  (kind       [_] :method)
-  (node-meta  [_] meta))
 
 (defrecord Protocol [name methods meta]
   p/INode

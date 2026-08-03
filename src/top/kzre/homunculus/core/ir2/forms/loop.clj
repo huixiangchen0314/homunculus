@@ -15,4 +15,4 @@
 
 (defmethod ir2/lower-ast :recur [node env]
   (let [args (mapv #(first (ir2/lower-ast % env)) (:exprs node))]
-    [(m2/->Recur args {} (:meta node)) env]))
+    [(m2/->Recur args {} (:meta node))]))

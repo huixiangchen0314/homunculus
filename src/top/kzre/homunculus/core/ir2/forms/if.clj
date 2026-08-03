@@ -10,4 +10,4 @@
         test-node (first (ir2/lower-ast test env))
         then-node (first (ir2/lower-ast then env))
         else-node (when else (first (ir2/lower-ast else env)))]
-    [(n2/make-if test-node then-node else-node {} (n1/node-meta node) )]))
+    [(n2/make-if test-node then-node else-node {} (n1/node-meta node))]))

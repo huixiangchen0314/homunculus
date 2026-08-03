@@ -9,13 +9,13 @@
         docstring (when (string? (first more)) (first more))
         ;; 合并方法名、参数向量、整个表单的元数据
         method-meta (merge (meta method-name)
-                           (meta param-vec)
-                           (meta method-form))
+                           (meta method-form)
+                           (meta param-vec))
         ;; 移除 this，保留剩余参数
         params (rest param-vec)
         ;; 参数符号 → Param 节点，attrs 为空，保留参数自身的元数据
         param-nodes (mapv (fn [p] (m/->Param p (meta p))) params)]
-    (m/->Method method-name param-nodes docstring method-meta)))
+    (m/->Method method-name param-nodes nil docstring method-meta)))
 
 (defn- parse-protocol-methods [methods]
   (mapv parse-single-method methods))

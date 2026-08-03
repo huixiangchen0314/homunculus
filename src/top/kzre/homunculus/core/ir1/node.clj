@@ -388,8 +388,10 @@
 
 (defn wrap-body
   "若 exprs 包含多个表达式，则包装为 DoNode；若单个表达式，直接返回；若空则返回 nil。"
-  [exprs]
-  (case (count exprs)
-    0 nil
-    1 (first exprs)
-    (make-do (vec exprs))))
+  ([exprs]
+   (wrap-body exprs nil))
+  ([exprs meta]
+   (case (count exprs)
+     0 nil
+     1 (first exprs)
+     (m/->Do (vec exprs) meta))))
