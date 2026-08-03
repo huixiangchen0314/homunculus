@@ -307,16 +307,33 @@
 )
 
 
+;; ── MethodNode ──────────────────────────────
+(defrecord Method [name params doc attrs meta]
+  p/INode
+  (kind [_] :method)
+  (children [_] (vec params))                    ;; 子节点为 Param 向量
+  (reduce-children [this f env]
+    (let [[new-params env1] (reduce (fn [[ps e] p]
+                                      (let [[np e2] (f p e)]
+                                        [(conj ps np) e2]))
+                                    [[] env] params)]
+      [(assoc this :params new-params) env1]))
+  (attrs [_] attrs)
+  (node-meta [_] meta))
 
 ;; ── ProtocolNode ────────────────────────────
-(defrecord Protocol [name methods attrs meta ]
+(defrecord Protocol [name methods attrs meta]
   p/INode
   (kind [_] :protocol)
-  (children [_] [])
-  (reduce-children [this _f env] [this env])
+  (children [_] (vec methods))                  ;; 子节点为 Method 向量
+  (reduce-children [this f env]
+    (let [[new-methods env1] (reduce (fn [[ms e] m]
+                                       (let [[nm e2] (f m e)]
+                                         [(conj ms nm) e2]))
+                                     [[] env] methods)]
+      [(assoc this :methods new-methods) env1]))
   (attrs [_] attrs)
-  (node-meta [_] meta)
-)
+  (node-meta [_] meta))
 
 ;; ── MemberAccessNode ────────────────────────
 (defrecord MemberAccess [target accessor args attrs meta ]

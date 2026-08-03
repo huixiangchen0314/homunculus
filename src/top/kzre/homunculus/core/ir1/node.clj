@@ -4,6 +4,11 @@
             [top.kzre.homunculus.core.ir1.model :as m]))
 
 
+(defn protocol-name [node] (:name node))          ; 返回符号
+(defn protocol-methods [node] (:methods node))    ; IR1 Method 向量
+(defn method-name [m] (:name m))
+(defn method-params [m] (:params m))              ; IR1 Param 向量
+(defn method-doc [m] (:doc m))
 
 (defn make-pair
   "创建一个键值对 [k v]。k 和 v 都是 IR2 节点。"
@@ -361,8 +366,6 @@
 ;; ════════════════════════════════════════════════════════════
 ;; protocol
 ;; ════════════════════════════════════════════════════════════
-(defn protocol-name  [node] (:name node))
-(defn protocol-methods [node] (:methods node))
 
 (defn make-protocol
   ([name funcs] (m/->Protocol name funcs nil))

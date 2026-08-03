@@ -6,6 +6,14 @@
             [top.kzre.homunculus.core.ir2.model :as m])
   (:import (top.kzre.homunculus.core.ir2.model Binding)))
 
+(defn make-method [name params doc attrs meta]
+  (m/->Method name params doc attrs meta))
+
+(defn protocol-name [node] (:name node))          ; 返回符号
+(defn protocol-methods [node] (:methods node))    ; IR1 Method 向量
+(defn method-name [m] (:name m))
+(defn method-params [m] (:params m))              ; IR1 Param 向量
+(defn method-doc [m] (:doc m))
 
 ;; 纯数据工具：将扁平绑定列表划分为 [sym val] 对
 (def binding-pairs  n1/binding-pairs)
@@ -369,7 +377,6 @@
 ;; ProtocolNode
 ;; ══════════════════════════════════════════════
 ;; 访问器
-(defn protocol-name  [node] (:name node))
 
 
 ;; 构造函数
@@ -380,6 +387,7 @@
 
 ;; 更新器
 (defn protocol-with-name  [node name]  (assoc node :name name))
+
 (defn protocol-with-funcs [node funcs] (assoc node :methods funcs))  ;; 原 protocol-with-method-sigs
 
 ;; ── ProtocolNode 方法访问器 ────────────────

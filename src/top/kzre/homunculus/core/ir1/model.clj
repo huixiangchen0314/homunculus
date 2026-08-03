@@ -177,6 +177,10 @@
   (node-meta  [_] meta)
   )
 
+(defrecord Method [name params doc meta]
+  p/INode
+  (kind       [_] :method)
+  (node-meta  [_] meta))
 
 (defrecord Protocol [name methods meta]
   p/INode

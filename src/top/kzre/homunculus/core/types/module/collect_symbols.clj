@@ -68,22 +68,21 @@
     (p/register-sym context ctor-entry)
     record-entry))
 
-(defn- collect-protocol [node context]
-  (let [s       (n/protocol-name node)
-        methods (mapv (fn [method-desc]
-                        (let [mname   (n/method-name method-desc)
-                              params  (mapv (fn [p]
-                                              (sym/make-param (:name p)
-                                                              :type (:type p)
-                                                              :meta (:meta p)))
-                                            (n/method-params method-desc))
-                              ret     (sym/make-ret (n/method-ret method-desc)
-                                                    :meta (n/method-meta method-desc))]
+(defn- collect-protocol [node _context]
+  (let [proto-name       (n/protocol-name node)
+        methods (mapv (fn [method-node]
+                        (let [mname   (n/method-name method-node)
+                              params  (mapv (fn [param-node]
+                                              (sym/make-param (:name param-node)
+                                                              :type (ty/get-type param-node)
+                                                              :meta (:meta param-node)))
+                                            (n/method-params method-node))
+                              ret     (sym/make-ret  (ty/get-type method-node)
+                                                    :meta (n/method-meta method-node))]
                           (sym/make-method mname
                                            [(sym/make-func-arity params :ret ret)])))
                       (n/protocol-methods node))
-        entry   (sym/make-protocol s :methods methods
-                                   :type (ty/get-type node)
+        entry   (sym/make-protocol proto-name :methods methods
                                    :meta (n/node-meta node))]
     entry))
 

@@ -57,9 +57,9 @@
     entry))
 
 (defn make-protocol
-  [sym & {:keys [methods type meta] :or {methods []}}]
+  [sym & {:keys [methods meta]
+          :or {methods []}}]
   (let [entry (cond-> {:kind :protocol :sym sym}
-                      type (assoc :type type)
                       meta (assoc :meta meta)
                       methods (assoc :methods methods))]
     (validate! entry)
