@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:src/top/kzre/homunculus/compilers/typed.clj
 (ns top.kzre.homunculus.compilers.typed
+========
+(ns top.kzre.homunculus.compilers.firstorder
+>>>>>>>> b7026d5 (1. update compile protocol to isolate compile-pipeline):src/top/kzre/homunculus/compilers/firstorder.clj
   (:require
     [top.kzre.homunculus.core.ir1.api :as ir1]
     [top.kzre.homunculus.core.ir2.api :as ir2]
