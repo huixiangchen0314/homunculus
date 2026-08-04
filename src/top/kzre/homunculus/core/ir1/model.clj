@@ -2,42 +2,48 @@
   "IR1 AST 节点记录定义。所有节点实现 INode 协议。
    不再包含 children 字段，children 通过协议方法动态返回。
    注意：多表达式体（如 let/loop/fn/try 的 body）会被展开为多个子节点。"
-  (:require [top.kzre.homunculus.core.ir1.protocol :as p]))
+  )
+
+(defprotocol INode
+  (kind       [this] "返回节点类型关键字")
+  (node-meta  [this] "返回元数据 map")
+  )
+
 
 ;; ── 基础节点 ──────────────────────────────
 (defrecord Literal [val meta]
-  p/INode
+  INode
   (kind [_] :literal)
   (node-meta [_] meta)
   )
 
 (defrecord Symbol [name meta]
-  p/INode
+  INode
   (kind [_] :symbol)
 
   (node-meta [_] meta)
   )
 
 (defrecord Vector [items meta]
-  p/INode
+  INode
   (kind [_] :vector)
 
   (node-meta [_] meta)
   )
 
 (defrecord Pair [key val meta]
-  p/INode
+  INode
   (kind [_] :pair)
   (node-meta [_] meta))
 
 (defrecord Map [pairs meta]
-  p/INode
+  INode
   (kind [_] :map)
   (node-meta [_] meta)
   )
 
 (defrecord Call [op args meta]
-  p/INode
+  INode
   (kind [_] :call)
 
   (node-meta [_] meta)
@@ -45,71 +51,70 @@
 
 ;; ── 特殊形式 ──────────────────────────────
 (defrecord If [test then else meta ]
-  p/INode
+  INode
   (kind [_] :if)
 
   (node-meta [_] meta)
   )
 
 (defrecord Do [exprs meta ]
-  p/INode
+  INode
   (kind [_] :do)
 
   (node-meta [_] meta)
   )
 
 (defrecord Binding [var val meta]
-  p/INode
+  INode
   (kind [_] :binding)
   (node-meta [_] meta))
 
 (defrecord Let [bindings body meta]
-  p/INode
+  INode
   (kind [_] :let)
 
   (node-meta [_] meta)
   )
 
 (defrecord Param [name meta]
-  p/INode
+  INode
   (kind [_] :param)
   (node-meta [_] meta)
   )
 
 (defrecord Fn [name params body meta ]
-  p/INode
+  INode
   (kind [_] :fn)
   (node-meta [_] meta)
   )
 
-(defrecord Def [name doc attr val meta ]
-  p/INode
+(defrecord Def [name val docstring meta ]
+  INode
   (kind [_] :def)
-
   (node-meta [_] meta)
   )
 
-(defrecord Loop [bindings body bindings-count meta]
-  p/INode
+(defrecord Loop [bindings body meta]
+  INode
   (kind [_] :loop)
   (node-meta [_] meta)
   )
 
 (defrecord Recur [exprs meta]
-  p/INode
+  INode
   (kind [_] :recur)
   (node-meta [_] meta)
   )
 
 (defrecord Quote [expr meta]
-  p/INode
+  INode
   (kind [_] :quote)
 
   (node-meta [_] meta)
   )
 
 (defrecord Var [var-sym meta]
-  p/INode
+  INode
   (kind [_] :var)
 
   (node-meta [_] meta)
@@ -118,7 +123,7 @@
 
 
 (defrecord Set [var val meta]
-  p/INode
+  INode
   (kind [_] :set)
 
   (node-meta [_] meta)
@@ -126,58 +131,57 @@
 
 
 (defrecord Try [body catches finally meta]
-  p/INode
+  INode
   (kind [_] :try)
   (node-meta [_] meta)
   )
 
 
 (defrecord Catch [class sym body meta ]
-  p/INode
+  INode
   (kind [_] :catch)
 
   (node-meta [_] meta)
   )
 
 (defrecord Throw [expr meta]
-  p/INode
+  INode
   (kind [_] :throw)
   (node-meta [_] meta)
   )
 
-(defrecord Ns [name docstring attr-map references meta]
-  p/INode
+(defrecord Ns [name requires docstring meta]
+  INode
   (kind [_] :ns)
-
   (node-meta [_] meta)
   )
 
 
-(defrecord Method [name params body doc meta]
-  p/INode
+(defrecord Method [name params body docstring meta]
+  INode
   (kind       [_] :method)
   (node-meta  [_] meta))
 
 (defrecord Field [name meta]
-  p/INode
+  INode
   (kind       [_] :field)
   (node-meta  [_] meta))
 
 (defrecord ProtocolImpl [proto-name methods meta]
-  p/INode
+  INode
   (kind       [_] :protocol-impl)
   (node-meta  [_] meta)
   )
 
 (defrecord Record [name fields protocols meta]
-  p/INode
+  INode
   (kind     [_] :record)
   (node-meta  [_] meta)
   )
 
 
 (defrecord Protocol [name methods meta]
-  p/INode
+  INode
   (kind       [_] :protocol)
   (node-meta  [_] meta)
   )
@@ -186,7 +190,7 @@
 ;; .xyz 表示方法调用
 ;; 不支持Clojure 风格 assoc 设置
 (defrecord MemberAccess [target accessor args meta]
-  p/INode
+  INode
   (kind       [_] :member-access)
   (node-meta  [_] meta)
   )

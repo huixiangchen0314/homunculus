@@ -9,7 +9,7 @@
    忽略 :as 别名和 :refer 子句，不包含当前命名空间自身。"
   [ns-node]
   (let [self   (n/namespace-name ns-node)
-        refs   (n/namespace-references ns-node)]
+        refs   (n/namespace-requires ns-node)]
     (->> refs
          (mapcat (fn [ref]
                    (let [ns-sym (if (sequential? ref) (first ref) ref)]
@@ -37,19 +37,19 @@
   "从 ns 节点中提取别名映射，包括 :as 别名和 :refer :all 引入的符号。
    返回 {alias-sym -> full-ns-sym} 映射。"
   [ns-node symbol-table]
-  (let [refs (n/namespace-references ns-node)]
+  (let [reqs (n/namespace-requires ns-node)]
     (reduce merge {}
-            (keep (fn [ref]
+            (keep (fn [req]
                     (cond
                       ;; [ns :as alias]
-                      (and (vector? ref) (= (count ref) 3) (= :as (second ref)))
-                      {(nth ref 2) (first ref)}
+                      (and (vector? req) (= (count req) 3) (= :as (second req)))
+                      {(nth req 2) (first req)}
 
                       ;; [ns :refer :all]
-                      (and (vector? ref) (= (count ref) 3) (= :refer (second ref)) (= :all (nth ref 2)))
-                      (let [ns-sym (first ref)
+                      (and (vector? req) (= (count req) 3) (= :refer (second req)) (= :all (nth req 2)))
+                      (let [ns-sym (first req)
                             all-syms (ns-exported-syms symbol-table ns-sym)]
                         all-syms)
 
                       :else nil))
-                  refs))))
+                  reqs))))

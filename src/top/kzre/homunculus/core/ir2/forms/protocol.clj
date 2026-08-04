@@ -11,7 +11,7 @@
                                   ir2-params (mapv #(first (ir2/lower-ast % env)) params)]
                               (n2/make-method (n1/method-name m)
                                               ir2-params
-                                              (n1/method-doc m)
+                                              (n1/method-docstring m)
                                               {}          ; attrs
                                               (n1/node-meta m))))
                           ir1-methods)]

@@ -7,6 +7,6 @@
   (let [name-sym (n1/sym-name (n1/def-name node))   ;; 从 SymbolNode 中取出符号
         val-node (when-let [v (n1/def-val node)]
                    (first (ir2/lower-ast v env)))]
-    [(n2/make-define name-sym val-node nil    ;; doc 暂忽略
-                     {}                       ;; attr 暂忽略
+    [(n2/make-define name-sym val-node (n1/def-docstring node)
+                     {}
                      (n1/node-meta node) )]))

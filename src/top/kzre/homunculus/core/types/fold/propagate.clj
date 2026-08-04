@@ -123,7 +123,7 @@
     (let [subbed (maybe-subst-constant val (:env context))
           [new-val ctx1] (propagate-node subbed context)
           env' (collect-env (:env ctx1) (n/define-name node) new-val)]
-      [(n/make-define (n/define-name node) new-val (n/define-doc node)
+      [(n/make-define (n/define-name node) new-val (n/define-docstring node)
                       (n/attrs node) (n/node-meta node) )
        (assoc ctx1 :env env')])
     [node context]))

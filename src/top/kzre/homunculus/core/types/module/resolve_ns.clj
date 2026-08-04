@@ -34,7 +34,7 @@
         val-node (n/define-val node)
         [new-val env''] (if val-node (resolve-node val-node env') [nil env'])]
     [(n/make-define new-name new-val
-                    (n/define-doc node)
+                    (n/define-docstring node)
                     (n/attrs node)
                     (n/node-meta node))
      env'']))

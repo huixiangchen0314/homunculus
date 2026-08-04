@@ -31,7 +31,7 @@
           ho? (high-order? new-val)]
       [(n/make-define (n/define-name node)
                       new-val
-                      (n/define-doc node)
+                      (n/define-docstring node)
                       (if ho?
                         (assoc (n/attrs node) :ho? true)
                         (n/attrs node))

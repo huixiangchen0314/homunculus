@@ -1,12 +1,12 @@
 (ns top.kzre.homunculus.core.ir2.core
   "IR2 lowering 核心调度：定义多方法 lower-ast 与入口函数。"
-  (:require [top.kzre.homunculus.core.ir1.protocol :as ir1p]))
+  (:require [top.kzre.homunculus.core.ir1.model :as ir1]))
 
-(defn ir1-meta [ir1-node] (ir1p/node-meta ir1-node))
+(defn ir1-meta [ir1-node] (ir1/node-meta ir1-node))
 
 (defmulti lower-ast
           "将 IR1 节点降低为 IR2 节点向量。"
-          (fn [ir1-node _env] (ir1p/kind ir1-node)))
+          (fn [ir1-node _env] (ir1/kind ir1-node)))
 
 (defmethod lower-ast :default [node _env]
   [])

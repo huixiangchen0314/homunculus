@@ -146,7 +146,7 @@
 )
 
 ;; ── DefineNode ──────────────────────────────
-(defrecord Define [name val doc attrs meta ]
+(defrecord Define [name val docstring attrs meta ]
   p/INode
   (kind [_] :define)
   (children [_] (if val [val] []))
@@ -276,7 +276,7 @@
 )
 
 ;; ── NsNode ──────────────────────────────────
-(defrecord Ns [name docstring attr-map references attrs meta ]
+(defrecord Ns [name requires docstring attrs meta ]
   p/INode
   (kind [_] :ns)
   (children [_] [])
@@ -287,7 +287,7 @@
 
 
 ;; ── MethodNode ──────────────────────────────
-(defrecord Method [name params body doc attrs meta]
+(defrecord Method [name params body docstring attrs meta]
   p/INode
   (kind [_] :method)
   ;; children：params 向量，若 body 非空则追加 body

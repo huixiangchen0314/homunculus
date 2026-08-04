@@ -9,6 +9,6 @@
     (let [[new-val val-defs] (if-let [val (n/define-val node)]
                                (elim/eliminate val config env)
                                [nil []])]
-      [(n/make-define (n/define-name node) new-val (n/define-doc node)
+      [(n/make-define (n/define-name node) new-val (n/define-docstring node)
                       (n/attrs node) (n/node-meta node) )
        val-defs])))

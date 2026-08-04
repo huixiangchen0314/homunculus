@@ -19,16 +19,16 @@
    (m/->ProtocolImpl proto-name methods attrs meta)))
 
 (defn make-method
-  ([name params doc attrs meta]
-   (m/->Method name params nil doc attrs meta))
-  ([name params body doc attrs meta]
-   (m/->Method name params body doc attrs meta)))
+  ([name params docstring attrs meta]
+   (m/->Method name params nil docstring attrs meta))
+  ([name params body docstring attrs meta]
+   (m/->Method name params body docstring attrs meta)))
 
 (defn protocol-name [node] (:name node))          ; 返回符号
 (defn protocol-methods [node] (:methods node))    ; IR1 Method 向量
 (defn method-name [m] (:name m))
 (defn method-params [m] (:params m))              ; IR1 Param 向量
-(defn method-doc [m] (:doc m))
+(defn method-docstring [m] (:docstring m))
 
 ;; 纯数据工具：将扁平绑定列表划分为 [sym val] 对
 (def binding-pairs  n1/binding-pairs)
@@ -183,16 +183,16 @@
 ;; ══════════════════════════════════════════════
 (defn define-name [node] (:name node))
 (defn define-val  [node] (:val node))
-(defn define-doc  [node] (:doc node))
+(defn define-docstring  [node] (:docstring node))
 
 (defn make-define
-  ([name val]                      (m/->Define name val nil {} nil ))
-  ([name val doc]                  (m/->Define name val doc {} nil ))
-  ([name val doc attrs]            (m/->Define name val doc attrs nil ))
-  ([name val doc attrs meta]       (m/->Define name val doc attrs meta )))
+  ([name val]                           (m/->Define name val nil {} nil ))
+  ([name val docstring]                  (m/->Define name val docstring {} nil ))
+  ([name val docstring attrs]            (m/->Define name val docstring attrs nil ))
+  ([name val docstring attrs meta]       (m/->Define name val docstring attrs meta )))
 
 (defn define-with-val [node val] (assoc node :val val))
-(defn define-with-doc [node doc] (assoc node :doc doc))
+(defn define-with-doc [node doc] (assoc node :docstring doc))
 
 (defn define-node? [node] (= (some-> node ir2p/kind) :define))
 
@@ -359,17 +359,17 @@
 ;; ══════════════════════════════════════════════
 (defn namespace-name       [node] (:name node))
 (defn namespace-docstring  [node] (:docstring node))
-(defn namespace-attr-map   [node] (:attr-map node))
-(defn namespace-references [node] (:references node))
+
+(defn namespace-requires [node] (:requires node))
 
 (defn make-ns
-  ([name references]                      (m/->Ns name nil nil references {} nil ))
-  ([name docstring attr-map references]    (m/->Ns name docstring attr-map references {} nil ))
-  ([name docstring attr-map references attrs] (m/->Ns name docstring attr-map references attrs nil ))
-  ([name docstring attr-map references attrs meta] (m/->Ns name docstring attr-map references attrs meta )))
+  ([name requires]                      (m/->Ns name nil requires {} nil ))
+  ([name requires  docstring]    (m/->Ns name requires docstring {} nil ))
+  ([name requires  docstring attrs] (m/->Ns name requires docstring attrs nil ))
+  ([name requires docstring attrs meta] (m/->Ns name requires docstring attrs meta)))
 
 (defn ns-with-name       [node name]       (assoc node :name name))
-(defn ns-with-references [node references] (assoc node :references references))
+(defn ns-with-references [node references] (assoc node :requires references))
 (defn ns-node? [node] (= (some-> node ir2p/kind) :ns))
 ;; ══════════════════════════════════════════════
 ;; RecordNode

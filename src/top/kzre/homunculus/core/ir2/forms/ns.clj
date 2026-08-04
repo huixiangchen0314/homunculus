@@ -5,8 +5,7 @@
 
 (defmethod ir2/lower-ast :ns [node env]
   [(n2/make-ns (n1/namespace-name node)
+               (n1/namespace-requires node)
                (n1/namespace-docstring node)
-               (n1/namespace-attr-map node)
-               (n1/namespace-references node)
                {}
                (n1/node-meta node))])

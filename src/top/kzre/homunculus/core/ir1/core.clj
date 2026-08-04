@@ -2,8 +2,7 @@
   "IR1 核心：基于 defrecord 的 AST 节点构造与表单解析。
    所有特殊形式的解析逻辑在 ir1.forms 中。"
   (:require
-    [top.kzre.homunculus.core.ir1.model :as m]
-   [top.kzre.homunculus.core.ir1.protocol :as p]))
+    [top.kzre.homunculus.core.ir1.model :as m]))
 
 (declare ->ir1)
 
@@ -31,7 +30,7 @@
 
 
 
-(defmulti build-tree (fn [node] (p/kind node)))
+(defmulti build-tree (fn [node] (m/kind node)))
 
 (defmethod build-tree :default [node] node)
 

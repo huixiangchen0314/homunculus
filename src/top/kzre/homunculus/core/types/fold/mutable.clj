@@ -59,7 +59,7 @@
 (defmethod mutable-node :define [node env]
   (if-let [val (n/define-val node)]
     (let [[new-val env1] (mutable-node val env)]
-      [(n/make-define (n/define-name node) new-val (n/define-doc node)
+      [(n/make-define (n/define-name node) new-val (n/define-docstring node)
                       (n/attrs node) (n/node-meta node) )
        env1])
     [node env]))

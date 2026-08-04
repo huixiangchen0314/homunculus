@@ -11,7 +11,7 @@
     (let [tv (gen/fresh-tvar)
           new-node (n/make-define (n/define-name node)
                                   (n/define-val node)   ; 保持原值不变
-                                  (n/define-doc node)
+                                  (n/define-docstring node)
                                   (n/attrs node)
                                   (n/node-meta node)
                                   )]
@@ -25,7 +25,7 @@
                          [(c/make-cequal val-tv annotated-ty)])
           new-node     (n/make-define (n/define-name node)
                                       val-node
-                                      (n/define-doc node)
+                                      (n/define-docstring node)
                                       (n/attrs node)
                                       (n/node-meta node)
                                       )

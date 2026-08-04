@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.core.ir1.node
   "IR1 AST 节点字段的安全访问器、构造器与更新器。所有对节点内部关键字的直接操作都应通过此命名空间。"
-  (:require [top.kzre.homunculus.core.ir1.protocol :as ir1p]
+  (:require
             [top.kzre.homunculus.core.ir1.model :as m]))
 
 
@@ -8,7 +8,7 @@
 (defn protocol-methods [node] (:methods node))    ; IR1 Method 向量
 (defn method-name [m] (:name m))
 (defn method-params [m] (:params m))              ; IR1 Param 向量
-(defn method-doc [m] (:doc m))
+(defn method-docstring [m] (:docstring m))
 
 (defn make-pair
   "创建一个键值对 [k v]。k 和 v 都是 IR2 节点。"
@@ -21,7 +21,7 @@
 ;; ════════════════════════════════════════════════════════════
 ;; 通用节点访问
 ;; ════════════════════════════════════════════════════════════
-(defn node-meta [node] (ir1p/node-meta node))
+(defn node-meta [node] (m/node-meta node))
 
 ;; ════════════════════════════════════════════════════════════
 ;; 字面量
@@ -136,17 +136,17 @@
 ;; def
 ;; ════════════════════════════════════════════════════════════
 (defn def-name [node] (:name node))
-(defn def-doc  [node] (:doc node))
+(defn def-docstring  [node] (:docstring node))
 (defn def-attr [node] (:attr node))
 (defn def-val  [node] (:val node))
 
 (defn make-def
-  ([name val] (m/->Def name nil nil val nil ))
-  ([name val meta] (m/->Def name nil nil val meta ))
-  ([name doc attr val meta] (m/->Def name doc attr val meta )))
+  ([name val] (m/->Def name val nil nil))
+  ([name val meta] (m/->Def name val nil  meta ))
+  ([name val docstring meta] (m/->Def name  val docstring meta)))
 
 (defn def-with-name [node name] (assoc node :name name))
-(defn def-with-doc  [node doc]  (assoc node :doc doc))
+(defn def-with-docstring  [node docstring]  (assoc node :docstring docstring))
 (defn def-with-attr [node attr] (assoc node :attr attr))
 (defn def-with-val  [node val]  (assoc node :val val))
 
@@ -158,9 +158,9 @@
 
 (defn make-loop
   ([bindings body]
-   (m/->Loop bindings body (/ (count bindings) 2) nil))
+   (m/->Loop bindings body nil))
   ([bindings body meta]
-   (m/->Loop bindings body (/ (count bindings) 2) meta)))
+   (m/->Loop bindings body meta)))
 
 (defn loop-with-bindings [node bindings] (assoc node :bindings bindings))
 (defn loop-with-body     [node body]      (assoc node :body body))
@@ -254,18 +254,16 @@
 ;; ns
 ;; ════════════════════════════════════════════════════════════
 (defn namespace-name       [node] (:name node))
-(defn namespace-references [node] (:references node))
+(defn namespace-requires [node] (:requires node))
 (defn namespace-docstring  [node] (:docstring node))
-(defn namespace-attr-map   [node] (:attr-map node))
-
 (defn make-ns
-  ([name references]
-   (m/->Ns name nil nil references nil))
-  ([name docstring attr-map references meta]
-   (m/->Ns name docstring attr-map references meta)))
+  ([name requires]
+   (m/->Ns name requires nil nil))
+  ([name requires docstring meta]
+   (m/->Ns name requires docstring meta)))
 
 (defn ns-with-name       [node name]       (assoc node :name name))
-(defn ns-with-references [node references] (assoc node :references references))
+(defn ns-with-references [node references] (assoc node :requires references))
 
 ;; ════════════════════════════════════════════════════════════
 ;; record
