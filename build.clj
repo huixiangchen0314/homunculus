@@ -38,7 +38,6 @@
 
 (defn jar [_]
       (clean nil)
-      (compile-java nil)
       (compile-clj nil)
       (copy-resources nil)
       (b/jar {:class-dir class-dir
@@ -46,7 +45,6 @@
 
 (defn uberjar [_]
       (clean nil)
-      (compile-java nil)
       (compile-clj nil)
       (copy-resources nil)
       (b/uber {:class-dir class-dir
