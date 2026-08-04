@@ -62,26 +62,28 @@
 (defn inline-let
   "如果 let 绑定的 lambda 满足条件，将其内联到 body 中所有调用点。"
   [let-node config]
-  (let [bindings (n/let-bindings let-node)       ;; 返回 Binding 向量
+  (let [bindings (n/let-bindings let-node)
         body     (n/let-body let-node)]
     (loop [remaining bindings
            new-bindings []
            current-body body]
-      (if-let [b (first remaining)]               ;; b 是 Binding 记录
-        (let [var-node (:var b)
+      (if (seq remaining)
+        (let [b (first remaining)
+              var-node (:var b)
               val-node (:val b)]
-          (if (and (= (:kind val-node) :lambda)   ;; 注意 val-node 是节点，使用 :kind
+          (if (and (= (:kind val-node) :lambda)
                    (empty? (free-vars/free-vars-of-lambda val-node))
                    (inline-candidate? val-node config)
                    (not (has-non-call-usage? current-body (:name var-node))))
-            ;; 满足内联条件：替换所有调用点，不将该绑定加入 new-bindings
-            (let [new-body (replace-call-sites current-body (:name var-node) val-node)]
-              (recur (rest remaining) new-bindings new-body))
-            ;; 不满足：保留原绑定（无需重建）
-            (recur (rest remaining) (conj new-bindings b) current-body))))
-      ;; 所有绑定处理完毕，构造新 let 节点
-      (n/make-let new-bindings current-body
-                  (n/attrs let-node) (n/node-meta let-node)))))
+            (recur (rest remaining)
+                   new-bindings
+                   (replace-call-sites current-body (:name var-node) val-node))
+            (recur (rest remaining)
+                   (conj new-bindings b)
+                   current-body)))
+        ;; 所有绑定处理完毕
+        (n/make-let new-bindings current-body
+                    (n/attrs let-node) (n/node-meta let-node))))))
 
 (declare walk)
 

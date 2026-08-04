@@ -1,16 +1,18 @@
 (ns top.kzre.homunculus.cli.core
   (:gen-class)
   (:require
-    [top.kzre.homunculus.backend.hlsl.config :as hlsl]
+    [clojure.java.io :as io]
+    [top.kzre.homunculus.backend.hlsl.api :as hlsl]
+    [top.kzre.homunculus.cli.options :as opts]
     [top.kzre.homunculus.internal.model :as model]
+    [top.kzre.homunculus.internal.module-unit :as mu]
     [top.kzre.homunculus.internal.protocol :as p]
     [top.kzre.homunculus.internal.utils :as u]
-    [top.kzre.homunculus.cli.options :as opts]
-    [clojure.java.io :as io]))
+    [top.kzre.homunculus.version :as version]))
 
-(defn- compiler-for-target [target]
+(defn- lookup-compile-target [target]
   (case target
-    :hlsl (hlsl/->HLSLCompiler)
+    :hlsl hlsl/hlsl-target
     ;; 未来可添加其他后端
     (throw (ex-info (str "Unsupported target: " target) {:target target}))))
 
@@ -24,40 +26,33 @@
       (println (opts/usage-string))
       (System/exit 0))
     (when (:version options)
-      (println "Homunculus Compiler v0.1.0")
+      (println (str "Homunculus Compiler v" version/version))
       (System/exit 0))
     (when (empty? files)
       (println "错误: 未指定输入文件")
       (println (opts/usage-string))
       (System/exit 1))
 
-    (let [target   (keyword (get options :target "hlsl"))
-          compiler (compiler-for-target target)
-          lib-paths (or (not-empty (:lib options)) ["."])
-          config   (model/->CompileConfig options
-                                          (or (:include options) [])
-                                          lib-paths
-                                          (:output options)
-                                          target
-                                          (:style options))
-          state    (atom {:compiling #{} :modules {} :symbol-table {}})
-          context  (model/->DefaultCompileContext config compiler state)]
+    (let [config (model/make-compile-config options)
+          target (lookup-compile-target (p/target config))
+          context  (model/make-compile-context config target)
+          compiler (p/compiler context)]
 
       ;; 编译所有输入文件
       (doseq [file-path files]
         (let [src   (slurp file-path)
               forms (u/parse-forms src)]
-          (p/compile-module compiler forms context )))
+          (p/compile compiler forms context )))
 
       ;; 输出
       (if (:split-modules options)
         ;; 分割输出：每个模块单独生成文件，使用配置的命名风格
-        (let [all-units (vals (get-in @state [:modules]))
+        (let [all-units (p/all-module-units context)
               out-dir   (:output options "out")
               style     (p/module-naming-style config)]   ;; 从配置获取风格
           (doseq [unit all-units]
-            (let [code     (p/emit compiler unit context)
-                  ns-sym   (:ns-sym unit)
+            (let [code     (p/compile-module compiler unit context)
+                  ns-sym   (mu/module-ns unit)
                   filename (u/ns->module-path ns-sym style ".hlsl")
                   f (io/file out-dir filename)]  ;; 根据风格生成文件名
               (io/make-parents f)

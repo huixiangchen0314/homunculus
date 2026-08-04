@@ -175,19 +175,3 @@
                              (if (some? default)
                                (str " (默认: " default ")")
                                "")))))))
-
-;; ═══════════════════════════════════════════════════════════
-;; 示例（在 REPL 中测试）
-;; ═══════════════════════════════════════════════════════════
-(comment
-  (clear-options!)
-  ;; 重新注册基础选项（已内置，但可调用）
-  (parse-opts ["-o" "build" "-I" "inc1" "-I" "inc2" "file.clj"])
-  ;; => {:options {:help false, :version false, :output "build", :target "hlsl", :include ["inc1" "inc2"], :lib [], :style :default}
-  ;;     :files ["file.clj"], :errors []}
-
-  ;; 后端添加自定义选项
-  (register-option! ["-e" "--entry NAME" "入口函数名" :default "main"])
-  (parse-opts ["-e" "vsMain" "file.clj"])
-  ;; => {:options {..., :entry "vsMain"}, :files ["file.clj"], :errors []}
-  )

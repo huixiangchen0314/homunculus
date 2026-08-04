@@ -1,7 +1,3 @@
-;; ═══════════════════════════════════════════════════════
-;; top.kzre.homunculus.core.types.protocol
-;; 所有编译器类型、形状、前后端接口的协议定义
-;; ═══════════════════════════════════════════════════════
 (ns top.kzre.homunculus.core.types.protocol)
 
 ;; ── 类型表示协议 ──────────────────────────
@@ -25,4 +21,5 @@
 ;; ── 后端信息 ──────────────────────────────
 (defprotocol IBackendInfo
   (type-conversion     [this src-ty dst-ty] "两个内置类型间的转换代价")
-  (support-hetero-vec [this] "支持异构向量吗"))
+  (support-hetero-vec [this] "支持异构向量吗")
+  (folder [this] "返回常量折叠器函数，接收一个表达式节点，返回折叠后的节点或原节点"))

@@ -6,7 +6,11 @@
     [top.kzre.homunculus.backend.shader.types :as st]
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.metadata :as md]
-    [top.kzre.homunculus.core.types.type :as ty]))
+    [top.kzre.homunculus.core.types.protocol :as tp]
+    [top.kzre.homunculus.core.types.type :as ty]
+    [top.kzre.homunculus.internal.protocol :as ip]
+    [top.kzre.homunculus.internal.symbol :as sym]
+    [top.kzre.homunculus.internal.utils :as iu]))
 ;; TODO 使用 defast 定义完整抽象语法树
 (defn hlsl-type-str [ir-type]
   (cond
@@ -138,10 +142,33 @@
         init-struct (emit-node val-expr context)]
     [:static-var-decl type-str name-str init-struct]))
 
+
+(defn make-context
+  "构造 HLSL 发射上下文。
+   compile-ctx : 编译上下文（实现 ICompileContext）
+   frontend    : 前端实例（实现 IFrontendInfo）"
+  [compile-ctx frontend]
+  (let [builtin-table (tp/builtin-symbols frontend)
+        user-table    (ip/symbol-table compile-ctx)
+        symbols       (merge builtin-table user-table)
+        ;; 从编译上下文中获取编译配置
+        exclude-ns (tp/macro-namespaces frontend)
+        config        (ip/config compile-ctx)
+        style         (when config (ip/module-naming-style config))
+        style         (or style :default)
+        module-naming-fn (fn [ns-sym] (iu/ns->module-path ns-sym style ".hlsl"))]
+    {:frontend         frontend
+     :ctx              compile-ctx
+     :symbol-table     symbols
+     :known-types      (sym/types-symbols symbols)
+     :module-naming-fn module-naming-fn
+     :exclude-ns       (set exclude-ns)
+     }))
+
 ;; ── 全局入口 ──
 (defn emit
   [ir2-roots context]
-  (let [ns-node   (first (filter n/ns-node? ir2-roots))
+  (let [ns-node (first (filter n/ns-node? ir2-roots))
         flat      (mapcat n/unwrap-body ir2-roots)
         defines   (filter n/define-node? flat)
         records   (filter n/record-node? flat)

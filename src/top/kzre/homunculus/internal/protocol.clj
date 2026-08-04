@@ -1,5 +1,6 @@
 (ns top.kzre.homunculus.internal.protocol
-  "编译器内部协议：配置、上下文与编译器入口。")
+  "编译器内部协议：配置、上下文与编译器入口。"
+  (:refer-clojure :exclude [compile]))
 
 (defprotocol ICompileConfig
   "一次编译指令所需的静态配置。"
@@ -16,21 +17,30 @@
 
 
 (defprotocol ICompileContext
-  (config           [this])
+  (config           [this] "获取配置选项 map")
+  (frontend [this] "前端协议")
+  (backend [this] "后端协议")
+  (compiler [this] "编译器")
+  (emitter [this] "代码发射器")
   (register-deps    [this dep-syms] "递归编译所有依赖，确保它们已就绪")
   (register-sym [this sym-entry] "注册一个符号表项")
-  (symbol-table      [this ] "返回全局符号表"))
+  (symbol-table      [this] "返回全局符号表")
+  (module-unit [_ ns-sym])
+  (set-module-unit! [this ns-sym unit])
+  (all-module-units [this] "返回积累的所有模块单元"))
+
+(defprotocol IEmitter
+  (emit [this unit context] "发射编译单元"))
 
 
 (defprotocol ICompiler
   "编译器后端。支持模块化编译与链接。"
-  (compile-module [this forms context]
+  (compile [this forms context]
     "编译单个命名空间模块，返回 ModuleUnit。
      会递归编译依赖，执行 IR 构建、类型推断及约束求解，
      但不执行全局死代码消除、最终类型检查及代码生成。")
   (link [this context]
     "收集所有已编译的 ModuleUnit，执行全局优化和检查，
-     最终生成目标代码字符串。")
-  ;; 保留单文件便捷方法
-  (emit [this unit context]
-    "发射单个 ModuleUnit，执行最终类型检查，返回生成代码."))
+     返回生成代码.")
+  (compile-module [this unit context]
+    "编译单个 ModuleUnit，执行最终类型检查，返回生成代码."))

@@ -1,10 +1,9 @@
 (ns top.kzre.homunculus.backend.hlsl.frontend
   "HLSL 前端：实现 IFrontendInfo 协议，提供 HLSL 类型、字面量、内置函数。"
   (:require
-    [top.kzre.homunculus.backend.shader.builtin :as builtin]
     [top.kzre.homunculus.core.types.protocol :as tp]
-    [top.kzre.homunculus.internal.symbol :as sym]
-    [top.kzre.homunculus.core.types.type :as ty]))
+    [top.kzre.homunculus.core.types.type :as ty]
+    [top.kzre.homunculus.internal.symbol :as sym]))
 
 
 ;; ── 用 DSL 构建完整的内置符号表 ──
@@ -138,7 +137,7 @@
            [:func 'ddy      ['x 'float] 'float]
            [:func 'fwidth   ['x 'float] 'float]
 
-           ;; 构造函数别名（返回类型也用符号）
+           ;; 构造函数别名（返回类型也用符号）带命名空间，避免和默认 float 混淆
            [:func 'top.kzre.homunculus.backend.shader.dsl/float    [] 'float]
            [:func 'top.kzre.homunculus.backend.shader.dsl/float2   [] 'float2]
            [:func 'top.kzre.homunculus.backend.shader.dsl/float3   [] 'float3]
@@ -151,10 +150,6 @@
            ))
 
 
-
-
-
-
 (defrecord HLSLFrontend []
   tp/IFrontendInfo
   (literal->type [_ val]
@@ -163,7 +158,6 @@
       (integer? val) (ty/make-tcon 'int)
       (true? val)    (ty/make-tcon 'bool)
       (false? val)   (ty/make-tcon 'bool)
-      ;(nil? val)     (ty/make-tcon 'float)
       :else          (ty/make-tvar (gensym "lit"))))
 
   (builtin-symbols [_] symbol-tables)
@@ -174,3 +168,5 @@
                           'top.kzre.homunculus.core
                           'cljh.core
                           }))
+
+(defonce frontend (->HLSLFrontend))

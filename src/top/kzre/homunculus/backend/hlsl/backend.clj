@@ -2,7 +2,8 @@
   "HLSL 后端实现，提供类型转换规则。"
   (:require
     [top.kzre.homunculus.core.types.protocol :as tp]
-    [top.kzre.homunculus.core.types.type :as ty]))
+    [top.kzre.homunculus.core.types.type :as ty]
+    [top.kzre.homunculus.backend.hlsl.folder :as folder]))
 
 (defrecord HLSLBackend []
   tp/IBackendInfo
@@ -23,4 +24,8 @@
            (= (ty/type-sym dst-ty) 'half)) 1
       ;; 其他情况不允许
       :else nil))
-  (support-hetero-vec [_] false))
+  (support-hetero-vec [_] false)
+  (folder [_] folder/folder))
+
+
+(defonce backend (->HLSLBackend))

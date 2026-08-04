@@ -1,9 +1,5 @@
-(ns top.kzre.homunculus.backend.hlsl.config
+(ns top.kzre.homunculus.compilers.typed
   (:require
-    [top.kzre.homunculus.backend.hlsl.api :as emit]
-    [top.kzre.homunculus.backend.hlsl.backend :as hlsl-backend]
-    [top.kzre.homunculus.backend.hlsl.folder :as folder]
-    [top.kzre.homunculus.backend.hlsl.frontend :as hlsl-front]
     [top.kzre.homunculus.core.ir1.api :as ir1]
     [top.kzre.homunculus.core.ir2.api :as ir2]
     [top.kzre.homunculus.core.ir2.node :as n]
@@ -19,8 +15,8 @@
     [top.kzre.homunculus.core.types.lambda-elim.api :as lambda-elim]
     [top.kzre.homunculus.core.types.lambda-elim.protocol :as lambda-elim-p]
     [top.kzre.homunculus.core.types.module.api :as module]
+    [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.core.types.recur-elim.api :as recur]
-    [top.kzre.homunculus.internal.model :as model]
     [top.kzre.homunculus.internal.module-unit :as mu]
     [top.kzre.homunculus.internal.protocol :as p]))
 
@@ -35,26 +31,14 @@
       ;; 生成唯一的提升函数名
       (symbol (str "lifted_" (gensym "lambda"))))))
 
-(defrecord HLSLCompiler []
+
+(defrecord TypedCompiler []
   p/ICompiler
-
-  (emit [_this unit context]
-    (let [roots     (:ir2-roots unit)
-          frontend  (hlsl-front/->HLSLFrontend)
-          backend   (hlsl-backend/->HLSLBackend)
-          dce-ctx (dce/make-context context)                ;; 这些是必须在HLSL 消除的代码
-          roots (dce/eliminate-ho-defs roots dce-ctx)
-          roots (dce/eliminate-inline-defs roots dce-ctx)
-          roots (dce/eliminate-polymorphic-defs roots dce-ctx)
-
-          checked   (check/check roots (check/make-context context frontend backend))
-          result    (emit/emit checked (emit/make-context context frontend))]
-      result))
-
   ;; 模块编译
-  (compile-module [_this forms context]
-    (let [frontend  (hlsl-front/->HLSLFrontend)
-          backend   (hlsl-backend/->HLSLBackend)
+  (compile [_ forms context]
+    (let [frontend (p/frontend context)
+          backend (p/backend context)
+          folder (tp/folder backend)
           lift-cfg  (default-lift-config)
           ns-sym    (some-> (first forms) (nth 1))
           _         (when (nil? ns-sym)
@@ -71,20 +55,33 @@
           no-ho    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
           no-closure (lambda-elim/eliminate no-ho lift-cfg)
           no-recur   (recur/elim-nodes no-closure)
-          folded     (fold/fold no-recur (fold/make-context context frontend backend folder/folder))
+          folded     (fold/fold no-recur (fold/make-context context frontend backend folder))
           inferred   (infer/infer folded (infer/make-context context frontend backend))
           solved     (solve/process inferred (solve/make-context context frontend backend))
           ;mutable    (mut/analyze solved)
           _          (module/collect-symbols solved context)
-          unit       (mu/->ModuleUnit ns-sym solved)]
-      (model/set-module-unit! context ns-sym unit)
+          unit       (mu/make-module-unit ns-sym solved)]
+      (p/set-module-unit! context ns-sym unit)
       unit))
 
+  (compile-module [_ unit context]
+    (let [frontend (p/frontend context)
+          backend (p/backend context)
+          roots     (mu/module-nodes unit)
+          dce-ctx (dce/make-context context)                ;; 这些是必须在HLSL 消除的代码
+          roots (dce/eliminate-ho-defs roots dce-ctx)
+          roots (dce/eliminate-inline-defs roots dce-ctx)
+          roots (dce/eliminate-polymorphic-defs roots dce-ctx)
+          emitter (p/emitter context)
+          checked   (check/check roots (check/make-context context frontend backend))
+          result    (p/emit emitter checked context)]
+      result))
 
   ;; 全局链接
-  (link [_this context]
-    (let [all-units (vals (get-in @(:state context) [:modules]))
-          all-roots (mapcat :ir2-roots all-units)
+  (link [_ context]
+    (let [all-units (p/all-module-units context)
+          all-roots (mapcat mu/module-nodes all-units)
+          emitter (p/emitter context)
           roots (remove n/ns-node? all-roots)
           ;; dce
           dce-ctx (dce/make-context context)   ;; 使用默认配置
@@ -92,9 +89,11 @@
           roots (dce/eliminate-inline-defs roots dce-ctx)
           roots (dce/eliminate-polymorphic-defs roots dce-ctx)
           ;; 最终类型检查
-          frontend  (hlsl-front/->HLSLFrontend)
-          backend   (hlsl-backend/->HLSLBackend)
+          frontend  (p/frontend context)
+          backend   (p/backend context)
           checked   (check/check roots (check/make-context context frontend backend))
           ;; 代码生成
-          result    (emit/emit checked (emit/make-context context frontend))]
+          result    (p/emit emitter checked context)]
       result)))
+
+(defonce compiler (->TypedCompiler))
