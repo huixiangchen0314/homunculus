@@ -2,7 +2,7 @@
   "可变性分析：找出所有被 :assign 赋值的 :variable 节点，在 :attrs 中标记 {:mutable true}。
    使用 reduce-children 统一遍历，仅对 assign/variable 特判。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.model :as p]))
+            [top.kzre.homunculus.core.ir2.ast :as p]))
 ;; TODO 很难证明一个变量是不可变的，这个命名空间废弃
 ;; ── 辅助：环境操作 ────────────────────────
 (defn- add-mutable [env var-name]
@@ -42,7 +42,7 @@
   [ir2-roots]
   (let [mutable-vars (atom #{})
         collect (fn collect [node]
-                  (when (satisfies? p/INode node)
+                  (when (satisfies? p/IR2 node)
                     (when (= (p/kind node) :assign)
                       (swap! mutable-vars conj (n/var-name (n/assign-var node))))
                     (doseq [c (n/children node)] (collect c))))]

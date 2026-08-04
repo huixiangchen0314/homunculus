@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.ir2.forms.pair
   (:require
     [top.kzre.homunculus.core.ir2.core :as ir2]
-    [top.kzre.homunculus.core.ir2.model :as model]))
+    [top.kzre.homunculus.core.ir2.ast :as model]))
 
 
 (defmethod ir2/lower-ast :pair [node env]

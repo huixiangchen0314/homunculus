@@ -3,13 +3,13 @@
    提供便捷函数用于访问函数、参数、定义等各层级的元数据，
    以及元数据中常见的标记判断。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.model :as ir2p]))
+            [top.kzre.homunculus.core.ir2.ast :as ir2p]))
 
 ;; ── 基础工具（已存在）─────────────────────
 (defn node-meta
   "安全获取节点的元数据 map，若节点不满足 INode 则返回 nil。"
   [node]
-  (when (satisfies? ir2p/INode node)
+  (when (satisfies? ir2p/IR2 node)
     (ir2p/node-meta node)))
 
 (defn has-meta?

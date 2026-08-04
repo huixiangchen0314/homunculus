@@ -3,7 +3,7 @@
    使用 reduce-children 统一遍历，仅对顺序作用域手动处理。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.types.utils :as u]
-            [top.kzre.homunculus.core.ir2.model :as p]))
+            [top.kzre.homunculus.core.ir2.ast :as p]))
 
 (defrecord Env [table])
 (defn make-env [] (->Env {}))

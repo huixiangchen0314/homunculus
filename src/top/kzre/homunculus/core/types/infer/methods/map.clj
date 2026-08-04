@@ -1,5 +1,5 @@
 (ns top.kzre.homunculus.core.types.infer.methods.map
-  (:require [top.kzre.homunculus.core.ir2.model :as m]
+  (:require [top.kzre.homunculus.core.ir2.ast :as m]
             [top.kzre.homunculus.core.types.infer.core :as infer]
             [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.type :as type]))

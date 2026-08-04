@@ -4,7 +4,7 @@
   (:require
    [clojure.walk :as walk]
    [top.kzre.homunculus.core.ir2.node :as n]
-   [top.kzre.homunculus.core.ir2.model :as p]
+   [top.kzre.homunculus.core.ir2.ast :as p]
    [top.kzre.homunculus.core.types.protocol :as tp]
    [top.kzre.homunculus.core.types.subst.replace :as replace]
    [top.kzre.homunculus.internal.protocol :as ip]
@@ -28,7 +28,7 @@
 (defn- strip-types [node]
   (walk/prewalk
     (fn [x]
-      (if (satisfies? p/INode x)
+      (if (p/ir2? x)
         (n/set-type-attr x nil)
         x))
     node))

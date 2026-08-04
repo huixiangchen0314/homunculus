@@ -3,7 +3,7 @@
    使用 reduce-children + walk 模式，ho-elim-fn 绝不递归子节点。"
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.ir2.model :as p]
+    [top.kzre.homunculus.core.ir2.ast :as p]
     [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.core.types.subst.replace :as replace]
     [top.kzre.homunculus.internal.protocol :as ip]

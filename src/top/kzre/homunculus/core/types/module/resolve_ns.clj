@@ -1,8 +1,8 @@
 (ns top.kzre.homunculus.core.types.module.resolve-ns
   "命名空间解析。利用 reduce-children 自动遍历，只保留需要环境/名称特殊处理的节点。"
   (:require
-    [top.kzre.homunculus.core.ir2.model :as m]
-    [top.kzre.homunculus.core.ir2.model :as ir2p]
+    [top.kzre.homunculus.core.ir2.ast :as m]
+    [top.kzre.homunculus.core.ir2.ast :as ir2p]
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.protocol :as types]
     [top.kzre.homunculus.core.types.namespace :as namespace]

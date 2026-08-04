@@ -1,11 +1,11 @@
 (ns top.kzre.homunculus.backend.util.tree
   "IR 树遍历与查询工具。"
-  (:require [top.kzre.homunculus.core.ir2.model :as ir2p]))
+  (:require [top.kzre.homunculus.core.ir2.ast :as ir2p]))
 
 (defn children
   "返回节点的子节点列表。"
   [node]
-  (if (satisfies? ir2p/INode node)
+  (if (satisfies? ir2p/IR2 node)
     (ir2p/children node)
     []))
 
@@ -21,7 +21,7 @@
   [kind node]
   (let [result (atom [])]
     (walk (fn [n]
-            (when (and (satisfies? ir2p/INode n)
+            (when (and (satisfies? ir2p/IR2 n)
                        (= (ir2p/kind n) kind))
               (swap! result conj n)))
           node)
@@ -32,7 +32,7 @@
   [node]
   (let [result (atom #{})]
     (walk (fn [n]
-            (when (and (satisfies? ir2p/INode n)
+            (when (and (satisfies? ir2p/IR2 n)
                        (= (ir2p/kind n) :variable))
               (swap! result conj (:name n))))
           node)

@@ -4,7 +4,7 @@
    对 :alength 节点直接替换为已知长度。
    传播时依据 attrs 中的 :mutable 标记，只对不可变变量进行常量传播。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.model :as p]))
+            [top.kzre.homunculus.core.ir2.ast :as p]))
 
 ;; ── 环境操作 ──────────────────────────────
 (defn- make-empty-env []

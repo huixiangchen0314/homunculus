@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.map
   (:require [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.ir2.model :as m]
+            [top.kzre.homunculus.core.ir2.ast :as m]
             [top.kzre.homunculus.core.types.type :as t]))
 
 (defmethod gen/cg-node-raw :map [node context]

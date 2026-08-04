@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.tree
   "操作IR2 AST 的工具函数们"
   (:require
-   [top.kzre.homunculus.core.ir2.model :as ir2p]))
+    [top.kzre.homunculus.core.ir2.ast :as ir2p]))
 
 
 (defn replace-node
@@ -34,7 +34,7 @@
   [tree old new]
   (if (identical? tree old)
     new
-    (if (satisfies? ir2p/INode tree)
+    (if (satisfies? ir2p/IR2 tree)
       (let [new-children (mapv #(replace-node % old new) (ir2p/children tree))]
         (clojure.core/assoc tree :children new-children))
       tree)))

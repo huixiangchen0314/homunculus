@@ -1,5 +1,5 @@
 (ns top.kzre.homunculus.core.types.utils
-  (:require [top.kzre.homunculus.core.ir2.model :as p]))
+  (:require [top.kzre.homunculus.core.ir2.ast :as p]))
 
 
 (defn fresh-name [base]
@@ -32,7 +32,7 @@
      (find-toplevel-define program-roots 'add)"
   [ir2-roots name]
   (some (fn [root]
-          (when (and (satisfies? p/INode root)
+          (when (and (satisfies? p/IR2 root)
                      (= (p/kind root) :define)
                      (= (:name root) name))
             root))

@@ -7,7 +7,7 @@
    若阶段2产生新替换，则回到阶段1重新迭代，直到整体不动点。"
   (:require
    [clojure.walk :as walk]
-   [top.kzre.homunculus.core.ir2.model :as ir2p]
+   [top.kzre.homunculus.core.ir2.ast :as ir2p]
    [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
    [top.kzre.homunculus.core.types.constraint.solvers.convert :as convert]
    [top.kzre.homunculus.core.types.constraint.solvers.equal :as equal]
@@ -66,7 +66,7 @@
 (defn apply-subst [node subst]
   (walk/prewalk
     (fn [n]
-      (if (satisfies? ir2p/INode n)
+      (if (satisfies? ir2p/IR2 n)
         (if-let [ty (ty/get-type n)]
           (ty/set-type! n (u/substitute ty subst))  ;; 无条件替换，递归处理, 确保能处理函数返回值
           n)

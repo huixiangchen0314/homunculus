@@ -2,7 +2,7 @@
   "可变性分析：在传播前标记变量是否可变。
    默认 :mutable false，通过扫描赋值和循环变量覆盖为 true。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.model :as p]))
+            [top.kzre.homunculus.core.ir2.ast :as p]))
 
 (defn- mark-var [node mutable?]
   (n/make-variable (n/var-name node)

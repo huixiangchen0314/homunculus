@@ -4,7 +4,7 @@
   (:require
     [clojure.walk :as walk]
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.ir2.model :as p]
+    [top.kzre.homunculus.core.ir2.ast :as p]
     [top.kzre.homunculus.core.types.lambda-inline.protocol :as lp]
     [top.kzre.homunculus.core.types.free-vars :as free-vars]
     [top.kzre.homunculus.core.types.subst.api :as subst]))
@@ -16,7 +16,7 @@
         found         (atom false)]
     (walk/prewalk
       (fn [node]
-        (when (satisfies? p/INode node)
+        (when (satisfies? p/IR2 node)
           (let [kind (n/kind node)]
             ;; 将 :call 节点的 call-fn 子节点记录到集合
             (when (= kind :call)
@@ -34,7 +34,7 @@
   (let [sites (atom [])]
     (walk/prewalk
       (fn [node]
-        (when (and (satisfies? p/INode node)
+        (when (and (satisfies? p/IR2 node)
                    (= (n/kind node) :call))
           (let [fn-node (n/call-fn node)]
             (when (and (= (n/kind fn-node) :variable)

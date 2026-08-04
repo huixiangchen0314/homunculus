@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.core.ir2.forms.loop
   (:require [top.kzre.homunculus.core.ir1.ast :as m1]   ; IR1 Binding
-            [top.kzre.homunculus.core.ir2.model :as m2]   ; IR2 Binding, Loop, Recur
+            [top.kzre.homunculus.core.ir2.ast :as m2]   ; IR2 Binding, Loop, Recur
             [top.kzre.homunculus.core.ir2.core :as ir2]))
 
 (defmethod ir2/lower-ast :loop [node env]

@@ -1,5 +1,5 @@
 (ns top.kzre.homunculus.core.types.check.methods.map
-  (:require [top.kzre.homunculus.core.ir2.model :as m]          ; Pair, Map 记录与工厂
+  (:require [top.kzre.homunculus.core.ir2.ast :as m]          ; Pair, Map 记录与工厂
             [top.kzre.homunculus.core.ir2.node :as n]            ; 访问器 (attrs, node-meta)
             [top.kzre.homunculus.core.types.check.core :as check]
             [top.kzre.homunculus.core.types.type :as ty]))

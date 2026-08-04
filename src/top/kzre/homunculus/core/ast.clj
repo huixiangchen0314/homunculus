@@ -15,7 +15,7 @@
     (symbol (apply str (map str/capitalize parts)))))
 
 (defrecord TypeInfo [name subtypes many?])
-(defrecord ChildSpec [field many?])
+(defrecord ChildSpec [field many? optional?])
 (defrecord NodeDef [kind record-name attrs children-specs field-order])
 
 (defn emit-ast-protocol [name]
@@ -46,18 +46,26 @@
             (let [elem (first remaining)
                   rst  (rest remaining)]
               (cond
+                ;; 属性字段 'xxx
                 (and (seq? elem) (= 'quote (first elem)))
                 (let [field-name (second elem)]
                   (recur rst (conj attrs field-name) specs (conj field-order field-name)))
 
+                ;; 子节点字段 :type
                 (keyword? elem)
                 (let [type-key elem
+                      ;; 先取字段名：如果下一个元素是 ('field-name) 则使用，否则用 type-key
                       [field-name rst']
                       (if (and (seq rst) (seq? (first rst)) (= 'quote (ffirst rst)))
                         [(second (first rst)) (rest rst)]
                         [(symbol (name type-key)) rst])
-                      many? (get-in type-infos [type-key :many?] false)]
-                  (recur rst' attrs (conj specs (->ChildSpec field-name many?)) (conj field-order field-name)))
+                      ;; 检查字段名之后是否紧跟可选选项 map
+                      next-elem (first rst')
+                      options   (when (map? next-elem) next-elem)
+                      rst''     (if options (rest rst') rst')
+                      many?     (get-in type-infos [type-key :many?] false)
+                      optional? (boolean (:optional options))]
+                  (recur rst'' attrs (conj specs (->ChildSpec field-name many? optional?)) (conj field-order field-name)))
 
                 :else
                 (throw (ex-info (str "Invalid field spec: " elem) {}))))))]
@@ -72,40 +80,52 @@
        (partition 2 node-defs)))
 
 (defn- emit-children-body [node-def protocol-name]
-  (let [segments (for [{:keys [field many?]} (:children-specs node-def)]
-                   (if many?
+  (let [segments (for [{:keys [field many? optional?]} (:children-specs node-def)]
+                   (cond
+                     optional?
+                     `(if ~field [~field] [])
+                     many?
                      `(filter #(satisfies? ~protocol-name %) ~field)
+                     :else
                      `(when (satisfies? ~protocol-name ~field) [~field])))]
     `(vec (concat ~@segments))))
 
 (defn- emit-reduce-children-body [node-def]
   (let [specs (:children-specs node-def)]
     (if (empty? specs)
-      `[~'this ~'env]   ;; 无子节点
-      (let [env-sym (gensym "env")   ;; 用 gensym 承载折叠环境
-            bindings (vec (for [spec specs]
-                            (let [field (:field spec)
-                                  many? (:many? spec)]
-                              (if many?
-                                `[~field
-                                  (let [result#
-                                        (reduce
-                                          (fn [[xs# e#] item#]
-                                            (let [[new-item# e2#] (~'f item# e#)]
-                                              [(conj xs# new-item#) e2#]))
-                                          [[] ~env-sym] ~field)]
-                                    [(first result#) (second result#)])]
-                                `[~field (~'f ~field ~env-sym)]))))
+      `[~'this ~'env]   ;; 无子节点，直接返回 this 和 env
+      (let [env-sym (gensym "env")
+            ;; 构建最内层的 assoc 形式，将所有子节点字段更新回 this
+            assoc-form `(assoc ~'this
+                          ~@(mapcat (fn [s] [(keyword (:field s)) (:field s)]) specs))
+            ;; 最内层表达式： [assoced-this env-sym]
+            inner-form `[~assoc-form ~env-sym]
+            ;; 从后向前包裹 let 绑定，每层处理一个子节点字段
             body
             (reduce
-              (fn [inner [field expr]]          ;; 正确解构出 field 和 expr
-                `(let [[~field ~env-sym] ~expr] ;; 使用 expr 并绑定 env-sym
-                   ~inner))
-              `[(assoc ~'this
-                  ~@(mapcat (fn [spec] [(:field spec) (:field spec)]) specs))
-                ~env-sym]
-              (reverse bindings))]
-        `(let [~env-sym ~'env]  ;; 将参数 env 注入 env-sym，开始传递
+              (fn [inner spec]
+                (let [{:keys [field many? optional?]} spec]
+                  (cond
+                    optional?
+                    `(if ~field
+                       (let [[~field ~env-sym] (~'f ~field ~env-sym)]
+                         ~inner)
+                       ~inner)
+                    many?
+                    `(let [[~field ~env-sym]
+                           (reduce
+                             (fn [[xs# e#] item#]
+                               (let [[new-item# e2#] (~'f item# e#)]
+                                 [(conj xs# new-item#) e2#]))
+                             [[] ~env-sym]
+                             ~field)]
+                       ~inner)
+                    :else
+                    `(let [[~field ~env-sym] (~'f ~field ~env-sym)]
+                       ~inner))))
+              inner-form
+              (reverse specs))]
+        `(let [~env-sym ~'env]
            ~body)))))
 
 (defn- emit-ast-node [protocol-name node-def]

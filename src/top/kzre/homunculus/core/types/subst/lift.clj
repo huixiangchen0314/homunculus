@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.subst.lift
   "Lambda 提升：将自由变量转化为显式参数，生成顶层定义和引用。"
   (:require
-   [top.kzre.homunculus.core.ir2.model :as m]
+   [top.kzre.homunculus.core.ir2.ast :as m]
    [top.kzre.homunculus.core.ir2.node :as n]
    [top.kzre.homunculus.core.types.lambda-elim.protocol :as p]))
 

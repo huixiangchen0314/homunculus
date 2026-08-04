@@ -1,14 +1,14 @@
 (ns top.kzre.homunculus.core.types.free-vars
   "通用自由变量分析。所有节点访问均通过 ir2.node。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.model :as ir2p]
+            [top.kzre.homunculus.core.ir2.ast :as ir2p]
             [clojure.set :as set]))
 
 ;; ── 收集子树内所有局部绑定 ──────────────
 (defn- collect-bound
   "返回 node 子树内所有被 let/lambda/loop 引入的变量名集合。"
   [node]
-  (if (satisfies? ir2p/INode node)
+  (if (ir2p/ir2? node)
     (let [here (case (:kind node)                 ;; 直接使用 :kind 字段
                  :let    (into #{} (map #(:name (:var %)) (:bindings node)))
                  :lambda (into #{} (map :name (:params node)))
@@ -22,7 +22,7 @@
 (defn- collect-free
   "在已知 bound 集合下，返回 node 子树中所有未绑定变量名。"
   [bound node]
-  (if (satisfies? ir2p/INode node)
+  (if (ir2p/ir2? node)
     (if (= (n/kind node) :variable)
       (if (contains? bound (n/var-name node))
         #{}

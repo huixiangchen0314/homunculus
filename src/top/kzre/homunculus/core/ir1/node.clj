@@ -3,20 +3,11 @@
   (:require
     [top.kzre.homunculus.core.ir1.ast :as m]))
 
-
 (defn protocol-name [node] (:name node))          ; 返回符号
 (defn protocol-methods [node] (:methods node))    ; IR1 Method 向量
 (defn method-name [m] (:name m))
 (defn method-params [m] (:params m))              ; IR1 Param 向量
 (defn method-docstring [m] (:docstring m))
-
-(defn make-pair
-  "创建一个键值对 [k v]。k 和 v 都是 IR2 节点。"
-  [k v]
-  [k v])
-
-(defn kv-pairs [l]
-  (partition 2 l))
 
 ;; ════════════════════════════════════════════════════════════
 ;; 通用节点访问
@@ -104,8 +95,7 @@
    (m/->Let bindings body nil))
   ([bindings body meta]
    (m/->Let bindings body meta)))
-(def binding-pairs kv-pairs)
-(def make-binding make-pair)
+
 
 (defn let-with-bindings [node bindings] (assoc node :bindings bindings))
 (defn let-with-body     [node body]      (assoc node :body body))

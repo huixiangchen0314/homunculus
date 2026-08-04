@@ -1,9 +1,9 @@
 (ns top.kzre.homunculus.core.types.recur-elim.core
   "消除 loop-recur 递归，将 LoopNode 转换为 WhileNode。"
   (:require
-   [top.kzre.homunculus.core.ir2.model :as m]
+   [top.kzre.homunculus.core.ir2.ast :as m]
    [top.kzre.homunculus.core.ir2.node :as n]
-   [top.kzre.homunculus.core.ir2.model :as ir2p]
+   [top.kzre.homunculus.core.ir2.ast :as ir2p]
    [top.kzre.homunculus.core.types.utils :as u]))
 
 ;; ── 辅助：上下文 ──────────────────────────

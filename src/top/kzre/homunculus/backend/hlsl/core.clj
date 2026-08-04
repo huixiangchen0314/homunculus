@@ -7,7 +7,7 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.metadata :as md]
     [top.kzre.homunculus.core.types.type :as ty]))
-
+;; TODO 使用 defast 定义完整抽象语法树
 (defn hlsl-type-str [ir-type]
   (cond
     (ty/vec-type? ir-type)                                  ;; 同构数组类型
