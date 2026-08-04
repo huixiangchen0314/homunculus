@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.ir1.forms.let
   "let* 特殊形式的 IR1 构建。"
   (:require [top.kzre.homunculus.core.ir1.core :as ir1]
-            [top.kzre.homunculus.core.ir1.model :as m]
+            [top.kzre.homunculus.core.ir1.ast :as m]
             [top.kzre.homunculus.core.ir1.node :as n]))
 
 (defmethod ir1/form->node 'let [form]

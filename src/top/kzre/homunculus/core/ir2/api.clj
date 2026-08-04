@@ -23,10 +23,8 @@
     [top.kzre.homunculus.core.ir2.forms.ns]               ;; :ns
     [top.kzre.homunculus.core.ir2.forms.record]           ;; :record
     [top.kzre.homunculus.core.ir2.forms.protocol]         ;; :protocol
-    [top.kzre.homunculus.core.ir2.forms.member-access]
-    [top.kzre.homunculus.core.ir2.lower :as lower]))  ;; :member-access
+    [top.kzre.homunculus.core.ir2.forms.member-access]    ;; :member-access
+   ))
 
 
 (def ->ir2 ir2/->ir2)
-
-(def lower lower/lower)

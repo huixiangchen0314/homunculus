@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.ir1.node
   "IR1 AST 节点字段的安全访问器、构造器与更新器。所有对节点内部关键字的直接操作都应通过此命名空间。"
   (:require
-            [top.kzre.homunculus.core.ir1.model :as m]))
+    [top.kzre.homunculus.core.ir1.ast :as m]))
 
 
 (defn protocol-name [node] (:name node))          ; 返回符号

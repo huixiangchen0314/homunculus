@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.ir1.forms.protocol
   "defprotocol 的 IR1 构建。"
   (:require [top.kzre.homunculus.core.ir1.core :as ir1]
-            [top.kzre.homunculus.core.ir1.model :as m]))
+            [top.kzre.homunculus.core.ir1.ast :as m]))
 
 (defn- parse-single-method [method-form]
   ;; 解析单个方法： (name [this & params] docstring?)

@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.ir1.forms.loop
   "loop 和 recur 的 IR1 构建。所有字段访问通过 ir1.node 工具函数。"
   (:require [top.kzre.homunculus.core.ir1.core :as ir1]
-            [top.kzre.homunculus.core.ir1.model :as m]
+            [top.kzre.homunculus.core.ir1.ast :as m]
             [top.kzre.homunculus.core.ir1.node :as n]))
 
 ;; ── loop* ─────────────────────────────────

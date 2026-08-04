@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.ir1.forms.ns
   "ns 形式的 IR1 构建，提取可选的 docstring、attr-map 和 :require 子句。"
   (:require [top.kzre.homunculus.core.ir1.core :as ir1]
-            [top.kzre.homunculus.core.ir1.model :as m]))
+            [top.kzre.homunculus.core.ir1.ast :as m]))
 
 (defmethod ir1/form->node 'ns [form]
   (let [[_ name & rest-args] form

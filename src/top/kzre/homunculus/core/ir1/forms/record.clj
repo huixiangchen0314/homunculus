@@ -2,7 +2,7 @@
   "defrecord 的 IR1 构建。使用新的 Field / Method / ProtocolImpl 节点。"
   (:require
    [top.kzre.homunculus.core.ir1.core :as ir1]
-   [top.kzre.homunculus.core.ir1.model :as m]
+   [top.kzre.homunculus.core.ir1.ast :as m]
    [top.kzre.homunculus.core.ir1.node :as n]))
 
 ;; ── 解析字段（仅保留符号，忽略默认值） ──
