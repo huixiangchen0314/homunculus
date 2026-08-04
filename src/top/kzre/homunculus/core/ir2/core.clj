@@ -6,9 +6,10 @@
 
 (defmulti lower-ast
           "将 IR1 节点降低为 IR2 节点向量。"
-          (fn [ir1-node _env] (ir1/kind ir1-node)))
+          (fn [ir1-node _env]
+            (ir1/kind ir1-node)))
 
-(defmethod lower-ast :default [node _env]
+(defmethod lower-ast :default [_node _env]
   [])
 
 (defn lower

@@ -17,7 +17,7 @@
 (defmethod make-prim '%%aget
   [_ args node]
   (let [[target idx] args]
-    [(n2/make-aget target idx {} (n1/node-meta node) )]))
+    [(n2/make-aget target idx {} (n1/node-meta node))]))
 
 (defmethod make-prim '%%aset
   [_ args node]

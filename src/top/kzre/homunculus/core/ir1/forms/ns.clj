@@ -25,5 +25,6 @@
                    (vec (rest require-form))
                    [])
         ;; 5. 合并 attr-map 和原始 meta
-        merged-meta (merge (meta form) attr-map)]
+        form-meta (meta form)
+        merged-meta (merge form-meta attr-map)]
     (m/->Ns name requires docstring merged-meta)))

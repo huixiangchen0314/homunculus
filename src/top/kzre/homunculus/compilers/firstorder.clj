@@ -22,6 +22,7 @@
     [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.core.types.recur-elim.api :as recur]
     [top.kzre.homunculus.internal.module-unit :as mu]
+    [top.kzre.homunculus.core.ir1.polyfill-meta :as pm]
     [top.kzre.homunculus.internal.protocol :as p]))
 
 ;; ── 闭包消除配置 ──────────────────────
@@ -49,7 +50,8 @@
                       (throw (ex-info "No ns form found" {:forms forms})))
           processed (ir1/preprocess forms)
           ir1-roots (mapv ir1/->ir1 processed)
-          ir2-roots (mapcat ir2/->ir2 ir1-roots)
+          ir1-roots1 (pm/polyfill-nodes ir1-roots)
+          ir2-roots (mapcat ir2/->ir2 ir1-roots1)
           ir2-roots' (rename/rename-nodes ir2-roots)
           ir2-roots' (alias/alias-nodes ir2-roots' context frontend)
           ir2-roots' (module/resolve-ns ir2-roots' context frontend)

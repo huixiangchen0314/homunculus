@@ -24,7 +24,9 @@
 (defmethod form->node :default [form]
   (if (seq? form)
     (let [[op & args] form]
-      (m/->Call op args nil ))
+      (m/->Call (->ir1 op)
+                (mapv ->ir1 args)
+                (meta form)))
     (throw (ex-info (str "Unsupported form: " form) {:form form}))))
 
 

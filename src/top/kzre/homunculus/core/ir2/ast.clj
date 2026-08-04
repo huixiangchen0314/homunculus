@@ -34,7 +34,7 @@
 
         :literal         ['val 'attrs]
         :variable        ['name 'attrs]
-        :call            [:expr 'fn {:optional true} :exprs 'args 'attrs]
+        :call            [:expr 'fn :exprs 'args 'attrs]
         :if              [:expr 'test :expr 'then :expr 'else {:optional true} 'attrs]
         :block           [:exprs 'exprs 'attrs]
         :let             [:bindings 'bindings :expr 'body 'attrs]

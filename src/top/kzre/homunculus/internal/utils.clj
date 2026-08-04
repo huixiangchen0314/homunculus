@@ -4,7 +4,8 @@
    [clojure.java.io :as io]
    [clojure.string :as str])
   (:import
-   (java.io FileNotFoundException PushbackReader StringReader)))
+   [clojure.lang LineNumberingPushbackReader]
+   (java.io FileNotFoundException StringReader)))
 
 ;; ── 符号转换工具 ────────────────────────
 (defn ->symbol
@@ -86,9 +87,9 @@
 
 
 (defn parse-forms
-  "从源文件字符串读取所有顶层表单，返回向量。"
+  "从源文件字符串读取所有顶层表单，返回向量。每个表单的 meta 强制包含 :line 和 :column。"
   [src-str]
-  (let [reader (PushbackReader. (StringReader. src-str))]
+  (let [reader (LineNumberingPushbackReader. (StringReader. src-str))]
     (binding [*read-eval* false]
       (loop [forms []]
         (let [form (read reader false ::eof)]

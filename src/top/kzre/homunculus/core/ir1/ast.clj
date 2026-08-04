@@ -34,7 +34,7 @@
         :vector          [:exprs 'items]
         :pair            [:expr 'key :expr 'val]
         :map             [:pairs 'pairs]
-        :call            ['op :exprs 'args]
+        :call            [:expr 'op :exprs 'args]
         :if              [:expr 'test :expr 'then :expr 'else]
         :do              [:exprs 'exprs]
         :let             [:bindings 'bindings :expr 'body]
