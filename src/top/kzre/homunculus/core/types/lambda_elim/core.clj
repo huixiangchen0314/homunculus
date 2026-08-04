@@ -2,7 +2,7 @@
   "闭包消除核心：仅使用单态化（提升 + 特化）。通过多方法递归遍历 IR2。"
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+    [top.kzre.homunculus.core.ir2.model :as ir2p]
     [top.kzre.homunculus.core.types.free-vars :as free-vars]
     [top.kzre.homunculus.core.types.lambda-elim.protocol :as p]))
 

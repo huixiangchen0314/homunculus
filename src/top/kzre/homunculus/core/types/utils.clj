@@ -1,5 +1,5 @@
 (ns top.kzre.homunculus.core.types.utils
-  (:require [top.kzre.homunculus.core.ir2.protocol :as p]))
+  (:require [top.kzre.homunculus.core.ir2.model :as p]))
 
 
 (defn fresh-name [base]

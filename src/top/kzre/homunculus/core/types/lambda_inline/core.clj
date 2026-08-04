@@ -4,7 +4,7 @@
   (:require
     [clojure.walk :as walk]
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.ir2.protocol :as p]
+    [top.kzre.homunculus.core.ir2.model :as p]
     [top.kzre.homunculus.core.types.lambda-inline.protocol :as lp]
     [top.kzre.homunculus.core.types.free-vars :as free-vars]
     [top.kzre.homunculus.core.types.subst.api :as subst]))

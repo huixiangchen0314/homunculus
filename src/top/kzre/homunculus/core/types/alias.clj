@@ -3,7 +3,7 @@
    使用 reduce-children 统一递归，修复别名方向错误。"
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.ir2.protocol :as p]
+    [top.kzre.homunculus.core.ir2.model :as p]
     [top.kzre.homunculus.core.types.protocol :as types]
     [top.kzre.homunculus.internal.protocol :as ip]
     [top.kzre.homunculus.internal.symbol :as sym]))

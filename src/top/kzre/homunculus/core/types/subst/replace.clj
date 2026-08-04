@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.subst.replace
   "通用表达式变量替换。利用 reduce-children 协议遍历 IR2 节点。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.protocol :as p]))
+            [top.kzre.homunculus.core.ir2.model :as p]))
 
 (defmulti replace-expr
           (fn [node _var-name _replacement] (n/kind node)))

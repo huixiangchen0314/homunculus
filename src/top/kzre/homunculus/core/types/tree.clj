@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.tree
   "操作IR2 AST 的工具函数们"
   (:require
-   [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
+   [top.kzre.homunculus.core.ir2.model :as ir2p]))
 
 
 (defn replace-node

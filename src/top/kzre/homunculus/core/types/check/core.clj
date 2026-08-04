@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.check.core
   "类型检查 pass：利用 typed-pass 的结果和后端信息进行双向检查，插入类型转换。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+            [top.kzre.homunculus.core.ir2.model :as ir2p]
             [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
             [top.kzre.homunculus.core.types.protocol :as tp]
             [top.kzre.homunculus.core.types.type :as ty]

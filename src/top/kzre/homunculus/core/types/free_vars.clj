@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.free-vars
   "通用自由变量分析。所有节点访问均通过 ir2.node。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+            [top.kzre.homunculus.core.ir2.model :as ir2p]
             [clojure.set :as set]))
 
 ;; ── 收集子树内所有局部绑定 ──────────────

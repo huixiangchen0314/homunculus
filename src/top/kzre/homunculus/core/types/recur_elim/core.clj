@@ -3,7 +3,7 @@
   (:require
    [top.kzre.homunculus.core.ir2.model :as m]
    [top.kzre.homunculus.core.ir2.node :as n]
-   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+   [top.kzre.homunculus.core.ir2.model :as ir2p]
    [top.kzre.homunculus.core.types.utils :as u]))
 
 ;; ── 辅助：上下文 ──────────────────────────

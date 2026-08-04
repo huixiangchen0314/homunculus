@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.type
   "统一的类型访问与修改工具。提供 get-type, has-type?, ensure-type, set-type! 等 API。
    确保所有 Pass 对类型的操作一致，避免覆盖错误。"
-  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+  (:require [top.kzre.homunculus.core.ir2.model :as ir2p]
             [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.internal.utils :as iu]
             [top.kzre.homunculus.core.types.protocol :as p]))

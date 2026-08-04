@@ -2,7 +2,7 @@
   "高阶分析：遍历 IR2 树，标记高阶函数定义。"
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.ir2.protocol :as p]))
+    [top.kzre.homunculus.core.ir2.model :as p]))
 
 (defn high-order?
   "若 lambda 的某个参数在其函数体内被用作调用目标，则返回 true。"

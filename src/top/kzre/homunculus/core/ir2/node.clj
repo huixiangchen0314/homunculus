@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.ir2.node
   "IR2 节点字段的安全访问器、构造器与更新器。所有对节点内部关键字的直接操作都应通过此命名空间。
    统一使用 make-* 构造函数，不再使用旧的 ->* 风格。"
-  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+  (:require [top.kzre.homunculus.core.ir2.model :as ir2p]
             [top.kzre.homunculus.core.ir1.node :as n1]
             [top.kzre.homunculus.core.ir2.model :as m])
   (:import (top.kzre.homunculus.core.ir2.model Binding)))

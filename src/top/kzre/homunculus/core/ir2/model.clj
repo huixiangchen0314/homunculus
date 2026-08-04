@@ -1,12 +1,18 @@
 (ns top.kzre.homunculus.core.ir2.model
   "IR2 语言无关 AST 的节点记录定义。所有节点实现 INode 协议。
-   使用 reduce-children，每个节点直接处理字段。"
-  (:require [top.kzre.homunculus.core.ir2.protocol :as p]))
+   使用 reduce-children，每个节点直接处理字段。")
+
+(defprotocol INode
+  (kind       [this])
+  (children   [this])
+  (reduce-children [this f env])
+  (attrs      [this])
+  (node-meta  [this]))
 
 
 ;; ── Param 节点（补充 INode 实现） ──
 (defrecord Param [name attrs meta]
-  p/INode
+  INode
   (kind [_] :param)
   (children [_] [])                   ; 叶子节点，无子节点
   (reduce-children [this _f env]      ; 不遍历子节点，直接返回自身
@@ -16,7 +22,7 @@
 
 ;; ── Lambda 节点（保持原有逻辑，兼容 Param 向量） ──
 (defrecord Lambda [params body captures fn-name attrs meta]
-  p/INode
+  INode
   (kind [_] :lambda)
   (children [_] (into (vec params) [body]))   ; params 是 Param 节点向量
   (reduce-children [this f env]
@@ -31,7 +37,7 @@
 
 ;; ── LiteralNode ─────────────────────────────
 (defrecord Literal [val attrs meta ]
-  p/INode
+  INode
   (kind [_] :literal)
   (children [_] [])
   (reduce-children [this _f env] [this env])
@@ -41,7 +47,7 @@
 
 ;; ── VariableNode ────────────────────────────
 (defrecord Variable [name attrs meta]
-  p/INode
+  INode
   (kind [_] :variable)
   (children [_] [])
   (reduce-children [this _f env] [this env])
@@ -51,7 +57,7 @@
 
 ;; ── CallNode ────────────────────────────────
 (defrecord Call [fn args attrs meta ]
-  p/INode
+  INode
   (kind [_] :call)
   (children [_] (into (if fn [fn] []) (remove nil? args)))
   (reduce-children [this f env]
@@ -64,7 +70,7 @@
 
 ;; ── IfNode ──────────────────────────────────
 (defrecord If [test then else attrs meta ]
-  p/INode
+  INode
   (kind [_] :if)
   (children [_] (into [test then] (if else [else] [])))
   (reduce-children [this f env]
@@ -78,7 +84,7 @@
 
 ;; ── BlockNode ───────────────────────────────
 (defrecord Block [exprs attrs meta ]
-  p/INode
+  INode
   (kind [_] :block)
   (children [_] (vec exprs))
   (reduce-children [this f env]
@@ -91,7 +97,7 @@
 
 ;; ── LetNode ─────────────────────────────────
 (defrecord Binding [var val attrs meta]
-  p/INode
+  INode
   (kind [_] :binding)
   (children [_] [var val])
   (reduce-children [this f env]
@@ -102,7 +108,7 @@
   (node-meta [_] meta))
 
 (defrecord Let [bindings body attrs meta]
-  p/INode
+  INode
   (kind [_] :let)
   (children [_]
     (conj (vec bindings) body))
@@ -119,7 +125,7 @@
 
 ;; ── LoopNode ────────────────────────────────
 (defrecord Loop [bindings body attrs meta]
-  p/INode
+  INode
   (kind [_] :loop)
   (children [_] (conj (vec bindings) body))
   (reduce-children [this f env]
@@ -135,7 +141,7 @@
 
 ;; ── RecurNode ───────────────────────────────
 (defrecord Recur [args attrs meta ]
-  p/INode
+  INode
   (kind [_] :recur)
   (children [_] (vec args))
   (reduce-children [this f env]
@@ -147,7 +153,7 @@
 
 ;; ── DefineNode ──────────────────────────────
 (defrecord Define [name val docstring attrs meta ]
-  p/INode
+  INode
   (kind [_] :define)
   (children [_] (if val [val] []))
   (reduce-children [this f env]
@@ -161,7 +167,7 @@
 
 ;; ── VectorNode ──────────────────────────────
 (defrecord Vector [items attrs meta ]
-  p/INode
+  INode
   (kind [_] :vector)
   (children [_] (vec items))
   (reduce-children [this f env]
@@ -174,7 +180,7 @@
 ;; ── MapNode ─────────────────────────────────
 
 (defrecord Pair [key val attrs meta]
-  p/INode
+  INode
   (kind [_] :pair)
   (children [_] [key val])
   (reduce-children [this f env]
@@ -185,7 +191,7 @@
   (node-meta [_] meta))
 
 (defrecord Map [pairs attrs meta ]
-  p/INode
+  INode
   (kind [_] :map)
   (children [_] (vec pairs))
   (reduce-children [this f env]
@@ -197,7 +203,7 @@
 
 ;; ── TryNode ─────────────────────────────────
 (defrecord Try [body catches finally attrs meta]
-  p/INode
+  INode
   (kind [_] :try)
   (children [_] (into (if body [body] [])
                       (concat catches
@@ -213,7 +219,7 @@
 
 ;; ── CatchNode ───────────────────────────────
 (defrecord Catch [class sym body attrs meta ]
-  p/INode
+  INode
   (kind [_] :catch)
   (children [_] (into [class sym] body))
   (reduce-children [this f env]
@@ -227,7 +233,7 @@
 
 ;; ── ThrowNode ───────────────────────────────
 (defrecord Throw [expr attrs meta ]
-  p/INode
+  INode
   (kind [_] :throw)
   (children [_] [expr])
   (reduce-children [this f env]
@@ -239,7 +245,7 @@
 
 ;; ── AssignNode ──────────────────────────────
 (defrecord Assign [var val attrs meta ]
-  p/INode
+  INode
   (kind [_] :assign)
   (children [_] [var val])
   (reduce-children [this f env]
@@ -252,7 +258,7 @@
 
 ;; ── WhileNode ───────────────────────────────
 (defrecord While [test body attrs meta ]
-  p/INode
+  INode
   (kind [_] :while)
   (children [_] [test body])
   (reduce-children [this f env]
@@ -265,7 +271,7 @@
 
 ;; ── ConvertNode ─────────────────────────────
 (defrecord Convert [expr src-ty dst-ty cost attrs meta ]
-  p/INode
+  INode
   (kind [_] :convert)
   (children [_] [expr])
   (reduce-children [this f env]
@@ -277,7 +283,7 @@
 
 ;; ── NsNode ──────────────────────────────────
 (defrecord Ns [name requires docstring attrs meta ]
-  p/INode
+  INode
   (kind [_] :ns)
   (children [_] [])
   (reduce-children [this _f env] [this env])
@@ -288,7 +294,7 @@
 
 ;; ── MethodNode ──────────────────────────────
 (defrecord Method [name params body docstring attrs meta]
-  p/INode
+  INode
   (kind [_] :method)
   ;; children：params 向量，若 body 非空则追加 body
   (children [_] (cond-> (vec params) body (conj body)))
@@ -309,7 +315,7 @@
 
 ;; ── FieldNode─────────────────────────
 (defrecord Field [name attrs meta]
-  p/INode
+  INode
   (kind [_] :field)
   (children [_] [])
   (reduce-children [this _f env] [this env])
@@ -318,7 +324,7 @@
 
 ;; ── ProtocolImplNode）───────────────────
 (defrecord ProtocolImpl [proto-name methods attrs meta]
-  p/INode
+  INode
   (kind [_] :protocol-impl)
   (children [_] (vec methods))                  ; 子节点为 Method 向量
   (reduce-children [this f env]
@@ -331,7 +337,7 @@
   (node-meta [_] meta))
 
 (defrecord Record [name fields protocols attrs meta]
-  p/INode
+  INode
   (kind [_] :record)
   ;; 子节点：所有字段 + 所有协议实现（字段目前无子节点，但保留在列表中以便未来扩展）
   (children [_] (into (vec fields) protocols))
@@ -351,7 +357,7 @@
 
 ;; ── ProtocolNode ────────────────────────────
 (defrecord Protocol [name methods attrs meta]
-  p/INode
+  INode
   (kind [_] :protocol)
   (children [_] (vec methods))                  ;; 子节点为 Method 向量
   (reduce-children [this f env]
@@ -365,7 +371,7 @@
 
 ;; ── MemberAccessNode ────────────────────────
 (defrecord MemberAccess [target accessor args attrs meta ]
-  p/INode
+  INode
   (kind [_] :member-access)
   (children [_] (into [target] args))
   (reduce-children [this f env]
@@ -378,11 +384,11 @@
 
 ;; ── NewArrayNode ────────────────────────────
 (defrecord NewArray [size attrs meta]
-  p/INode
+  INode
   (kind [_] :new-array)
-  (children [_] (if (satisfies? p/INode size) [size] []))
+  (children [_] (if (satisfies? INode size) [size] []))
   (reduce-children [this f env]
-    (if (satisfies? p/INode size)
+    (if (satisfies? INode size)
       (let [[new-size env'] (f size env)]
         [(assoc this :size new-size) env'])
       [this env]))
@@ -391,7 +397,7 @@
 
 ;; ── AGetNode ────────────────────────────────
 (defrecord AGet [target idx attrs meta ]
-  p/INode
+  INode
   (kind [_] :aget)
   (children [_] [target idx])
   (reduce-children [this f env]
@@ -404,7 +410,7 @@
 
 ;; ── ASetNode ────────────────────────────────
 (defrecord ASet [target idx val attrs meta ]
-  p/INode
+  INode
   (kind [_] :aset)
   (children [_] [target idx val])
   (reduce-children [this f env]
@@ -418,7 +424,7 @@
 
 ;; ── ALengthNode ─────────────────────────────
 (defrecord ALength [target attrs meta ]
-  p/INode
+  INode
   (kind [_] :alength)
   (children [_] [target])
   (reduce-children [this f env]

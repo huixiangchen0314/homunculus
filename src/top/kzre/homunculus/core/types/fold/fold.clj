@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.fold.fold
   "常量折叠 Pass：递归遍历 IR2 树，利用后端实现的 IFolder 协议进行常量折叠。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+            [top.kzre.homunculus.core.ir2.model :as ir2p]
             [top.kzre.homunculus.core.types.fold.protocol :as p]))
 
 (defmulti fold-node (fn [node _folder _context] (n/kind node)))

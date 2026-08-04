@@ -7,7 +7,7 @@
    若阶段2产生新替换，则回到阶段1重新迭代，直到整体不动点。"
   (:require
    [clojure.walk :as walk]
-   [top.kzre.homunculus.core.ir2.protocol :as ir2p]
+   [top.kzre.homunculus.core.ir2.model :as ir2p]
    [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
    [top.kzre.homunculus.core.types.constraint.solvers.convert :as convert]
    [top.kzre.homunculus.core.types.constraint.solvers.equal :as equal]

@@ -3,7 +3,7 @@
    提供便捷函数用于访问函数、参数、定义等各层级的元数据，
    以及元数据中常见的标记判断。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
+            [top.kzre.homunculus.core.ir2.model :as ir2p]))
 
 ;; ── 基础工具（已存在）─────────────────────
 (defn node-meta

@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.backend.util.tree
   "IR 树遍历与查询工具。"
-  (:require [top.kzre.homunculus.core.ir2.protocol :as ir2p]))
+  (:require [top.kzre.homunculus.core.ir2.model :as ir2p]))
 
 (defn children
   "返回节点的子节点列表。"
