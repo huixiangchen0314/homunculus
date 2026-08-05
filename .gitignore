@@ -4,3 +4,9 @@
 
 target/
 out/
+dist/
+
+.idea/
+.nrepl-port
+.clj-kondo/
+homunculus.iml

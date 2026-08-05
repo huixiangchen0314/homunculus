@@ -30,7 +30,7 @@
   (all-module-units [this] "返回积累的所有模块单元"))
 
 (defprotocol IEmitter
-  (emit [this unit context] "发射编译单元"))
+  (emit [this nodes context] "发射AST"))
 
 
 (defprotocol ICompiler

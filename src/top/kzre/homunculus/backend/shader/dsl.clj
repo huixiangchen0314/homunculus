@@ -1,10 +1,9 @@
-;; top.kzre.homunculus.backend.shader.dsl
 (ns top.kzre.homunculus.backend.shader.dsl
   "着色器 DSL 语法糖。提供统一的资源/入口声明，通过元数据传递给后端。"
   (:refer-clojure :exclude [float int]))
 
 (defmacro defshader [stage name params & body]
-  (let [meta-map {:shader-stage stage :shader/entry? true}
+  (let [meta-map {:shader/stage stage :shader/entry? true}
         fn-form (list* 'fn params body)]
     `(def ~(vary-meta name merge meta-map) ~fn-form)))
 

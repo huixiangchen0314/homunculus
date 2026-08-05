@@ -106,11 +106,6 @@
               (fn [inner spec]
                 (let [{:keys [field many? optional?]} spec]
                   (cond
-                    optional?
-                    `(if ~field
-                       (let [[~field ~env-sym] (~'f ~field ~env-sym)]
-                         ~inner)
-                       ~inner)
                     many?
                     `(let [[~field ~env-sym]
                            (reduce
@@ -119,6 +114,11 @@
                                  [(conj xs# new-item#) e2#]))
                              [[] ~env-sym]
                              ~field)]
+                       ~inner)
+                    optional?
+                    `(if ~field
+                       (let [[~field ~env-sym] (~'f ~field ~env-sym)]
+                         ~inner)
                        ~inner)
                     :else
                     `(let [[~field ~env-sym] (~'f ~field ~env-sym)]

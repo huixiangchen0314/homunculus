@@ -1,6 +1,5 @@
 (ns top.kzre.homunculus.examples.hlsl-lambert.core
-  (:require [top.kzre.homunculus.backend.shader.dsl :refer :all] ;; 不支持对编译模块用 refer all
-            [top.kzre.homunculus.examples.hlsl-lambert.lib :as l]))
+  (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]))
 
 ;; ── 资源声明 ──────────────────────────────
 (deftexture myTexture :t0)
@@ -17,7 +16,7 @@
 
 (defn remin-sum [^float a] (- a 1.0))
 
-(defrecord MyInout [^:SV_TARGET ^float a 0.0])
+(defrecord MyInout [^:SV_TARGET ^float a])
 
 
 ;; ── 顶点着色器 (包含高阶调用测试) ────────
@@ -37,7 +36,8 @@
            (def y (map (fn [v] (+ v 1)) x))
            (def io (->MyInout 1.0))
            (def local-a (:a io))
-           (let [worldPos (mul worldViewProj pos)]
+           (let [worldPos (mul worldViewProj pos)
+                 ll (if true 1 2)]
              (float4 (float3 1.0 1.0 1.0) 1.0)))
 
 ;; ── 片段着色器 ────────────────────────────

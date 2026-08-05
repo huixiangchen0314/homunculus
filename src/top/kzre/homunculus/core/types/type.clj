@@ -136,19 +136,21 @@
   "从元数据 map 中提取类型标注。
    优先 :tag 符号（如 ^float），其次遍历关键字键，
    与 known-types（符号集合）匹配后返回 TCon。"
-  [md known-types]
-  (when md
-    (let [type-sym (:tag md)]
-      (when (and type-sym (contains? (set known-types) type-sym))
-        (t/->TCon type-sym)))))
+  ([md]
+   ;; TODO 前向推导时候顺便完成静态类型检查
+   (when md
+     (when-let [type-sym (:tag md)]
+       (t/->TCon type-sym))))
+  ([md _]
+    (meta->type md)))
 
 (defn get-type
   "获取节点的类型，优先级：attrs :type > node-meta 类型标注 > nil。"
-  ([node known-types]
-   (or (get-in node [:attrs :type])
-       (meta->type (ir2p/node-meta node) known-types)))
+  ([node _]
+   (get-type node))
   ([node]
-   (get-in node [:attrs :type])))
+   (or (get-in node [:attrs :type])
+       (meta->type (ir2p/node-meta node) ))))
 
 
 

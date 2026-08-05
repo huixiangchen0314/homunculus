@@ -5,7 +5,7 @@
 (def k-type       :type)        ;; IType 实例，节点推导类型
 (def k-mutable    :mutable)     ;; boolean，变量是否可变
 (def k-builtin-fn :builtin-fn)  ;; TFun，内建函数类型签名
-(def k-shader-stage :shader-stage) ;; keyword，:vertex, :fragment 等
+(def k-shader-stage :shader/stage) ;; keyword，:vertex, :fragment 等
 (def k-semantic   :semantic)    ;; string，HLSL 语义如 "SV_Position"
 (def k-resource   :resource)    ;; map，资源信息 {:kind :texture2D, :binding 0}
 (def k-ctor       :ctor)        ;; boolean 或 map，标记为构造函数

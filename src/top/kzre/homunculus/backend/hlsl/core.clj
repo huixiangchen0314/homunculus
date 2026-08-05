@@ -89,14 +89,14 @@
         ;; 使用 :expr-stmt 包裹所有语句，确保分号
         body-stmts
         (if (= stage :vertex)
-          (let [out-decl    [:expr-stmt [:raw (str output-struct-name " out;")]]
+          (let [out-decl    [:expr-stmt [:raw (str output-struct-name " result")]]
                 assignments (mapv (fn [p]
                                     [:expr-stmt
                                      (if (= "SV_POSITION" (:semantic p))
-                                       [:assign (str "out." (:name p)) core-call-ast]
-                                       [:assign (str "out." (:name p)) [:member-access [:var-ref "input"] (keyword (:name p))]])])
+                                       [:assign (str "result." (:name p)) core-call-ast]
+                                       [:assign (str "result." (:name p)) [:member-access [:var-ref "input"] (keyword (:name p))]])])
                                   output-params)
-                return-stmt [:expr-stmt [:return [:var-ref "out"]]]]
+                return-stmt [:expr-stmt [:return [:var-ref "result"]]]]
             (into [out-decl] (conj assignments return-stmt)))
           ;; fragment 返回语句也包裹
           [[:expr-stmt [:return core-call-ast]]])

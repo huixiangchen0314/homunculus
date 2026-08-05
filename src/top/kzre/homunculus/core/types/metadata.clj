@@ -47,7 +47,7 @@
 (defn fn-shader-stage
   "从函数元数据中获取着色器阶段（如 :vertex, :pixel）。"
   [fn-node]
-  (get-meta fn-node :shader-stage))
+  (get-meta fn-node :shader/stage))
 
 (defn fn-entry?
   "函数是否为入口点（元数据 :entry? 为 true）。"
