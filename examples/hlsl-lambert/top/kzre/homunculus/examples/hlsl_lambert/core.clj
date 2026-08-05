@@ -37,7 +37,8 @@
            (def io (->MyInout 1.0))
            (def local-a (:a io))
            (let [worldPos (mul worldViewProj pos)
-                 ll (if true 1 2)]
+                 ll (if true 1 2)
+                 xxxxx [1 2 3]]
              (float4 (float3 1.0 1.0 1.0) 1.0)))
 
 ;; ── 片段着色器 ────────────────────────────

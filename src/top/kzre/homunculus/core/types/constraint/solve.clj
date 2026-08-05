@@ -66,7 +66,7 @@
 (defn apply-subst [node subst]
   (walk/prewalk
     (fn [n]
-      (if (satisfies? ir2p/IR2 n)
+      (if (ir2p/ir2? n)
         (if-let [ty (ty/get-type n)]
           (ty/set-type! n (u/substitute ty subst))  ;; 无条件替换，递归处理, 确保能处理函数返回值
           n)

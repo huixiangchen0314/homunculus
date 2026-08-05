@@ -30,10 +30,10 @@
     [node env]))
 
 (defmethod statementize-node :assign [node env]
- (if-let [rhv (:rhv node)]
-   (if (= :block (ast/kind rhv))
+ (if-let [rhs (:rhs node)]
+   (if (= :block (ast/kind rhs))
      (let [new-node
-           (lift-block rhv #(assoc node :rhv %))]
+           (lift-block rhs #(assoc node :rhs %))]
        [new-node env])
      [node env])
    [node env]))
@@ -78,20 +78,38 @@
       [(ast/->Block (first collected) (assoc node :args (second collected)) (ast/node-meta node)) env]
       [node env])))
 
+(defmethod statementize-node :array-index [node env]
+  (let [target (:target node)
+        index  (:index node)
+        ;; 分别处理 target 和 index 可能为 Block 的情形
+        [stmts1 new-target] (if (= :block (ast/kind target))
+                              [(:stmts target) (:ret target)]
+                              [[] target])
+        [stmts2 new-index]  (if (= :block (ast/kind index))
+                              [(:stmts index) (:ret index)]
+                              [[] index])
+        all-stmts (into stmts1 stmts2)]
+    (if (seq all-stmts)
+      ;; 存在需要前置的语句，将它们与新的 array-index 包装成 Block
+      [(ast/->Block all-stmts (assoc node :target new-target :index new-index) (ast/node-meta node)) env]
+      [node env])))
+
+
 (defmethod statementize-node :block [node env]
   ;; 子节点已由 walk 递归处理，这里只处理当前 Block 层
   (let [;; 处理 stmts：展开内部 Block
         new-stmts
-        (mapcat (fn [child]
-                  (if (= :block (ast/kind child))
-                    (let [inner-stmts (:stmts child)
-                          inner-ret   (:ret child)]
-                      ;; 将 inner-stmts 加入，如果 inner-ret 非 nil 则作为表达式语句追加
-                      (if inner-ret
-                        (conj (vec inner-stmts) inner-ret)
-                        inner-stmts))
-                    [child]))
-                (:stmts node))
+        (vec
+          (mapcat (fn [child]
+                    (if (= :block (ast/kind child))
+                      (let [inner-stmts (:stmts child)
+                            inner-ret   (:ret child)]
+                        ;; 将 inner-stmts 加入，如果 inner-ret 非 nil 则作为表达式语句追加
+                        (if inner-ret
+                          (conj (vec inner-stmts) inner-ret)
+                          inner-stmts))
+                      [child]))
+                  (:stmts node)))
         ;; 处理 ret：如果 ret 是 Block，则合并其 stmts，并用其 ret 替代
         [final-stmts new-ret]
         (if-let [ret (:ret node)]
@@ -111,7 +129,8 @@
     (statementize-node new-node env1)))
 
 (defn walk [node env]
-  (ast/reduce-children node stmt-fn env))
+  (when node
+    (ast/reduce-children node stmt-fn env)))
 
 (defn statementize-nodes [nodes]
   (let [processed (mapv #(first (stmt-fn % (make-env))) nodes)]

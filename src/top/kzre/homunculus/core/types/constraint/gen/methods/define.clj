@@ -19,7 +19,7 @@
 
     (let [[val-tv val-node val-constr val-ctx] (gen/cg-node-raw (n/define-val node) context)
           ;; 用户标注类型（若存在则必定为 TCon，无需额外判断）
-          annotated-ty (t/get-type node (u/known-types context))
+          annotated-ty (t/get-type node)
           final-tv     (or annotated-ty val-tv)
           extra-constr (when annotated-ty
                          [(c/make-cequal val-tv annotated-ty)])

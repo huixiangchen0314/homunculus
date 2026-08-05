@@ -9,9 +9,8 @@
   ;; 只检查 size 子节点的类型（应为整数）。
   (let [size (n/new-array-size node)
         int-ty (ty/make-tcon (check/integer-type context))]
-    (n/make-new-array (check/check-node size int-ty context)
-                      (n/node-meta node)
-                      )))
+    (assoc node
+      :size (check/check-node size int-ty context))))
 
 (defmethod check/check-node :aget [node expected context]
   (let [target (n/aget-target node)

@@ -108,8 +108,9 @@
     (count (:types ty))))
 
 ;; ── 通用向量长度（适用于同构或异构） ──
-(defn vector-length-expr [ty]
+(defn vector-length-expr
   "返回向量类型的长度表达式（IR2 节点）或整数。"
+  [ty]
   (cond
     (vec-type? ty)     (vec-size ty)           ; TVec 的 size 本身就是表达式节点
     (hetero-vec? ty)   (hetero-vec-length ty)  ; 整数，可包装为字面量
