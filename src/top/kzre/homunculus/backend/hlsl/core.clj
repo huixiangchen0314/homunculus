@@ -109,18 +109,18 @@
 
 ;; ── 资源声明 ──
 (defn emit-resource-decl [node]
-  (let [attrs    (n/node-meta node)
-        res-kind (:shader/resource-kind attrs)
+  (let [metadata    (n/node-meta node)
+        res-kind (:shader/resource-kind metadata)
         res-name (name (n/define-name node))
         reg      (case res-kind
-                   :texture2D (:shader/texture-register attrs)
-                   :sampler   (:shader/sampler-register attrs)
-                   :cbuffer   (:shader/cbuffer-register attrs)
+                   :texture2D (:shader/texture-register metadata)
+                   :sampler   (:shader/sampler-register metadata)
+                   :cbuffer   (:shader/cbuffer-register metadata)
                    nil)]
     (case res-kind
       :texture2D [:texture-decl res-name (name reg)]
       :sampler   [:sampler-decl res-name (name reg)]
-      :cbuffer   (let [members (:shader/cbuffer-members attrs)
+      :cbuffer   (let [members (:shader/cbuffer-members metadata)
                        member-vecs (mapv (fn [[sym type-sym-node]]
                                           [:struct-member (st/shader-type-str (keyword type-sym-node)) (name sym) nil])
                                         members)]

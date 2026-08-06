@@ -78,10 +78,11 @@
                                 (~full-ctor))))
                          pairs)]
     `(do
-       ~@member-defs
        (def ~(vary-meta name assoc
                         :shader/resource? true
                         :shader/resource-kind :cbuffer
                         :shader/cbuffer-register register-kw
                         :shader/cbuffer-members map-expr)
-         (top.kzre.homunculus.backend.shader.dsl/cbuffer)))))
+         (top.kzre.homunculus.backend.shader.dsl/cbuffer))
+       ~@member-defs
+       )))

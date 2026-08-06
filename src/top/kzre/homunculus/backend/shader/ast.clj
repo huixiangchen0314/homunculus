@@ -6,13 +6,15 @@
         ->ArrayIndex ->Constructor ->Cast ->Swizzle
         ->Assign ->VarDecl ->If ->While ->Block
         ->Function ->EntryPoint ->Struct ->ResourceDecl ->Import
-        ->Param ->StructMember)
+        ->Param ->StructMember
+        ->Uniform ->StaticVar)
 
 (defast ShaderAST
         {:expr            [:literal / :variable / :binary-op / :unary-op / :call
                            :member-access / :array-index / :constructor / :cast]
          :exprs           [:expr {:many true}]
-         :stmt            [:assign / :var-decl / :if / :while / :block / :expr]
+         :stmt            [:assign / :var-decl / :if / :while / :block / :expr /
+                           :uniform / :static-var]
          :stmts           [:stmt {:many true}]
          :params          [:param {:many true}]
          :struct-members  [:struct-member {:many true}]}
@@ -31,6 +33,8 @@
 
         ;; 语句
         :var-decl        ['name 'type :expr 'init {:optional true}]
+        :uniform         ['name 'type ]
+        :static-var      ['name 'type :expr 'init {:optional true}]
         :assign          [:expr 'lhs :expr 'rhs]
         :if              [:expr 'test :block 'then :block 'else {:optional true}]
         :while           [:expr 'test :block 'body]
@@ -40,7 +44,7 @@
         :function        ['name  'return-type :params 'params :block 'body]
         :entry-point     ['name 'stage 'return-type :params 'params :block 'body]
         :struct          ['name :struct-members 'members]
-        :resource-decl   ['name 'resource-kind 'slot :struct-members 'members ]
+        :resource-decl   ['name 'resource-kind 'slot 'members ]
         :import          ['path]
 
         ;; 辅助

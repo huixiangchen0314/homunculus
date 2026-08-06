@@ -52,9 +52,18 @@
 
 ;; ── 函数调用 ──
 (defmethod emit-node :call [node env]
-  (let [fn-name (name (:fn node))
-        args-str (str/join ", " (map #(emit-node % env) (:args node)))]
-    (T "${fn-name}(${args-str})")))
+  (let [fn-sym (:fn node)
+        args (:args node)]
+    (if (= fn-sym 'sample)
+      ;; 特判 sample 函数：转换为 texture.Sample(sampler, uv, ...)
+      (let [texture (emit-node (first args) env)
+            sampler (emit-node (second args) env)
+            rest-args (str/join ", " (map #(emit-node % env) (drop 2 args)))]
+        (str texture ".Sample(" sampler ", " rest-args ")"))
+      ;; 普通函数调用
+      (let [fn-name (name fn-sym)
+            args-str (str/join ", " (map #(emit-node % env) args))]
+        (T "${fn-name}(${args-str})")))))
 
 ;; ── 二元运算 ──
 (defmethod emit-node :binary-op [node env]
@@ -99,15 +108,37 @@
         expr (emit-node (:expr node) env)]
     (T "(${type})${expr}")))
 
+(defn- render-var-decl [ir-type var-name]
+  (if (ty/vec-type? ir-type)
+    (let [elem (render-type (ty/vec-element-type ir-type))
+          size (ty/vec-size ir-type)]
+      (str elem " " var-name "[" size "]"))
+    (str (render-type ir-type) " " var-name)))
+
 ;; ── 变量声明 ──
 (defmethod emit-node :var-decl [node env]
-  (let [type (render-type (:type node))
+  (let [ty (:type node)
         name (cname (name (:name node)))
         init (:init node)
         init-str (when init (emit-node init env))]
-    (if (and init-str (not (str/blank? init-str)))   ;; 有效初始化字符串
-      (T "${type} ${name} = ${init-str}")
-      (T "${type} ${name}"))))
+    (if (str/blank? init-str)
+      (render-var-decl ty name)
+      (let [init-str (emit-node init env)]
+        (str (render-var-decl ty name) " = " init-str)))))
+
+(defmethod emit-node :uniform [node env]
+  (let [ty (:type node)
+        name (cname (name (:name node)))]
+    (str "uniform " (render-var-decl ty name) ";")))
+
+(defmethod emit-node :static-var [node env]
+  (let [ty (:type node)
+        name (cname (name (:name node)))
+        init (:init node)
+        init-str (when init (emit-node init env))]
+    (if (str/blank? init-str)
+      (str "static " (render-var-decl ty name) ";")
+      (str "static " (render-var-decl ty name) " = " (emit-node init env) ";"))))
 
 ;; ── 赋值 ──
 (defmethod emit-node :assign [node env]
@@ -206,7 +237,7 @@
                                                                        mem-name (name (:name %))]
                                                                    (T "${type} ${mem-name};"))
                                                                 members))))]
-                   (T "cbuffer ${res-name} : register(${res-slot})\n{\n${member-str}\n};")))))
+                   (T "cbuffer ${res-name} : register(${res-slot})\n{\n${member-str}\n}")))))
 
 ;; ── import ──
 (defmethod emit-node :import [node _]

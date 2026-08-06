@@ -27,35 +27,6 @@
               [(conj exprs expr) ne]))
           [[] env] nodes))
 
-;; ── 数组赋值展开（表达式上下文，ret = lhs） ──
-(defn- lower-vec-assign
-  "展开数组赋值 a = b 为 tmp = b; a[i]=tmp[i]; 返回 Block 以 a 作为 ret。"
-  [lhs-ast rhs-ast vec-type env meta]
-  (let [size (ty/vec-size vec-type)
-        tmp-name (gensym "arrtmp-")
-        tmp-var (ast/->Variable tmp-name nil)
-        tmp-decl (ast/->VarDecl tmp-name vec-type rhs-ast meta)
-        env2 (env-add-local env tmp-name)
-        assign-stmts (mapv (fn [i]
-                             (let [idx-lit (ast/->Literal i nil)
-                                   lhs-idx (ast/->ArrayIndex lhs-ast idx-lit nil)
-                                   rhs-idx (ast/->ArrayIndex tmp-var idx-lit nil)]
-                               (ast/->Assign lhs-idx rhs-idx nil)))
-                           (range size))
-        block (ast/->Block (into [tmp-decl] assign-stmts) lhs-ast meta)]
-    [block env2]))
-
-;; ── 数组初始化展开（用于变量声明，无 ret，返回语句列表） ──
-(defn- lower-vec-init-stmts
-  "生成数组变量的声明 + 逐元素赋值语句列表，不产生 ret。
-   返回 [(stmts-vec) new-env]。"
-  [var-name var-ty init-expr env meta]
-  (let [lhs-ast (ast/->Variable var-name nil)
-        [assign-block env2] (lower-vec-assign lhs-ast init-expr var-ty env meta)
-        ;; 提取临时变量声明和赋值语句，并前置变量声明
-        stmts (into [(ast/->VarDecl var-name var-ty nil meta)]
-                    (:stmts assign-block))]
-    [stmts (env-add-local env2 var-name)]))
 
 ;; 多方法
 (defmulti lower-ast (fn [node _env] (ir2/kind node)))
@@ -169,21 +140,31 @@
                                      val-node (:val b)
                                      var-ty (ty/get-type var-node)
                                      var-name (:name var-node)
-                                     [init-expr e2] (lower-ast val-node e)]
-                                 (if (and (some? init-expr)   ;; 确保不是 nil
-                                          (ty/vec-type? var-ty)
-                                          (not (= :literal (ast/kind init-expr)))
-                                         )
-                                   ;; 使用数组初始化展开
-                                   (let [[init-stmts e3] (lower-vec-init-stmts var-name var-ty init-expr e2 (ir-meta var-node))]
-                                     [(into stmts init-stmts) e3])
-                                   ;; 普通变量处理
-                                   (let [[stmt e3] (if (env-contains? e2 var-name)
-                                                     [(ast/->Assign (ast/->Variable var-name nil) init-expr (ir-meta var-node))
-                                                      e2]
-                                                     [(ast/->VarDecl var-name var-ty init-expr (ir-meta var-node))
-                                                      (env-add-local e2 var-name)])]
-                                     [(conj stmts stmt) e3]))))
+                                     [init-expr e2] (lower-ast val-node e)
+                                     ;; 判断是否为需要标记的数组初始化（非构造函数且非nil）
+                                     vec-init? (and (some? init-expr)
+                                                    (ty/vec-type? var-ty) (pos? (ty/vec-size var-ty))
+                                                    (not= :constructor (ast/kind init-expr))
+                                                    (not= :literal (ast/kind init-expr)))
+                                     stmt
+                                     (if vec-init?
+                                       ;; 生成 Block：包含无初始化 VarDecl + 标记的 Assign，ret 为变量本身
+                                       (let [decl (ast/->VarDecl var-name var-ty nil (ir-meta var-node))
+                                             assign (ast/->Assign (ast/->Variable var-name nil) init-expr
+                                                                  (assoc (ir-meta var-node)
+                                                                    :vec-assign? true
+                                                                    :vec-type var-ty))]
+                                         (ast/->Block [decl assign] (ast/->Variable var-name nil) nil))
+                                       ;; 普通变量处理
+                                       (if (env-contains? e2 var-name)
+                                         (ast/->Assign (ast/->Variable var-name nil) init-expr (ir-meta var-node))
+                                         (ast/->VarDecl var-name var-ty init-expr (ir-meta var-node))))
+                                     e3 (if vec-init?
+                                          (env-add-local e2 var-name)
+                                          (if (env-contains? e2 var-name)
+                                            e2
+                                            (env-add-local e2 var-name)))]
+                                 [(conj stmts stmt) e3]))
                              [[] env] bindings)
         [body-expr env'] (lower-ast (n/let-body node) env1)]
     [(ast/->Block decls body-expr (ir-meta node)) env']))
@@ -193,8 +174,13 @@
         lhs-type (ty/get-type lhs-node)
         [lhs env1] (lower-ast lhs-node env)
         [rhs env2] (lower-ast (n/assign-val node) env1)]
-    (if (and (ty/vec-type? lhs-type) (pos? (ty/vec-size lhs-type)))
-      (lower-vec-assign lhs rhs lhs-type env2 (ir-meta node))
+    (if (and (ty/vec-type? lhs-type)
+             (pos? (ty/vec-size lhs-type))
+             (not= :literal (ast/kind rhs))
+             (not= :constructor (ast/kind rhs)))
+      [(ast/->Assign lhs rhs (assoc (ir-meta node)
+                               :vec-assign? true
+                               :vec-type lhs-type)) env2]
       [(ast/->Assign lhs rhs (ir-meta node)) env2])))
 
 (defmethod lower-ast :while [node env]
@@ -203,6 +189,7 @@
         body-block (if (= :block (ast/kind body)) body (ast/->Block [body] nil (ir-meta (n/while-body node))))
         ]
     [(ast/->Block [(ast/->While test body-block (ir-meta node))] nil (ir-meta node)) env2]))
+
 
 (defmethod lower-ast :define [node env]
   (let [meta (n/node-meta node)]
@@ -234,18 +221,28 @@
             (if stage
               [(ast/->EntryPoint (n/define-name node) stage ret-ty param-nodes body-block (ir-meta node)) env']
               [(ast/->Function   (n/define-name node)       ret-ty param-nodes body-block (ir-meta node)) env']))
-          ;; 变量声明（顶层/全局）
+          ;; 变量声明（顶层）
           (let [var-ty (ty/get-type node)
                 var-name (n/define-name node)
-                [init-expr env'] (if val (lower-ast val env) [nil env])]
-            (if (and (some? init-expr)
-                     (ty/vec-type? var-ty) (pos? (ty/vec-size var-ty))
-                     (not= :constructor (ast/kind init-expr))) ;; 非构造器初始化
-              ;; 数组初始化展开为多条语句（但顶层可能需要特殊处理，这里保持统一）
-              (let [[init-stmts env''] (lower-vec-init-stmts var-name var-ty init-expr env' (ir-meta node))]
-                ;; 返回 Block 包裹这些语句，无 ret
-                [(ast/->Block init-stmts nil (ir-meta node)) env''])
-              ;; 普通声明
+                [init-expr env'] (if val (lower-ast val env) [nil env])
+                uniform?    (:shader/uniform? meta)
+                static-var? (:shader/static-var? meta)
+                ;; 标记条件：非构造器且非nil的数组初始化
+                vec-init? (and (some? init-expr)
+                             (ty/vec-type? var-ty)
+                             (pos? (ty/vec-size var-ty))
+                             (not= :constructor (ast/kind init-expr))
+                             (not= :literal (ast/kind init-expr)))]
+            (cond
+              uniform?    [(ast/->Uniform  var-name var-ty (ir-meta node)) env']
+              static-var? [(ast/->StaticVar var-name var-ty init-expr (ir-meta node)) env']
+              vec-init?
+              ;; 生成无初始化的声明和带标记的赋值语句块
+              (let [decl (ast/->VarDecl var-name var-ty nil (ir-meta node))
+                    assign (ast/->Assign (ast/->Variable var-name nil) init-expr
+                                         (assoc meta :vec-assign? true :vec-type var-ty))]
+                [(ast/->Block [decl assign] (ast/->Variable var-name nil) (ir-meta node)) env'])
+              :else
               [(ast/->VarDecl var-name var-ty init-expr (ir-meta node)) env'])))))))
 
 (defmethod lower-ast :default [node _env]
@@ -255,8 +252,6 @@
 (defn lower-nodes [nodes]
   (let [[stmts _] (reduce (fn [[stmts env] n]
                             (let [[node new-env] (lower-ast n env)]
-                              (if (= :block (ast/kind node))
-                                [(into stmts (:stmts node)) new-env]
-                                [(conj stmts node) new-env])))
+                              [(conj stmts node) new-env]))
                           [[] empty-env] nodes)]
     stmts))
