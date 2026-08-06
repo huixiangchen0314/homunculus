@@ -254,4 +254,6 @@
         filtered (remove #(and (= :var-decl (ast/kind %))
                                (-> % :meta :shader/ignore-emit?))
                          nodes)]
-    (str/join "\n\n" (map #(emit-node % env) filtered))))
+    (str
+      (str/join "\n\n" (map #(emit-node % env) filtered))
+      "\n")))

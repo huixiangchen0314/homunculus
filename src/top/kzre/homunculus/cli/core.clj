@@ -2,7 +2,7 @@
   (:gen-class)
   (:require
     [clojure.java.io :as io]
-    [top.kzre.homunculus.backend.hlsl.api :as hlsl]
+    [top.kzre.homunculus.backend.hlsl.core :as hlsl]
     [top.kzre.homunculus.cli.options :as opts]
     [top.kzre.homunculus.internal.model :as model]
     [top.kzre.homunculus.internal.module-unit :as mu]

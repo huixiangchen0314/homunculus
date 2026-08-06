@@ -19,7 +19,6 @@
       (println "statementized" stmted)
       (print "emitted:" emitted)
       emitted)
-    ;(core/emit nodes (core/make-context context (p/frontend context)))
     ))
 
 (defonce emitter (->HLSLEmitter))
