@@ -78,8 +78,7 @@
           roots (dce/eliminate-ho-defs roots dce-ctx)
           roots (dce/eliminate-inline-defs roots dce-ctx)
           roots (dce/eliminate-polymorphic-defs roots dce-ctx)
-          roots' (dce-analyze/analyze-nodes roots context)
-          _ (println "dce analyzed" roots')
+          roots (dce-analyze/analyze-nodes roots context)
           emitter (p/emitter context)
           checked   (check/check roots (check/make-context context frontend backend))
           result    (p/emit emitter checked context)]

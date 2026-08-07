@@ -40,7 +40,7 @@
 
 (defn- should-track? [sym ctx]
   (let [tbl (proto/symbol-table ctx)
-        entry (when tbl (sym/lookup-sym tbl sym))]
+        entry (sym/lookup-sym tbl sym)]
     ;; 只追踪用户变量：符号表中无记录（局部/全局变量）或记录为 :variable
     (or (not entry)
         (= :variable (:kind entry)))))
@@ -60,12 +60,14 @@
        env])))
 
 (defmethod analyze-node :call [node env]
-  (let [fn-name    (n/call-fn node)
+  (let [fn-name    (n/var-name (n/call-fn node))
         symbol-tbl (proto/symbol-table (:ctx env))
-        fn-entry   (when symbol-tbl (sym/lookup-func symbol-tbl fn-name))
-        io?        (true? (:io? fn-entry))
-        new-env    (cond-> env io? (assoc :io? true))]
-    [(assoc-in node [:attrs :io?] io?)
+        fn-entry   (when fn-name (sym/lookup-func symbol-tbl fn-name))
+        io?        (:io? fn-entry)
+        pure?      (:pure? fn-entry)
+        fx?        (or io? (not pure?))          ; 未知函数默认不纯
+        new-env    (cond-> env fx? (assoc :io? true))]
+    [(assoc-in node [:attrs :io?] fx?)
      new-env]))
 
 (defmethod analyze-node :binding [node env]
@@ -153,4 +155,4 @@
                     [(conj nodes' n') new-env]))
                 [[] init-env]
                 (reverse nodes))]
-    (reverse new-nodes)))
+    (vec (reverse new-nodes))))

@@ -110,14 +110,27 @@
                   (cond
                     many?
                     (let [coll (if reverse? `(reverse ~field) field)]
-                      `(let [[~field ~env-sym]
-                             (reduce
-                               (fn [[xs# e#] item#]
-                                 (let [[new-item# e2#] (~'f item# e#)]
-                                   [(conj xs# new-item#) e2#]))
-                               [[] ~env-sym]
-                               ~coll)]
-                         ~inner))
+                      (if reverse?
+                        ;; 逆序：遍历顺序反转，reduce 后再次 reverse 恢复
+                        `(let [[xs# e#]
+                               (reduce
+                                 (fn [[xs# e#] item#]
+                                   (let [[new-item# e2#] (~'f item# e#)]
+                                     [(conj xs# new-item#) e2#]))
+                                 [[] ~env-sym]
+                                 ~coll)
+                               ~field (vec (reverse xs#))
+                               ~env-sym e#]
+                           ~inner)
+                        ;; 正序：无需处理
+                        `(let [[~field ~env-sym]
+                               (reduce
+                                 (fn [[xs# e#] item#]
+                                   (let [[new-item# e2#] (~'f item# e#)]
+                                     [(conj xs# new-item#) e2#]))
+                                 [[] ~env-sym]
+                                 ~coll)]
+                           ~inner)))
                     optional?
                     `(if ~field
                        (let [[~field ~env-sym] (~'f ~field ~env-sym)]
@@ -127,7 +140,7 @@
                     `(let [[~field ~env-sym] (~'f ~field ~env-sym)]
                        ~inner))))
               inner-form
-              (reverse specs))]   ;; 注意：这里内部仍需要正序构建 let 层，因为我们已经在外层翻转了 specs 顺序
+              specs)]
         `(let [~env-sym ~'env]
            ~body)))))
 
