@@ -65,7 +65,8 @@
             [['a 'float2 'b 'float2] 'bool]
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
-            [['a 'int    'b 'int]    'bool]]
+            [['a 'int    'b 'int]    'bool]
+            ]
            [:func '<= [['a 'float  'b 'float]  'bool]
             [['a 'float2 'b 'float2] 'bool]
             [['a 'float3 'b 'float3] 'bool]
@@ -86,14 +87,16 @@
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
             [['a 'int    'b 'int]    'bool]]
-           [:func 'not= [['a 'float  'b 'float]  'bool]
+           [:func 'not=
+            [['a 'float  'b 'float]  'bool]
             [['a 'float2 'b 'float2] 'bool]
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
             [['a 'int    'b 'int]    'bool]]
 
            ;; 向量构造函数（多重重载）
-           [:func 'float4 [['a 'float 'b 'float 'c 'float 'd 'float] 'float4]
+           [:func 'float4
+            [['a 'float 'b 'float 'c 'float 'd 'float] 'float4]
             [['a 'float2 'b 'float 'c 'float] 'float4]
             [['a 'float3 'b 'float] 'float4]
             [['a 'float 'b 'float3] 'float4]]
@@ -108,7 +111,8 @@
            [:func 'cross     ['a 'float3 'b 'float3] 'float3]
            [:func 'length    ['v 'float3] 'float]
            [:func 'mul       ['a 'float4x4 'b 'float4] 'float4]
-           [:func 'sample    ['tex 'texture2D 'samp 'sampler 'uv 'float2] 'float4]
+           [:func 'sample {:io? true}
+            ['tex 'texture2D 'samp 'sampler 'uv 'float2] 'float4]
            [:func 'max       ['a 'float 'b 'float] 'float]
            [:func 'min       ['a 'float 'b 'float] 'float]
            [:func 'clamp     ['x 'float 'min 'float 'max 'float] 'float]
@@ -128,11 +132,16 @@
            [:func 'frac  ['x 'float] 'float]
 
            ;; HLSL 特有函数
-           [:func 'tex2D    ['s 'sampler 'uv 'float2] 'float4]
-           [:func 'tex2Dlod ['s 'sampler 'uv 'float4] 'float4]
-           [:func 'texCUBE  ['s 'sampler 'dir 'float3] 'float4]
-           [:func 'clip     ['x 'float] nil]
-           [:func 'discard  [] nil]
+           [:func 'tex2D  {:io? true}
+            ['s 'sampler 'uv 'float2] 'float4]
+           [:func 'tex2Dlod {:io? true}
+            ['s 'sampler 'uv 'float4] 'float4]
+           [:func 'texCUBE  {:io? true}
+            ['s 'sampler 'dir 'float3] 'float4]
+           [:func 'clip  {:io? true}
+            ['x 'float] nil]
+           [:func 'discard {:io? true}
+            [] nil]
            [:func 'ddx      ['x 'float] 'float]
            [:func 'ddy      ['x 'float] 'float]
            [:func 'fwidth   ['x 'float] 'float]

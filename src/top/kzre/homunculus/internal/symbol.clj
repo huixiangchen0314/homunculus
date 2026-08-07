@@ -40,16 +40,15 @@
 ;; ── 构建函数（均保持不变） ──
 
 (defn make-func
-  [sym & {:keys [arities params ret rets type meta
-                 ] :or {arities []}}]
+  [sym & {:keys [arities params ret rets type meta] :as opts}]
   (let [entry (cond-> {:kind :function :sym sym}
-                      type (assoc :type type)
-                      meta (assoc :meta meta)
+                      type          (assoc :type type)
+                      meta          (assoc :meta meta)
                       (seq arities) (assoc :arities (vec arities))
                       (and (empty? arities) (some? params))
-                      (assoc :params params :ret ret :rets rets))]
-    (validate! entry)
-    entry))
+                      (assoc :params params :ret ret :rets rets))
+        extra (select-keys opts [:io? :pure?])]   ;; 提取允许的属性
+    (merge entry extra)))
 
 (defn make-record
   [sym & {:keys [fields protocols type meta] :or {fields [] protocols []}}]
@@ -151,28 +150,31 @@
               kind)))
 
 (defmethod parse-table-entry :func
-  [[_ sym & rest]]
-  (let [sym (unquote-name sym)]
-    (if (and (vector? (first rest))
-             (vector? (ffirst rest)))
-      ;; 多重载
-      (let [arities (mapv (fn [arity]
+  [[_ sym & xs]]
+  (let [sym (unquote-name sym)
+        [attrs args] (if (map? (first xs))
+                       [(first xs) (rest xs)]
+                       [{} xs])]
+    (if (and (seq args) (vector? (first args)) (vector? (ffirst args)))
+      ;; 多重载形式
+      (let [arities args
+            arities (mapv (fn [arity]
                             (let [[params ret] arity
                                   pairs (partition 2 params)
                                   params (mapv (fn [[n t]]
                                                  (make-param (unquote-name n) :type (parse-type t)))
                                                pairs)]
                               (make-func-arity params :ret (make-ret (parse-type ret)))))
-                          rest)]
-        (list [sym (make-func sym :arities arities)]))
-      ;; 单重载
-      (let [ret (last rest)
-            param-pairs (partition 2 (butlast rest))
+                          arities)]
+        (list [sym (apply make-func sym :arities arities (apply concat attrs))]))
+      ;; 单重载形式
+      (let [ret-item (last args)
+            param-part (butlast args)
+            param-pairs (partition 2 param-part)
             params (mapv (fn [[n t]]
                            (make-param (unquote-name n) :type (parse-type t)))
                          param-pairs)]
-        (list [sym (make-func sym :params params :ret (make-ret (parse-type ret)))])))))
-
+        (list [sym (apply make-func sym :params params :ret (make-ret (parse-type ret-item)) (apply concat attrs))])))))
 
 ;; ── 解析 :alias ──
 (defmethod parse-table-entry :alias
