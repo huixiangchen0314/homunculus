@@ -23,6 +23,7 @@
      (~'kind       [~'this] "返回节点类型关键字")
      (~'children   [~'this] "返回直接子节点的向量")
      (~'reduce-children [~'this ~'f ~'env] "用 f 折叠子节点，f 接收 [child env] 返回 [new-child new-env]，返回 [new-node final-env]")
+     (~'rreduce-children [~'this ~'f ~'env] "用 f 从右到左折叠子节点，f 接收 [child env] 返回 [new-child new-env]，返回 [new-node final-env]")
      (~'node-meta  [~'this] "返回元数据 map")))
 
 (defn- parse-type-map [type-map]
@@ -90,31 +91,33 @@
                      `(when (satisfies? ~protocol-name ~field) [~field])))]
     `(vec (concat ~@segments))))
 
-(defn- emit-reduce-children-body [node-def]
-  (let [specs (:children-specs node-def)]
+;; 构建 reduce-children 或 rreduce-children 的 body
+;; reverse? 为 true 表示逆序
+(defn- emit-reduce-children-body* [node-def reverse?]
+  (let [specs (if reverse?
+                (reverse (:children-specs node-def))
+                (:children-specs node-def))]
     (if (empty? specs)
       `[~'this ~'env]   ;; 无子节点，直接返回 this 和 env
       (let [env-sym (gensym "env")
-            ;; 构建最内层的 assoc 形式，将所有子节点字段更新回 this
             assoc-form `(assoc ~'this
                           ~@(mapcat (fn [s] [(keyword (:field s)) (:field s)]) specs))
-            ;; 最内层表达式： [assoced-this env-sym]
             inner-form `[~assoc-form ~env-sym]
-            ;; 从后向前包裹 let 绑定，每层处理一个子节点字段
             body
             (reduce
               (fn [inner spec]
                 (let [{:keys [field many? optional?]} spec]
                   (cond
                     many?
-                    `(let [[~field ~env-sym]
-                           (reduce
-                             (fn [[xs# e#] item#]
-                               (let [[new-item# e2#] (~'f item# e#)]
-                                 [(conj xs# new-item#) e2#]))
-                             [[] ~env-sym]
-                             ~field)]
-                       ~inner)
+                    (let [coll (if reverse? `(reverse ~field) field)]
+                      `(let [[~field ~env-sym]
+                             (reduce
+                               (fn [[xs# e#] item#]
+                                 (let [[new-item# e2#] (~'f item# e#)]
+                                   [(conj xs# new-item#) e2#]))
+                               [[] ~env-sym]
+                               ~coll)]
+                         ~inner))
                     optional?
                     `(if ~field
                        (let [[~field ~env-sym] (~'f ~field ~env-sym)]
@@ -124,9 +127,15 @@
                     `(let [[~field ~env-sym] (~'f ~field ~env-sym)]
                        ~inner))))
               inner-form
-              (reverse specs))]
+              (reverse specs))]   ;; 注意：这里内部仍需要正序构建 let 层，因为我们已经在外层翻转了 specs 顺序
         `(let [~env-sym ~'env]
            ~body)))))
+
+(defn- emit-reduce-children-body [node-def]
+  (emit-reduce-children-body* node-def false))
+
+(defn- emit-rreduce-children-body [node-def]
+  (emit-reduce-children-body* node-def true))
 
 (defn- emit-ast-node [protocol-name node-def]
   (let [fields (conj (:field-order node-def) 'meta)]
@@ -136,6 +145,8 @@
        (~'children [~'this] ~(emit-children-body node-def protocol-name))
        (~'reduce-children [~'this ~'f ~'env]
          ~(emit-reduce-children-body node-def))
+       (~'rreduce-children [~'this ~'f ~'env]
+         ~(emit-rreduce-children-body node-def))
        (~'node-meta [~'this] (:meta ~'this)))))
 
 (defmacro defast

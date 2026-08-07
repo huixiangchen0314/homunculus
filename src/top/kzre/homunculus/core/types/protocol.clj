@@ -16,7 +16,9 @@
   (macro-namespaces [this]
     "返回一个集合（符号），表示仅用于编译时宏展开的命名空间，
      这些依赖不应生成 #include 指令。")
-  )
+  (entry-point? [this node]
+    "根据 define 节点的元数据返回 true 表示该定义是入口点程序。
+     node 是 IR2 :define 节点，可通过 (ir2/node-meta node) 获取元数据。"))
 
 ;; ── 后端信息 ──────────────────────────────
 (defprotocol IBackendInfo

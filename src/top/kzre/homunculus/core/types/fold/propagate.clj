@@ -153,7 +153,7 @@
     [(n/make-call new-fn new-args (n/attrs node) (n/node-meta node))
      ctx1]))
 
-;; ★ 核心：:alength 节点直接替换为已知长度 ──
+;; 核心：:alength 节点直接替换为已知长度 ──
 (defmethod propagate-node :alength [node context]
   (let [target (n/alength-target node)
         len (when (n/variable-node? target)

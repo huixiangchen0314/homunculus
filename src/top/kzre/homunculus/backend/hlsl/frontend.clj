@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.backend.hlsl.frontend
   "HLSL 前端：实现 IFrontendInfo 协议，提供 HLSL 类型、字面量、内置函数。"
   (:require
+    [top.kzre.homunculus.core.ir2.ast :as ir2]
     [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.core.types.type :as ty]
     [top.kzre.homunculus.internal.symbol :as sym]))
@@ -176,6 +177,8 @@
   (macro-namespaces [_] #{'top.kzre.homunculus.backend.shader.dsl
                           'top.kzre.homunculus.core
                           'cljh.core
-                          }))
+                          })
+  (entry-point? [_ node]
+    (boolean (:shader/stage (ir2/node-meta node)))))
 
 (defonce frontend (->HLSLFrontend))

@@ -3,7 +3,7 @@
    使用 reduce-children，每个节点直接处理字段。"
   (:require [top.kzre.homunculus.core.ast :refer [defast]]))
 
-(declare IR2 kind children reduce-children node-meta
+(declare IR2 kind children reduce-children rreduce-children node-meta
         ->Literal ->Variable ->Call ->If ->Block ->Let ->Lambda ->Loop ->Recur
         ->Define ->Vector ->Map ->Try ->Catch ->Throw ->Assign ->While ->Convert
         ->Ns ->Method ->Field ->ProtocolImpl ->Record ->Protocol ->MemberAccess
@@ -38,6 +38,7 @@
         :if              [:expr 'test :expr 'then :expr 'else {:optional true} 'attrs]
         :block           [:exprs 'exprs 'attrs]
         :let             [:bindings 'bindings :expr 'body 'attrs]
+        ;; TODO 移除这里闭包捕获参数， 需要时候本地环境分析更加合适
         :lambda          [:params 'params :expr 'body 'captures 'fn-name 'attrs]
         :loop            [:bindings 'bindings :expr 'body 'attrs]
         :recur           [:exprs 'args 'attrs]

@@ -1,26 +1,27 @@
 
 (ns top.kzre.homunculus.compilers.firstorder
 (:require
-    [top.kzre.homunculus.core.ir1.api :as ir1]
-    [top.kzre.homunculus.core.ir2.api :as ir2]
-    [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.types.alias :as alias]
-    [top.kzre.homunculus.core.types.alpha-rename :as rename]
-    [top.kzre.homunculus.core.types.check.api :as check]
-    [top.kzre.homunculus.core.types.constraint.api :as solve]
-    [top.kzre.homunculus.core.types.dc-elim.core :as dce]
-    [top.kzre.homunculus.core.types.fold.core :as fold]
-    [top.kzre.homunculus.core.types.ho-elim.core :as ho-elim]
-    [top.kzre.homunculus.core.types.infer.api :as infer]
-    [top.kzre.homunculus.core.types.inline.api :as inline]
-    [top.kzre.homunculus.core.types.lambda-elim.api :as lambda-elim]
-    [top.kzre.homunculus.core.types.lambda-elim.protocol :as lambda-elim-p]
-    [top.kzre.homunculus.core.types.module.api :as module]
-    [top.kzre.homunculus.core.types.protocol :as tp]
-    [top.kzre.homunculus.core.types.recur-elim.api :as recur]
-    [top.kzre.homunculus.internal.module-unit :as mu]
-    [top.kzre.homunculus.core.ir1.polyfill-meta :as pm]
-    [top.kzre.homunculus.internal.protocol :as p]))
+ [top.kzre.homunculus.core.ir1.api :as ir1]
+ [top.kzre.homunculus.core.ir1.polyfill-meta :as pm]
+ [top.kzre.homunculus.core.ir2.api :as ir2]
+ [top.kzre.homunculus.core.ir2.node :as n]
+ [top.kzre.homunculus.core.types.alias :as alias]
+ [top.kzre.homunculus.core.types.alpha-rename :as rename]
+ [top.kzre.homunculus.core.types.check.api :as check]
+ [top.kzre.homunculus.core.types.constraint.api :as solve]
+ [top.kzre.homunculus.core.types.dc-elim.core :as dce]
+ [top.kzre.homunculus.core.types.fold.core :as fold]
+ [top.kzre.homunculus.core.types.ho-elim.core :as ho-elim]
+ [top.kzre.homunculus.core.types.infer.api :as infer]
+ [top.kzre.homunculus.core.types.dc-elim.analyze :as dce-analyze]
+ [top.kzre.homunculus.core.types.inline.api :as inline]
+ [top.kzre.homunculus.core.types.lambda-elim.api :as lambda-elim]
+ [top.kzre.homunculus.core.types.lambda-elim.protocol :as lambda-elim-p]
+ [top.kzre.homunculus.core.types.module.api :as module]
+ [top.kzre.homunculus.core.types.protocol :as tp]
+ [top.kzre.homunculus.core.types.recur-elim.api :as recur]
+ [top.kzre.homunculus.internal.module-unit :as mu]
+ [top.kzre.homunculus.internal.protocol :as p]))
 
 ;; ── 闭包消除配置 ──────────────────────
 (defn- default-lift-config []
@@ -77,6 +78,8 @@
           roots (dce/eliminate-ho-defs roots dce-ctx)
           roots (dce/eliminate-inline-defs roots dce-ctx)
           roots (dce/eliminate-polymorphic-defs roots dce-ctx)
+          roots' (dce-analyze/analyze-nodes roots context)
+          _ (println "dce analyzed" roots')
           emitter (p/emitter context)
           checked   (check/check roots (check/make-context context frontend backend))
           result    (p/emit emitter checked context)]
