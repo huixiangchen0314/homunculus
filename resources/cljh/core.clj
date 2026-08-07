@@ -17,7 +17,7 @@
         (recur (%%+ i 1) (f acc (%%aget coll i)))
         acc))))
 
-(defn conj [coll x]
+(defn ^:inline conj [coll x]
   (let [n (%%alength coll)
         new-arr (%%new-array (%%+ n 1))]
     (loop [i 0]
@@ -27,6 +27,7 @@
         (do (%%aset new-arr n x)
             new-arr)))))
 
+;; 对静态类型不合法
 (defn filter [pred coll]
   (let [n (%%alength coll)]
     (loop [i 0, acc (%%new-array 0)]

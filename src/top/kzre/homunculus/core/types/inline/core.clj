@@ -16,7 +16,7 @@
   (let [builtin-table (tp/builtin-symbols frontend)
         user-table    (ip/symbol-table compile-ctx)
         symbols       (merge builtin-table user-table)]
-    {:env {:symbol-table symbols}
+    {:symbol-table symbols
      :frontend frontend
      :ctx compile-ctx
      :backend backend
@@ -35,10 +35,9 @@
 
 (defn- find-lambda-to-inline [fn-name ctx]
   (or (get-in ctx [:local-inline-defs fn-name])
-      (when-let [entry (get-in ctx [:env :symbol-table fn-name])]
+      (when-let [entry (get-in ctx [:symbol-table fn-name])]
         (when (or (:inline entry)
-                  (and (:polymorphic entry)
-                       (:inline-polymorphic? ctx)))
+                  (and (:polymorphic entry) (:inline-polymorphic? ctx)))
           (:ir2 entry)))))
 
 (defn- inline-call

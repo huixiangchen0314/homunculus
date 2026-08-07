@@ -5,7 +5,10 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.type :as ty]
     [top.kzre.homunculus.internal.symbol :as sym]
-    [top.kzre.homunculus.internal.protocol :as p]))
+    [top.kzre.homunculus.internal.module-unit]
+    [top.kzre.homunculus.internal.protocol :as p]
+    [top.kzre.homunculus.internal.module-unit :as mu])
+  (:import (top.kzre.homunculus.internal.module_unit ModuleUnit)))
 
 (defn- fully-qualified-sym [node]
   (n/define-name node))
@@ -13,7 +16,8 @@
 (defn- collect-define [node context]
   (let [s   (fully-qualified-sym node)
         val (n/define-val node)]
-    (if (= :lambda (n/kind val))
+    (cond
+      (= :lambda (n/kind val))
       ;; 函数
       (let [params (mapv (fn [p]
                            (sym/make-param (n/var-name p)
@@ -26,10 +30,16 @@
             entry  (sym/make-func s
                                   :params params
                                   :ret ret
-                                  :meta (n/node-meta val))]
+                                  :type (ty/get-type val)
+                                  :meta (n/node-meta val))
+            attrs (n/attrs node)
+            flags (->> (select-keys attrs [:ho? :inline :polymorphic])
+                       (filter (fn [[_ v]] (true? v)))
+                       (into {}))]
         (cond-> entry
-                (ty/get-type val) (assoc :type (ty/get-type val))
-                (true? (:ho? (n/attrs node))) (assoc :ho? true :ir2 val)))
+                (seq flags)
+                (merge flags {:ir2 val})))
+      :else
       ;; 变量
       (sym/make-variable s
                          :type (ty/get-type node)
@@ -78,6 +88,27 @@
     (p/register-sym context ctor-entry)
     record-entry))
 
+(defn emit-record-ctor [entry ^ModuleUnit unit]
+  (let [sym (mu/norm-sym unit (:sym entry))
+        record-ty   (ty/make-tcon sym)
+        fields     (:fields entry)
+        field-tys   (mapv :type fields)
+        ctor-name   (mu/norm-sym unit (symbol (str "->" (name sym))))
+        ctor-type   (reduce (fn [ret arg] (ty/make-tfun arg ret))
+                            record-ty
+                            (reverse field-tys))
+        ctor-params (mapv (fn [f]
+                            (sym/make-param (get f :field-name)   ; sym/make-field 返回包含 :field-name
+                                            :type (:type f)
+                                            :meta (:meta f)))
+                          fields)]
+    (sym/make-func ctor-name
+                   :params ctor-params
+                   :ret (sym/make-ret record-ty)
+                   :type ctor-type
+                   :meta {:cljh/ctor? true                  ;; 自动生成的构造器
+                          })))
+
 (defn- collect-protocol [node _context]
   (let [proto-name       (n/protocol-name node)
         methods (mapv (fn [method-node]
@@ -99,15 +130,22 @@
 
 (defn collect-symbols
   "遍历 IR2 根节点，收集所有顶层定义并注册到 context。"
-  [ir2-roots context]
-  (doseq [root ir2-roots]
-    (try
-      (case (n/kind root)
-        :define   (when-let [entry (collect-define root context)]
-                    (p/register-sym context entry))
-        :record   (collect-record root context)   ; 内部注册
-        :protocol (when-let [entry (collect-protocol root context)]
-                    (p/register-sym context entry))
-        nil)
-      (catch Throwable t
-        (println "[WARN] collect-symbols failed for" (n/kind root) ":" (.getMessage t))))))
+  [ir2-roots context ^ModuleUnit unit]
+  (let [module-atom (atom unit)]
+    (doseq [root ir2-roots]
+      (try
+        (case (n/kind root)
+          :define   (when-let [entry (collect-define root context)]
+                      (swap! module-atom mu/register-symbol entry)
+                      (p/register-sym context entry))
+          :record   (when-let [entry (collect-record root context)]
+                      (swap! module-atom mu/register-symbol entry)
+                      (let [ctor-entry (emit-record-ctor entry unit)]
+                        (swap! module-atom mu/register-symbol ctor-entry)))
+          :protocol (when-let [entry (collect-protocol root context)]
+                      (swap! module-atom mu/register-symbol entry)
+                      (p/register-sym context entry))
+          nil)
+        (catch Throwable t
+          (println "[WARN] collect-symbols failed for" (n/kind root) ":" (.getMessage t)))))
+    @module-atom))

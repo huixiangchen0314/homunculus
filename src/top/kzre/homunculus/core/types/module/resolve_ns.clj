@@ -1,13 +1,13 @@
 (ns top.kzre.homunculus.core.types.module.resolve-ns
   "命名空间解析。利用 reduce-children 自动遍历，只保留需要环境/名称特殊处理的节点。"
   (:require
-    [top.kzre.homunculus.core.ir2.ast :as m]
-    [top.kzre.homunculus.core.ir2.ast :as ir2p]
+    [top.kzre.homunculus.core.ir2.ast :as ir2]
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.protocol :as types]
     [top.kzre.homunculus.core.types.namespace :as namespace]
     [top.kzre.homunculus.internal.protocol :as ip]))
 
+;; TODO 废弃，动态计算，而不是预处理展开
 ;; ── 环境辅助函数 ──
 (defn- add-locals [env var-names]
   (update env :locals into var-names))
@@ -72,7 +72,7 @@
                 [[] env]
                 bindings)
         [new-body _] (resolve-node (n/let-body node) env-inner)]
-    [(m/->Let new-bindings new-body (:attrs node) (:meta node))
+    [(ir2/->Let new-bindings new-body (:attrs node) (:meta node))
      env]))
 
 ;; loop：类似 let，创建新作用域
@@ -145,7 +145,7 @@
 ;; ★ 默认方法：利用 reduce-children 自动遍历并重建节点
 ;;   将环境传递下去，最终返回 [重建后的节点, 最终环境]
 (defmethod resolve-node :default [node env]
-  (ir2p/reduce-children node
+  (ir2/reduce-children node
                         (fn [child current-env]
                           (resolve-node child current-env))
                         env))
@@ -153,8 +153,8 @@
 ;; ── 主函数不变 ──
 (defn resolve-ns
   [ir2-roots context frontend]
-  (let [ns-nodes      (filter #(= (ir2p/kind %) :ns) ir2-roots)
-        non-ns-roots  (remove #(= (ir2p/kind %) :ns) ir2-roots)
+  (let [ns-nodes      (filter #(= (ir2/kind %) :ns) ir2-roots)
+        non-ns-roots  (remove #(= (ir2/kind %) :ns) ir2-roots)
         self-ns       (some-> ns-nodes first :name)
         _             (when (nil? self-ns)
                         (throw (ex-info "No namespace declaration found" {})))

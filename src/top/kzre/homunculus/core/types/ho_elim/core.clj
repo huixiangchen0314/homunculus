@@ -91,7 +91,7 @@
      :depth            0}))
 
 ;; ── 入口 ──
-(defn process
+(defn eliminate
   [ir2-roots context]
   (let [analyzed-roots (analyze/analyze ir2-roots)
         ctx (assoc context :env (empty-env) :depth 0)

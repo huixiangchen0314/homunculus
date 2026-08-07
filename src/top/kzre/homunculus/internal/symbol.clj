@@ -5,6 +5,10 @@
             [top.kzre.homunculus.core.types.type :as ty]
             [top.kzre.homunculus.internal.spec :as spec]))
 
+(defn private-symbol?
+  [symbol-entry]
+  (:private (:meta symbol-entry)))
+
 ;; ========== 构建与验证 ==========
 
 (defn- validate! [entry]
@@ -36,7 +40,8 @@
 ;; ── 构建函数（均保持不变） ──
 
 (defn make-func
-  [sym & {:keys [arities params ret rets type meta] :or {arities []}}]
+  [sym & {:keys [arities params ret rets type meta
+                 ] :or {arities []}}]
   (let [entry (cond-> {:kind :function :sym sym}
                       type (assoc :type type)
                       meta (assoc :meta meta)

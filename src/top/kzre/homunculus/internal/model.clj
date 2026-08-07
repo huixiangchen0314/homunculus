@@ -1,6 +1,8 @@
 (ns top.kzre.homunculus.internal.model
   "编译配置和上下文的默认实现。"
   (:require
+    [top.kzre.homunculus.core.types.protocol :as tp]
+    [top.kzre.homunculus.internal.module-unit :as mu]
     [top.kzre.homunculus.internal.protocol :as p]
     [top.kzre.homunculus.internal.utils :as u]))
 
@@ -51,6 +53,15 @@
         (finally
           (swap! state-atom update :compiling disj ns-sym))))))
 
+(defn resolve-module-symbol-table
+  "解析当前命名空间可见符号表，假设依赖图已无环。"
+  [ctx ns-sym]
+  (let [unit     (p/module-unit ctx ns-sym)
+        table    (mu/module-public-symbols unit)
+        requires (mu/module-requires unit)]  ;; 仅保留合格的 ns 符号
+    (apply merge
+           (map #(resolve-module-symbol-table ctx %) requires)
+           table)))
 
 (defrecord DefaultCompileContext [config
                                   ^CompileTarget target
@@ -69,12 +80,22 @@
   (register-sym [this sym-entry]
     (swap! state-atom assoc-in [:symbol-table (:sym sym-entry)] sym-entry)
     this)
-
-  (symbol-table [_] (:symbol-table @state-atom))
+  (symbols [this ns-sym]
+    (let [user-table (resolve-module-symbol-table this ns-sym)
+          frontend (p/frontend this)
+          builtin-table (tp/builtin-symbols frontend)]
+      (merge builtin-table user-table)))
+  (symbol-table [this]
+    (let [user-table (:symbol-table @state-atom)
+          frontend (p/frontend this)
+          builtin-table (tp/builtin-symbols frontend)]
+      (merge builtin-table user-table)))
   (module-unit [_ ns-sym]
     (get-in @state-atom [:modules ns-sym]))
-  (set-module-unit! [_ ns-sym unit]
-    (swap! state-atom assoc-in [:modules ns-sym] unit))
+  (set-module-unit! [_ unit]
+    (if-let [ns-sym (mu/module-ns unit)]
+      (swap! state-atom assoc-in [:modules ns-sym] unit)
+      (throw (ex-info "ns is require for module unit" {:unit unit}))))
   (all-module-units [_] (vals (get-in @state-atom [:modules]))))
 
 (defn make-compile-context

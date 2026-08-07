@@ -31,9 +31,7 @@
 (defn make-context
   "构建类型检查上下文，合并前端与用户符号表，并提取已知类型集合。"
   [compile-ctx frontend backend]
-  (let [builtin-table (tp/builtin-symbols frontend)
-        user-table    (ip/symbol-table compile-ctx)
-        symbols       (merge builtin-table user-table)]
+  (let [symbols       (ip/symbol-table compile-ctx)]
     {:ctx compile-ctx
      :frontend frontend
      :backend backend

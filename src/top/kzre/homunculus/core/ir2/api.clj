@@ -20,11 +20,9 @@
     [top.kzre.homunculus.core.ir2.forms.variable]         ;; :var → VariableNode 展开
     [top.kzre.homunculus.core.ir2.forms.assign]           ;; :set → AssignNode
     [top.kzre.homunculus.core.ir2.forms.try]              ;; :try, :catch, :throw
-    [top.kzre.homunculus.core.ir2.forms.ns]               ;; :ns
     [top.kzre.homunculus.core.ir2.forms.record]           ;; :record
     [top.kzre.homunculus.core.ir2.forms.protocol]         ;; :protocol
     [top.kzre.homunculus.core.ir2.forms.member-access]    ;; :member-access
    ))
 
-
-(def ->ir2 ir2/->ir2)
+(def lower-nodes ir2/lower-nodes)

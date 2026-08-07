@@ -37,35 +37,37 @@
 (defrecord TypedCompiler []
   p/ICompiler
   ;; 模块编译
-  (compile [_ forms context]
-    (let [frontend (p/frontend context)
-          backend (p/backend context)
+  (compile [_ forms ctx]
+    (let [frontend (p/frontend ctx)
+          backend (p/backend ctx)
           folder (tp/folder backend)
+
           lift-cfg  (default-lift-config)
           ns-sym    (some-> (first forms) (nth 1))
           _         (when (nil? ns-sym)
                       (throw (ex-info "No ns form found" {:forms forms})))
+          unit (mu/make-module-unit ns-sym)
           processed (ir1/preprocess forms)
           ir1-roots (mapv ir1/->ir1 processed)
           ir1-roots1 (pm/polyfill-nodes ir1-roots)
-          ir2-roots (mapcat ir2/->ir2 ir1-roots1)
+          ir2-roots (ir2/lower-nodes ir1-roots1 ctx)
           ir2-roots' (rename/rename-nodes ir2-roots)
-          ir2-roots' (alias/alias-nodes ir2-roots' context frontend)
-          ir2-roots' (module/resolve-ns ir2-roots' context frontend)
-          _          (module/collect-symbols ir2-roots' context)
+          ir2-roots' (alias/alias-nodes ir2-roots' ctx frontend)
+          ir2-roots' (module/resolve-ns ir2-roots' ctx frontend)
+          unit1      (module/collect-symbols ir2-roots' ctx unit)
           ir2-roots' (inline/analyze ir2-roots')   ;; 分析标记
-          ir2-roots' (inline/inline-nodes ir2-roots' (inline/make-context context frontend backend))  ;; 执行内联
-          no-ho    (ho-elim/process ir2-roots' (ho-elim/make-context context frontend backend))
+          ir2-roots' (inline/inline-nodes ir2-roots' (inline/make-context ctx frontend backend))  ;; 执行内联
+          no-ho      (ho-elim/eliminate ir2-roots' (ho-elim/make-context ctx frontend backend))
           no-closure (lambda-elim/eliminate no-ho lift-cfg)
-          no-recur   (recur/elim-nodes no-closure)
-          folded     (fold/fold no-recur (fold/make-context context frontend backend folder))
-          inferred   (infer/infer folded (infer/make-context context frontend backend))
-          solved     (solve/process inferred (solve/make-context context frontend backend))
+          no-recur   (recur/eliminate no-closure)
+          folded     (fold/fold no-recur (fold/make-context ctx frontend backend folder))
+          inferred   (infer/infer folded (infer/make-context ctx frontend backend))
+          solved     (solve/process inferred (solve/make-context ctx frontend backend))
           ;mutable    (mut/analyze solved)
-          _          (module/collect-symbols solved context)
-          unit       (mu/make-module-unit ns-sym solved)]
-      (p/set-module-unit! context ns-sym unit)
-      unit))
+          unit2      (module/collect-symbols solved ctx unit1)
+          unit3      (assoc unit2 :nodes solved)]
+      (p/set-module-unit! ctx unit3)
+      unit3))
 
   (compile-module [_ unit context]
     (let [frontend (p/frontend context)

@@ -25,8 +25,9 @@
   (register-deps    [this dep-syms] "递归编译所有依赖，确保它们已就绪")
   (register-sym [this sym-entry] "注册一个符号表项")
   (symbol-table      [this] "返回全局符号表")
+  (symbols [this ns-sym] "返回模块可见的符号表")
   (module-unit [_ ns-sym])
-  (set-module-unit! [this ns-sym unit])
+  (set-module-unit! [this unit])
   (all-module-units [this] "返回积累的所有模块单元"))
 
 (defprotocol IEmitter
