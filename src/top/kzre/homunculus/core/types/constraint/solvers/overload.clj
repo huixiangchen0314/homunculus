@@ -5,10 +5,9 @@
     [top.kzre.homunculus.core.types.constraint.constraint :as c]
     [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
     [top.kzre.homunculus.core.types.constraint.unify :as u]
-    [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.core.types.type :as ty]))
 
-
+;; TODO 优化代价计算
 
 (defn- try-convert [conversion-fn src-ty dst-ty]
   (when conversion-fn (conversion-fn src-ty dst-ty)))

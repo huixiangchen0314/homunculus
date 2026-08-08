@@ -2,7 +2,7 @@
   "死代码消除的分析pass. 执行以下分析
   1. 活跃变量分析
   2. io? 副作用标记传播
-  3. 单纯赋值路径分析"
+  3. 单纯赋值路径分析 —— 仅预留框架，实际收集由独立 Pass 完成"
   (:require
     [clojure.set :as set]
     [top.kzre.homunculus.core.ir2.ast :as ir2]
@@ -10,14 +10,14 @@
     [top.kzre.homunculus.internal.symbol :as sym]
     [top.kzre.homunculus.internal.protocol :as proto]))
 
+;; ── 环境：移除了 assign-table 字段 ──
 (defrecord Env [ctx           ;; ICompileContext 实例
-                assign-table  ;; 赋值表 (map var-sym -> source-sym)
                 living-vars   ;; 当前点之后的活跃变量集合
                 io?           ;; 当前点是否包含副作用
                 ])
 
 (defn make-env [ctx]
-  (->Env ctx {} #{} false))
+  (->Env ctx #{} false))
 
 (defn env-add-use [env var-name]
   (update env :living-vars conj var-name))
@@ -27,7 +27,6 @@
 
 (defn env-merge-branch [env1 env2]
   (->Env (:ctx env1)
-         (merge (:assign-table env1) (:assign-table env2))
          (set/union (:living-vars env1) (:living-vars env2))
          (or (:io? env1) (:io? env2))))
 
@@ -41,7 +40,6 @@
 (defn- should-track? [sym ctx]
   (let [tbl (proto/symbol-table ctx)
         entry (sym/lookup-sym tbl sym)]
-    ;; 只追踪用户变量：符号表中无记录（局部/全局变量）或记录为 :variable
     (or (not entry)
         (= :variable (:kind entry)))))
 
@@ -65,20 +63,17 @@
         fn-entry   (when fn-name (sym/lookup-func symbol-tbl fn-name))
         io?        (:io? fn-entry)
         pure?      (:pure? fn-entry)
-        fx?        (or io? (not pure?))          ; 未知函数默认不纯
+        fx?        (or io? (not pure?))
         new-env    (cond-> env fx? (assoc :io? true))]
     [(assoc-in node [:attrs :io?] fx?)
      new-env]))
 
 (defmethod analyze-node :binding [node env]
+  ;; 此处仅保留活跃变量分析和副作用传播，不再收集赋值表
   (let [var-node (:var node)
-        val-node (:val node)
         env'     (if (= :variable (ir2/kind var-node))
                    (let [lhs-name (n/var-name var-node)]
-                     (-> env
-                         (env-kill lhs-name)
-                         (cond-> (= :variable (ir2/kind val-node))
-                                 (assoc-in [:assign-table lhs-name] (n/var-name val-node)))))
+                     (env-kill env lhs-name))  ;; 只杀死，不记录赋值
                    env)]
     [(-> node
          (assoc-in [:attrs :live-out] (:living-vars env))
@@ -89,7 +84,7 @@
   [(assoc-in node [:attrs :live-out] (:living-vars env))
    env])
 
-;; ── 集中控制遍历顺序的函数 ──
+;; ── 遍历控制 ──
 (declare analyze-fn)
 
 (defn analyze-fn [node env]
@@ -99,21 +94,16 @@
     (let [params (n/lambda-params node)
           body   (n/lambda-body node)
           param-names (into #{} (keep #(when (= :variable (ir2/kind %)) (n/var-name %)) params))
-          ;; 先分析 body，初始环境与当前 env 相同
           [new-body env-body] (analyze-fn body env)
-          ;; 从 body 分析后的 living-vars 中移除参数，得到自由变量
           free-vars (set/difference (:living-vars env-body) param-names)
-          ;; 将自由变量合并到当前环境（表示在 lambda 之前它们活跃）
           env' (update env :living-vars into free-vars)]
       (analyze-node (assoc node :body new-body) env'))
 
     :define
     (let [val (n/define-val node)]
       (if (and val (= :lambda (ir2/kind val)))
-        ;; 函数定义：将 lambda 当作子节点分析，但需要先保留 define 自身的 attrs
         (let [[new-val env'] (analyze-fn val env)]
           (analyze-node (assoc node :val new-val) env'))
-        ;; 变量定义：正常逆序处理子节点
         (let [[new-node env'] (ir2/rreduce-children node analyze-fn env)]
           (analyze-node new-node env'))))
 
@@ -146,7 +136,7 @@
     (let [[new-node env'] (ir2/rreduce-children node analyze-fn env)]
       (analyze-node new-node env'))))
 
-;; ── 顶层入口：逆序处理顶层语句 ──
+;; ── 顶层入口 ──
 (defn analyze-nodes [nodes ctx]
   (let [init-env (make-env ctx)
         [new-nodes _]

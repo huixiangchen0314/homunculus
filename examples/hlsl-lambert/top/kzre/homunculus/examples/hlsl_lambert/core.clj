@@ -15,7 +15,7 @@
 
 (defstatic accumColor (float4 0.0 0.0 0.0 0.0))
 
-(defn remin-sum [^float a] (- a 1.0))
+(defn remin-sum [a] (- a 1))
 
 (defrecord MyInout [^:SV_TARGET ^float a])
 
@@ -31,9 +31,11 @@
            (%%aset x 0 0)
            (%%aset x 1 1)
            (%%aset x 2 2)
+           (def svsv (remin-sum (%%aget x 1)))
            (def sum-x (reduce + 0 x))
            (def sv (conj x 6))
            (def vv 6)
+           (set! vv 3)
            (def avv (%%new-array vv))
            (%%aset avv 1 1.0)
            ;; 使用 my-map 对 x 的每个元素加 1

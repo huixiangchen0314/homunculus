@@ -133,11 +133,16 @@
   (let [new-var (n/assign-var node)
         subbed-val (maybe-subst-constant (n/assign-val node) (:env context))
         [new-val ctx1] (propagate-node subbed-val context)
-        env (if (n/variable-node? new-var)
-              (env-remove-var (:env ctx1) (n/var-name new-var))
-              (:env ctx1))
-        ctx2 (assoc ctx1 :env env)]
-    [(n/make-assign new-var new-val (n/attrs node) (n/node-meta node) )
+        env' (if (n/variable-node? new-var)
+               (let [var-name (n/var-name new-var)]
+                 (if (n/literal-node? new-val)
+                   ;; 右值是字面量 → 更新常量映射
+                   (env-add-constant (:env ctx1) var-name new-val)
+                   ;; 非字面量 → 移除映射（可能还存在数组长度判断，复用 collect-env）
+                   (collect-env (:env ctx1) var-name new-val)))
+               (:env ctx1))
+        ctx2 (assoc ctx1 :env env')]
+    [(n/make-assign new-var new-val (n/attrs node) (n/node-meta node))
      ctx2]))
 
 ;; ── call：普通调用，仅实参替换 ──
