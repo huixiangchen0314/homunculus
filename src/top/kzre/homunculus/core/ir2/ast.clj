@@ -48,7 +48,7 @@
         :try             [:expr 'body {:optional true} :catches 'catches :expr 'finally {:optional true} 'attrs]
         :catch           ['class 'sym :expr 'body 'attrs]
         :throw           [:expr 'expr 'attrs]
-        :assign          [:expr 'var :expr 'val 'attrs]
+        :assign          [:variable 'var :expr 'val 'attrs]
         :while           [:expr 'test :expr 'body 'attrs]
         :convert         [:expr 'expr 'src-ty 'dst-ty 'cost 'attrs]
         :ns              ['name 'requires 'docstring 'attrs]
@@ -64,4 +64,4 @@
         :alength         [:expr 'target 'attrs]
         :param           ['name 'attrs]
         :pair            [:expr 'key :expr 'val 'attrs]
-        :binding         [:expr 'var :expr 'val 'attrs])
+        :binding         [:variable 'var :expr 'val 'attrs])

@@ -550,3 +550,9 @@
   ([target attrs]        (ir2/->Alength target attrs nil ))
   ([target attrs meta]   (ir2/->Alength target attrs meta )))
 
+(defn binding-var [node]
+  (:var node))
+
+(defn binding-val [node]
+  (:val node))
+

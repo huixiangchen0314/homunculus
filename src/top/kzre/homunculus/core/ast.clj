@@ -111,23 +111,27 @@
                     many?
                     (let [coll (if reverse? `(reverse ~field) field)]
                       (if reverse?
-                        ;; 逆序：遍历顺序反转，reduce 后再次 reverse 恢复
+                        ;; 逆序：遍历顺序反转，reduce 后再次 reverse 恢复，并过滤 nil
                         `(let [[xs# e#]
                                (reduce
                                  (fn [[xs# e#] item#]
                                    (let [[new-item# e2#] (~'f item# e#)]
-                                     [(conj xs# new-item#) e2#]))
+                                     (if (nil? new-item#)
+                                       [xs# e2#]
+                                       [(conj xs# new-item#) e2#])))
                                  [[] ~env-sym]
                                  ~coll)
                                ~field (vec (reverse xs#))
                                ~env-sym e#]
                            ~inner)
-                        ;; 正序：无需处理
+                        ;; 正序：过滤 nil
                         `(let [[~field ~env-sym]
                                (reduce
                                  (fn [[xs# e#] item#]
                                    (let [[new-item# e2#] (~'f item# e#)]
-                                     [(conj xs# new-item#) e2#]))
+                                     (if (nil? new-item#)
+                                       [xs# e2#]
+                                       [(conj xs# new-item#) e2#])))
                                  [[] ~env-sym]
                                  ~coll)]
                            ~inner)))
