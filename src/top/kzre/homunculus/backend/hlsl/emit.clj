@@ -30,7 +30,9 @@
           size (ty/vec-size ir-type)]
       (T "${elem-type}[${size}]"))
     (ty/type-sym ir-type) (name (ty/type-sym ir-type))
-    :else (throw (ex-info (str "Unknown type: " ir-type) {}))))
+    ;:else (throw (ex-info (str "Unknown type: " ir-type) {}))
+    :else (pr-str ir-type)
+    ))
 
 ;; ── 多方法 ──
 (defmulti emit-node (fn [node _env] (ast/kind node)))

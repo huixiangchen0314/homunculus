@@ -381,5 +381,4 @@
   ([exprs meta]
    (case (count exprs)
      0 nil
-     1 (first exprs)
      (m/->Do (vec exprs) meta))))

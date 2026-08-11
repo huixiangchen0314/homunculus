@@ -214,13 +214,10 @@
                 ret-ty (ty/fun-return-type (ty/get-type lam))
                 params (n/lambda-params lam)
                 param-nodes (mapv (fn [p] (ast/->Param (:name p) (ty/get-type p) nil)) params)
-                [body-node env'] (lower-ast (n/lambda-body lam) env)
-                body-block (if (= :block (ast/kind body-node))
-                             body-node
-                             (ast/->Block [] body-node (ir-meta node)))]
+                [body-node env'] (lower-ast (n/lambda-body lam) env)]
             (if stage
-              [(ast/->EntryPoint (n/define-name node) stage ret-ty param-nodes body-block (ir-meta node)) env']
-              [(ast/->Function   (n/define-name node)       ret-ty param-nodes body-block (ir-meta node)) env']))
+              [(ast/->EntryPoint (n/define-name node) stage ret-ty param-nodes body-node (ir-meta node)) env']
+              [(ast/->Function   (n/define-name node)       ret-ty param-nodes body-node (ir-meta node)) env']))
           ;; 变量声明（顶层）
           (let [var-ty (ty/get-type node)
                 var-name (n/define-name node)

@@ -10,7 +10,6 @@
  [top.kzre.homunculus.core.types.check.api :as check]
  [top.kzre.homunculus.core.types.constraint.api :as solve]
  [top.kzre.homunculus.core.types.dc-elim.analyze :as dce-analyze]
- [top.kzre.homunculus.core.types.dc-elim.assign-propagate :as assign-propagate]
  [top.kzre.homunculus.core.types.dc-elim.core :as dce]
  [top.kzre.homunculus.core.types.fold.core :as fold]
  [top.kzre.homunculus.core.types.ho-elim.core :as ho-elim]
@@ -62,8 +61,7 @@
           no-ho      (ho-elim/eliminate ir2-roots' (ho-elim/make-context ctx frontend backend))
           no-closure (lambda-elim/eliminate no-ho lift-cfg)
           no-recur   (recur/eliminate no-closure)
-          assigned   (assign-propagate/propagate-nodes no-recur ctx)
-          folded     (fold/fold assigned (fold/make-context ctx frontend backend folder))
+          folded     (fold/fold no-recur (fold/make-context ctx frontend backend folder))
           inferred   (infer/infer folded (infer/make-context ctx frontend backend))
           solved     (solve/process inferred (solve/make-context ctx frontend backend))
           ;mutable    (mut/analyze solved)

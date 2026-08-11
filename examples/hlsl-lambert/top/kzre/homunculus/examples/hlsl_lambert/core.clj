@@ -34,6 +34,7 @@
            (def svsv (remin-sum (%%aget x 1)))
            (def sum-x (reduce + 0 x))
            (def sv (conj x 6))
+           (%%aset sv 3 0)
            (def vv 6)
            (set! vv 3)
            (def avv (%%new-array vv))

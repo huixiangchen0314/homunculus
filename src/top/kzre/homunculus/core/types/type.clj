@@ -151,7 +151,7 @@
    (get-type node))
   ([node]
    (or (get-in node [:attrs :type])
-       (meta->type (ir2p/node-meta node) ))))
+       (meta->type (:meta node) ))))
 
 
 

@@ -15,7 +15,7 @@
 
 ;; ── 辅助：创建转换节点 ──
 (defn- make-convert [node src dst cost]
-  (n/make-convert node src dst cost
+  (n/make-convert node src dst
                   {:type dst :src-type src :cost cost}
                   (n/node-meta node)
                   ))

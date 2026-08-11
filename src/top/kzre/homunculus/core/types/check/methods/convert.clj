@@ -11,5 +11,4 @@
     (n/make-convert new-expr
                     (n/convert-src-ty node)
                     dst-ty
-                    (n/convert-cost node)
                     (n/attrs node) (n/node-meta node) )))

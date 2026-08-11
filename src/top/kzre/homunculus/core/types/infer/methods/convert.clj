@@ -9,7 +9,7 @@
         new-node (n/make-convert new-expr
                                  (n/convert-src-ty node)
                                  (n/convert-dst-ty node)
-                                 (n/convert-cost node)
-                                 (n/attrs node) (n/node-meta node) )]
+                                 (n/attrs node)
+                                 (n/node-meta node) )]
     ;; convert 节点本身无类型，返回新节点及传递后的上下文
     (infer/nothing new-node ctx1)))

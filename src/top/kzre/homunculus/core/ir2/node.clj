@@ -339,9 +339,9 @@
 (defn convert-cost    [node] (:cost node))
 
 (defn make-convert
-  ([expr src-ty dst-ty cost]                      (ir2/->Convert expr src-ty dst-ty cost {} nil ))
-  ([expr src-ty dst-ty cost attrs]                (ir2/->Convert expr src-ty dst-ty cost attrs nil ))
-  ([expr src-ty dst-ty cost attrs meta]           (ir2/->Convert expr src-ty dst-ty cost attrs meta )))
+  ([expr src-ty dst-ty ]                      (ir2/->Convert expr src-ty dst-ty {} nil ))
+  ([expr src-ty dst-ty attrs]                (ir2/->Convert expr src-ty dst-ty attrs nil ))
+  ([expr src-ty dst-ty attrs meta]           (ir2/->Convert expr src-ty dst-ty attrs meta )))
 
 (defn convert-with-expr [node expr] (assoc node :expr expr))
 

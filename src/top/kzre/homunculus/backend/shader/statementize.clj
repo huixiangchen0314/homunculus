@@ -16,8 +16,13 @@
   [block expr-fn]
   (let [stmts (:stmts block)
         ret (:ret block)
-        new-expr (expr-fn ret)]
-    (ast/->Block stmts new-expr nil)))
+        [stmts' ret']
+        (if (when ret (= :assign (ast/kind ret)))
+          [(conj stmts ret)
+           (:lhs ret)]
+          [stmts ret])
+        new-expr (expr-fn ret')]
+    (ast/->Block stmts' new-expr nil)))
 
 
 (defmethod statementize-node :var-decl [node env]

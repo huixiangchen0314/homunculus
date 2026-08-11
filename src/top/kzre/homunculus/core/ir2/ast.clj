@@ -34,6 +34,8 @@
 
         :literal         ['val 'attrs]
         :variable        ['name 'attrs]
+        ;; TODO 改名叫做 Symbol
+        :symbol          ['name 'attrs]
         :call            [:expr 'fn :exprs 'args 'attrs]
         :if              [:expr 'test :expr 'then :expr 'else {:optional true} 'attrs]
         :block           [:exprs 'exprs 'attrs]
@@ -50,7 +52,7 @@
         :throw           [:expr 'expr 'attrs]
         :assign          [:variable 'var :expr 'val 'attrs]
         :while           [:expr 'test :expr 'body 'attrs]
-        :convert         [:expr 'expr 'src-ty 'dst-ty 'cost 'attrs]
+        :convert         [:expr 'expr 'src-ty 'dst-ty 'attrs]
         :ns              ['name 'requires 'docstring 'attrs]
         :method          ['name :params 'params :expr 'body {:optional true} 'docstring 'attrs]
         :field           ['name 'attrs]

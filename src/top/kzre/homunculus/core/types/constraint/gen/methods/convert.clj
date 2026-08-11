@@ -14,6 +14,5 @@
         ;; 表达式类型必须等于源类型
         src-constr (when (and expr-tv src-ty)
                      [(c/make-cequal expr-tv src-ty)])
-        new-node (n/make-convert expr-node src-ty dst-ty (n/convert-cost node)
-                                 (n/attrs node) (n/node-meta node) )]
+        new-node (n/make-convert expr-node src-ty dst-ty (n/attrs node) (n/node-meta node) )]
     [tv (t/set-type! new-node tv) (concat expr-constr src-constr) expr-ctx]))
