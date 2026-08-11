@@ -1,7 +1,6 @@
-(ns top.kzre.homunculus.backend.shader.statementize
-  "将 ShaderAST 函数体转换为语句序列，显式提取返回值，并清理冗余 Block 层级。"
+(ns top.kzre.homunculus.core.irstmt.statementize
   (:require
-    [top.kzre.homunculus.backend.shader.ast :as ast]))
+   [top.kzre.homunculus.core.irstmt.ast :as ast]))
 
 (defrecord Env [])
 (defn make-env [] (->Env))
@@ -19,29 +18,29 @@
         [stmts' ret']
         (if (when ret (= :assign (ast/kind ret)))
           [(conj stmts ret)
-           (:lhs ret)]
+           (:var ret)]
           [stmts ret])
         new-expr (expr-fn ret')]
-    (ast/->Block stmts' new-expr nil)))
+    (ast/->Block stmts' new-expr (ast/attrs block) (ast/node-meta block))))
 
 
 (defmethod statementize-node :var-decl [node env]
-  (if-let [init-expr (:init node)]
+  (if-let [init-expr (:val node)]
     (if (= :block (ast/kind init-expr))
       (let [new-node
-            (lift-block init-expr #(assoc node :init %))]
+            (lift-block init-expr #(assoc node :val %))]
         [new-node env])
       [node env])
     [node env]))
 
 (defmethod statementize-node :assign [node env]
- (if-let [rhs (:rhs node)]
-   (if (= :block (ast/kind rhs))
-     (let [new-node
-           (lift-block rhs #(assoc node :rhs %))]
-       [new-node env])
-     [node env])
-   [node env]))
+  (if-let [rhs (:val node)]
+    (if (= :block (ast/kind rhs))
+      (let [new-node
+            (lift-block rhs #(assoc node :val %))]
+        [new-node env])
+      [node env])
+    [node env]))
 
 (defmethod statementize-node :if [node env]
   (let [test (:test node)]
@@ -68,37 +67,50 @@
                           args)]
     (if (seq (first collected))
       ;; 存在需要前置的语句，生成包含语句和新调用的 Block
-      [(ast/->Block (first collected) (assoc node :args (second collected)) (ast/node-meta node)) env]
+      [(ast/->Block (first collected) (assoc node :args (second collected))
+                    (ast/attrs node)
+                    (ast/node-meta node)) env]
       [node env])))
 
-(defmethod statementize-node :constructor [node env]
-  (let [args (:args node)
-        collected (reduce (fn [[stmts new-args] arg]
-                            (if (= :block (ast/kind arg))
-                              [(into stmts (:stmts arg)) (conj new-args (:ret arg))]
-                              [stmts (conj new-args arg)]))
-                          [[] []]
-                          args)]
-    (if (seq (first collected))
-      [(ast/->Block (first collected) (assoc node :args (second collected)) (ast/node-meta node)) env]
-      [node env])))
-
-(defmethod statementize-node :array-index [node env]
+(defmethod statementize-node :aget [node env]
   (let [target (:target node)
-        index  (:index node)
-        ;; 分别处理 target 和 index 可能为 Block 的情形
+        idx    (:idx node)
         [stmts1 new-target] (if (= :block (ast/kind target))
                               [(:stmts target) (:ret target)]
                               [[] target])
-        [stmts2 new-index]  (if (= :block (ast/kind index))
-                              [(:stmts index) (:ret index)]
-                              [[] index])
+        [stmts2 new-idx]    (if (= :block (ast/kind idx))
+                              [(:stmts idx) (:ret idx)]
+                              [[] idx])
         all-stmts (into stmts1 stmts2)]
     (if (seq all-stmts)
-      ;; 存在需要前置的语句，将它们与新的 array-index 包装成 Block
-      [(ast/->Block all-stmts (assoc node :target new-target :index new-index) (ast/node-meta node)) env]
+      [(ast/->Block all-stmts
+                    (assoc node :target new-target :idx new-idx)
+                    (ast/attrs node)
+                    (ast/node-meta node))
+       env]
       [node env])))
 
+(defmethod statementize-node :aset [node env]
+  (let [target (:target node)
+        idx    (:idx node)
+        val    (:val node)
+        [stmts1 new-target] (if (= :block (ast/kind target))
+                              [(:stmts target) (:ret target)]
+                              [[] target])
+        [stmts2 new-idx]    (if (= :block (ast/kind idx))
+                              [(:stmts idx) (:ret idx)]
+                              [[] idx])
+        [stmts3 new-val]    (if (= :block (ast/kind val))
+                              [(:stmts val) (:ret val)]
+                              [[] val])
+        all-stmts (into (into stmts1 stmts2) stmts3)]
+    (if (seq all-stmts)
+      [(ast/->Block all-stmts
+                    (assoc node :target new-target :idx new-idx :val new-val)
+                    (ast/attrs node)
+                    (ast/node-meta node))
+       env]
+      [node env])))
 
 (defmethod statementize-node :block [node env]
   ;; 子节点已由 walk 递归处理，这里只处理当前 Block 层
@@ -124,7 +136,7 @@
               [(into new-stmts inner-stmts) inner-ret])
             [new-stmts ret])
           [new-stmts nil])]
-    [(ast/->Block (vec final-stmts) new-ret (ast/node-meta node)) env]))
+    [(ast/->Block (vec final-stmts) new-ret (ast/attrs node) (ast/node-meta node)) env]))
 
 ;; ── 递归 walk 定义 ──
 (declare walk)

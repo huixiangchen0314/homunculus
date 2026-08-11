@@ -45,7 +45,7 @@
         :var-decl        ['name :expr 'val {:optional true} 'docstring 'attrs]
         :vector          [:exprs 'items 'attrs]
         :map             [:pairs 'pairs 'attrs]
-        :assign          [:variable 'var :expr 'val 'attrs]
+        :assign          [:expr 'var :expr 'val 'attrs]
         :while           [:expr 'test :stmt 'body 'attrs]
         :convert         [:expr 'expr 'src-ty 'dst-ty 'attrs]
         :member-access   [:expr 'target 'accessor :exprs 'args 'attrs]

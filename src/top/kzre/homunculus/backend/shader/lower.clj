@@ -3,10 +3,10 @@
   (:require
     [clojure.string :as str]
     [top.kzre.homunculus.backend.shader.ast :as ast]
-    [top.kzre.homunculus.core.ir2.ast :as ir2]
+    [top.kzre.homunculus.backend.shader.metadata :as md]
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.types.type :as ty]
-    [top.kzre.homunculus.backend.shader.metadata :as md]))
+    [top.kzre.homunculus.core.irstmt.ast :as irstmt]
+    [top.kzre.homunculus.core.types.type :as ty]))
 
 (def ^:private unary-ops #{'! '- '++ '--})
 (def ^:private infix-ops #{'+ '- '* '/ '% '== '!= '< '> '<= '>= '&& '||})
@@ -17,7 +17,7 @@
 (defn env-contains? [env var-name] (contains? (:locals env) var-name))
 (defonce empty-env (make-env))
 
-(defn- ir-meta [node] (n/node-meta node))
+(defn- ir-meta [node] (irstmt/node-meta node))
 (declare lower-ast)
 
 ;; 辅助：将子节点列表按表达式降级
@@ -29,7 +29,7 @@
 
 
 ;; 多方法
-(defmulti lower-ast (fn [node _env] (ir2/kind node)))
+(defmulti lower-ast (fn [node _env] (irstmt/kind node)))
 
 ;; 基础节点
 (defmethod lower-ast :ns [node env]
@@ -108,66 +108,22 @@
 
 ;; 复合结构
 (defmethod lower-ast :block [node env]
-  (let [children (n/block-exprs node)
-        [stmts env1] (reduce (fn [[stmts e] child]
-                               (let [[stmt ne] (lower-ast child e)]
-                                 [(conj stmts stmt) ne]))
-                             [[] env] (butlast children))
-        [last-expr env2] (lower-ast (last children) env1)]
-    [(ast/->Block stmts last-expr (ir-meta node)) env2]))
+  (let [stmts (:stmts node)
+        ret   (:ret node)
+        [lowered-stmts env'] (reduce (fn [[s e] stmt]
+                                       (let [[stmt' e'] (lower-ast stmt e)]
+                                         [(conj s stmt') e']))
+                                     [[] env] stmts)
+        [ret' env''] (if ret (lower-ast ret env') [nil env'])]
+    [(ast/->Block lowered-stmts ret' (irstmt/node-meta node)) env'']))
 
 (defmethod lower-ast :if [node env]
-  (let [tmp-name (gensym "ifval")
-        tmp-type (ty/get-type node)
-        tmp-var (ast/->Variable tmp-name nil)
-        [test env1] (lower-ast (n/if-test node) env)
-        [then-val env2] (lower-ast (n/if-then node) env1)
-        [else-val env3] (if-let [e (n/if-else node)]
-                          (lower-ast e env2)
-                          [nil env2])
-        then-assign (ast/->Assign tmp-var then-val nil)
-        then-block (ast/->Block [then-assign] nil (ir-meta (n/if-then node)))
-        else-assign (ast/->Assign tmp-var else-val nil)
-        else-block (ast/->Block [else-assign] nil (ir-meta (n/if-else node)))
-        if-stmt (ast/->If test then-block else-block (ir-meta node))
-        tmp-decl (ast/->VarDecl tmp-name tmp-type nil (ir-meta node))]
-    [(ast/->Block [tmp-decl if-stmt] tmp-var (ir-meta node)) env3]))
-
-(defmethod lower-ast :let [node env]
-  (let [bindings (n/let-bindings node)
-        [decls env1] (reduce (fn [[stmts e] b]
-                               (let [var-node (:var b)
-                                     val-node (:val b)
-                                     var-ty (ty/get-type var-node)
-                                     var-name (:name var-node)
-                                     [init-expr e2] (lower-ast val-node e)
-                                     ;; 判断是否为需要标记的数组初始化（非构造函数且非nil）
-                                     vec-init? (and (some? init-expr)
-                                                    (ty/vec-type? var-ty) (pos? (ty/vec-size var-ty))
-                                                    (not= :constructor (ast/kind init-expr))
-                                                    (not= :literal (ast/kind init-expr)))
-                                     stmt
-                                     (if vec-init?
-                                       ;; 生成 Block：包含无初始化 VarDecl + 标记的 Assign，ret 为变量本身
-                                       (let [decl (ast/->VarDecl var-name var-ty nil (ir-meta var-node))
-                                             assign (ast/->Assign (ast/->Variable var-name nil) init-expr
-                                                                  (assoc (ir-meta var-node)
-                                                                    :vec-assign? true
-                                                                    :vec-type var-ty))]
-                                         (ast/->Block [decl assign] (ast/->Variable var-name nil) nil))
-                                       ;; 普通变量处理
-                                       (if (env-contains? e2 var-name)
-                                         (ast/->Assign (ast/->Variable var-name nil) init-expr (ir-meta var-node))
-                                         (ast/->VarDecl var-name var-ty init-expr (ir-meta var-node))))
-                                     e3 (if vec-init?
-                                          (env-add-local e2 var-name)
-                                          (if (env-contains? e2 var-name)
-                                            e2
-                                            (env-add-local e2 var-name)))]
-                                 [(conj stmts stmt) e3]))
-                             [[] env] bindings)
-        [body-expr env'] (lower-ast (n/let-body node) env1)]
-    [(ast/->Block decls body-expr (ir-meta node)) env']))
+  (let [[test env1] (lower-ast (:test node) env)
+        [then-block env2] (lower-ast (:then node) env1)
+        [else-block env3] (if-let [e (:else node)]
+                            (lower-ast e env2)
+                            [nil env2])]
+    [(ast/->If test then-block else-block (irstmt/node-meta node)) env3]))
 
 (defmethod lower-ast :assign [node env]
   (let [lhs-node (n/assign-var node)
@@ -190,60 +146,47 @@
         ]
     [(ast/->Block [(ast/->While test body-block (ir-meta node))] nil (ir-meta node)) env2]))
 
-
-(defmethod lower-ast :define [node env]
-  (let [meta (n/node-meta node)]
-    (if-let [res-kind (:shader/resource-kind meta)]
-      ;; 资源声明
-      (let [res-name (n/define-name node)
-            slot (case res-kind
-                   :texture2D (:shader/texture-register meta)
-                   :sampler   (:shader/sampler-register meta)
-                   :cbuffer   (:shader/cbuffer-register meta)
+(defmethod lower-ast :var-decl [node env]
+  (let [var-name (:name node)
+        init-expr (:val node)
+        [init env'] (if init-expr (lower-ast init-expr env) [nil env])
+        resource-kind (md/shader-resource-kind node)]
+    (if resource-kind
+      (let [slot (case resource-kind
+                   :texture2D (md/shader-texture-register node)
+                   :sampler   (md/shader-sampler-register node)
+                   :cbuffer   (md/shader-cbuffer-register node)
                    nil)
-            members (when (= res-kind :cbuffer)
+            members (when (= resource-kind :cbuffer)
                       (mapv (fn [[sym type-sym]]
                               (ast/->StructMember sym (ty/make-tcon type-sym) nil))
-                            (:shader/cbuffer-members meta)))]
-        [(ast/->ResourceDecl res-name res-kind slot members (ir-meta node)) env])
-      (let [val (n/define-val node)]
-        (if (and val (= :lambda (ir2/kind val)))
-          ;; 函数/入口点
-          (let [lam   val
-                stage (md/shader-stage node)
-                ret-ty (ty/fun-return-type (ty/get-type lam))
-                params (n/lambda-params lam)
-                param-nodes (mapv (fn [p] (ast/->Param (:name p) (ty/get-type p) nil)) params)
-                [body-node env'] (lower-ast (n/lambda-body lam) env)]
-            (if stage
-              [(ast/->EntryPoint (n/define-name node) stage ret-ty param-nodes body-node (ir-meta node)) env']
-              [(ast/->Function   (n/define-name node)       ret-ty param-nodes body-node (ir-meta node)) env']))
-          ;; 变量声明（顶层）
-          (let [var-ty (ty/get-type node)
-                var-name (n/define-name node)
-                [init-expr env'] (if val (lower-ast val env) [nil env])
-                uniform?    (:shader/uniform? meta)
-                static-var? (:shader/static-var? meta)
-                ;; 标记条件：非构造器且非nil的数组初始化
-                vec-init? (and (some? init-expr)
-                             (ty/vec-type? var-ty)
-                             (pos? (ty/vec-size var-ty))
-                             (not= :constructor (ast/kind init-expr))
-                             (not= :literal (ast/kind init-expr)))]
-            (cond
-              uniform?    [(ast/->Uniform  var-name var-ty (ir-meta node)) env']
-              static-var? [(ast/->StaticVar var-name var-ty init-expr (ir-meta node)) env']
-              vec-init?
-              ;; 生成无初始化的声明和带标记的赋值语句块
-              (let [decl (ast/->VarDecl var-name var-ty nil (ir-meta node))
-                    assign (ast/->Assign (ast/->Variable var-name nil) init-expr
-                                         (assoc meta :vec-assign? true :vec-type var-ty))]
-                [(ast/->Block [decl assign] (ast/->Variable var-name nil) (ir-meta node)) env'])
-              :else
-              [(ast/->VarDecl var-name var-ty init-expr (ir-meta node)) env'])))))))
+                            (md/shader-cbuffer-members node)))]
+        [(ast/->ResourceDecl var-name resource-kind slot members (irstmt/node-meta node)) env'])
+      (let [var-ty (ty/get-type node)
+            uniform? (md/shader-uniform? node)
+            static-var? (md/shader-static-var? node)]
+        (cond
+          uniform?    [(ast/->Uniform  var-name var-ty (irstmt/node-meta node)) env']
+          static-var? [(ast/->StaticVar var-name var-ty init (irstmt/node-meta node)) env']
+          :else       (if (env-contains? env' var-name)
+                        [(ast/->Assign (ast/->Variable var-name nil) init (irstmt/node-meta node)) env']
+                        [(ast/->VarDecl var-name var-ty init (irstmt/node-meta node)) (env-add-local env' var-name)]))))))
+
+(defmethod lower-ast :function [node env]
+  (let [name (:name node)
+        params (:params node)
+        body (:body node)
+        [body-node env'] (lower-ast body env)
+        ret-ty (ty/fun-return-type (ty/get-type node))
+        stage (md/shader-stage node)
+        param-nodes (mapv (fn [p] (ast/->Param (:name p) (ty/get-type p) (irstmt/node-meta p))) params)]
+    (if stage
+      [(ast/->EntryPoint name stage ret-ty param-nodes body-node (irstmt/node-meta node)) env']
+      [(ast/->Function   name       ret-ty param-nodes body-node (irstmt/node-meta node)) env'])))
 
 (defmethod lower-ast :default [node _env]
-  (throw (ex-info (str "Lowering not implemented for " (ir2/kind node)) {:node node})))
+  (throw (ex-info (str "Lowering not implemented for IRStmt node: " (irstmt/kind node)) {:node node})))
+
 
 ;; 顶层入口：收集所有语句，丢弃顶层的 ret
 (defn lower-nodes [nodes]
