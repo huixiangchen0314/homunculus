@@ -95,46 +95,44 @@
 ;; reverse? 为 true 表示逆序
 (defn- emit-reduce-children-body* [node-def reverse?]
   (let [specs (if reverse?
-                (reverse (:children-specs node-def))
-                (:children-specs node-def))]
+                (:children-specs node-def)
+                (reverse (:children-specs node-def)))]
     (if (empty? specs)
       `[~'this ~'env]   ;; 无子节点，直接返回 this 和 env
       (let [env-sym (gensym "env")
             assoc-form `(assoc ~'this
                           ~@(mapcat (fn [s] [(keyword (:field s)) (:field s)]) specs))
-            inner-form `[~assoc-form ~env-sym]
             body
             (reduce
               (fn [inner spec]
                 (let [{:keys [field many? optional?]} spec]
                   (cond
                     many?
-                    (let [coll (if reverse? `(reverse ~field) field)]
-                      (if reverse?
-                        ;; 逆序：遍历顺序反转，reduce 后再次 reverse 恢复，并过滤 nil
-                        `(let [[xs# e#]
-                               (reduce
-                                 (fn [[xs# e#] item#]
-                                   (let [[new-item# e2#] (~'f item# e#)]
-                                     (if (nil? new-item#)
-                                       [xs# e2#]
-                                       [(conj xs# new-item#) e2#])))
-                                 [[] ~env-sym]
-                                 ~coll)
-                               ~field (vec (reverse xs#))
-                               ~env-sym e#]
-                           ~inner)
-                        ;; 正序：过滤 nil
-                        `(let [[~field ~env-sym]
-                               (reduce
-                                 (fn [[xs# e#] item#]
-                                   (let [[new-item# e2#] (~'f item# e#)]
-                                     (if (nil? new-item#)
-                                       [xs# e2#]
-                                       [(conj xs# new-item#) e2#])))
-                                 [[] ~env-sym]
-                                 ~coll)]
-                           ~inner)))
+                    (if reverse?
+                      ;; 逆序：遍历顺序反转，reduce 后再次 reverse 恢复，并过滤 nil
+                      `(let [[xs# e#]
+                             (reduce
+                               (fn [[xs# e#] item#]
+                                 (let [[new-item# e2#] (~'f item# e#)]
+                                   (if (nil? new-item#)
+                                     [xs# e2#]
+                                     [(conj xs# new-item#) e2#])))
+                               [[] ~env-sym]
+                               (reverse ~field))
+                             ~field (vec (reverse xs#))
+                             ~env-sym e#]
+                         ~inner)
+                      ;; 正序：过滤 nil
+                      `(let [[~field ~env-sym]
+                             (reduce
+                               (fn [[xs# e#] item#]
+                                 (let [[new-item# e2#] (~'f item# e#)]
+                                   (if (nil? new-item#)
+                                     [xs# e2#]
+                                     [(conj xs# new-item#) e2#])))
+                               [[] ~env-sym]
+                               ~field)]
+                         ~inner))
                     optional?
                     `(if ~field
                        (let [[~field ~env-sym] (~'f ~field ~env-sym)]
@@ -143,7 +141,7 @@
                     :else
                     `(let [[~field ~env-sym] (~'f ~field ~env-sym)]
                        ~inner))))
-              inner-form
+              `[~assoc-form ~env-sym]
               specs)]
         `(let [~env-sym ~'env]
            ~body)))))

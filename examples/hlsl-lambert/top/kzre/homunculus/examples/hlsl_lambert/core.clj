@@ -1,6 +1,5 @@
 (ns top.kzre.homunculus.examples.hlsl-lambert.core
-  (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]
-            [top.kzre.homunculus.examples.hlsl-lambert.lib :as lib]))
+  (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]))
 
 ;; ── 资源声明 ──────────────────────────────
 (deftexture myTexture :t0)
@@ -15,7 +14,7 @@
 
 (defstatic accumColor (float4 0.0 0.0 0.0 0.0))
 
-(defn remin-sum [a] (- a 1))
+(defn remin-sum [a] (- a 1.0))
 
 (defrecord MyInout [^:SV_TARGET ^float a])
 
@@ -28,25 +27,24 @@
             ]
            (def x (%%new-array 3))
 
-           (%%aset x 0 0)
-           (%%aset x 1 1)
-           (%%aset x 2 2)
+           (%%aset x 0 1.0)
+           (%%aset x 1 1.0)
+           (%%aset x 2 2.0)
            (def svsv (remin-sum (%%aget x 1)))
-           (def sum-x (reduce + 0 x))
-           (def sv (conj x 6))
+           (def sum-x (reduce + 0.0 x))
+           (def sv (conj x 6.0))
            (%%aset sv 3 0)
            (def vv 6)
            (set! vv 3)
            (def avv (%%new-array vv))
-           (%%aset avv 1 1.0)
            ;; 使用 my-map 对 x 的每个元素加 1
-           (def y (map (fn [v] (+ v 1)) x))
+           (def y (map (fn [v] (+ v 1.0)) x))
            (def io (->MyInout 1.0))
            (def local-a (:a io))
            (let [worldPos (mul worldViewProj pos)
                  ll (if true 1 2)
                  xxxxx [1 2 3]]
-             (float4 (float3 ll 1.0 1.0) 1.0)))
+             (float4 (float3 (%%aget x 0) 1.0 1.0) 1.0)))
 
 ;; ── 片段着色器 ────────────────────────────
 (defshader :fragment psMain

@@ -74,6 +74,13 @@
 (defn walk [node env]
   (p/reduce-children node rename-fn env))
 
+(defn rename-node
+  "对 IR2 根节点列表进行 alpha 重命名，环境在节点间顺序传递。"
+  [node]
+  (let [env (make-env)
+        [new-node _new-env] (rename-fn node env)]
+    new-node))
+
 (defn rename-nodes
   "对 IR2 根节点列表进行 alpha 重命名，环境在节点间顺序传递。"
   [nodes]

@@ -37,17 +37,20 @@
             ['_m30 'float] ['_m31 'float] ['_m32 'float] ['_m33 'float]]
 
            ;; 算术四则（float + int 重载）
-           [:func '+ [['a 'float 'b 'float] 'float]
+           [:func '+ {:pure? true}
+            [['a 'float 'b 'float] 'float]
             [['a 'float2 'b 'float2] 'float2]
             [['a 'float3 'b 'float3] 'float3]
             [['a 'float4 'b 'float4] 'float4]
             [['a 'int   'b 'int]   'int]]
-           [:func '- [['a 'float 'b 'float] 'float]
+           [:func '- {:pure? true}
+            [['a 'float 'b 'float] 'float]
             [['a 'float2 'b 'float2] 'float2]
             [['a 'float3 'b 'float3] 'float3]
             [['a 'float4 'b 'float4] 'float4]
             [['a 'int   'b 'int]   'int]]
-           [:func '* [['a 'float 'b 'float] 'float]
+           [:func '* {:pure? true}
+            [['a 'float 'b 'float] 'float]
             [['a 'float2 'b 'float2] 'float2]
             [['a 'float3 'b 'float3] 'float3]
             [['a 'float4 'b 'float4] 'float4]
@@ -55,25 +58,29 @@
             [['a 'float3 'b 'float] 'float3]
             [['a 'float2 'b 'float] 'float2]
             [['a 'int   'b 'int]   'int]]
-           [:func '/ [['a 'float 'b 'float] 'float]
+           [:func '/ {:pure? true}
+            [['a 'float 'b 'float] 'float]
             [['a 'float2 'b 'float2] 'float2]
             [['a 'float3 'b 'float3] 'float3]
             [['a 'float4 'b 'float4] 'float4]
             [['a 'int   'b 'int]   'int]]
 
            ;; 比较运算（float + int 重载）
-           [:func '<  [['a 'float  'b 'float]  'bool]
+           [:func '<  {:pure? true}
+            [['a 'float  'b 'float]  'bool]
             [['a 'float2 'b 'float2] 'bool]
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
             [['a 'int    'b 'int]    'bool]
             ]
-           [:func '<= [['a 'float  'b 'float]  'bool]
+           [:func '<= {:pure? true}
+            [['a 'float  'b 'float]  'bool]
             [['a 'float2 'b 'float2] 'bool]
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
             [['a 'int    'b 'int]    'bool]]
-           [:func '>  [['a 'float  'b 'float]  'bool]
+           [:func '> {:pure? true}
+            [['a 'float  'b 'float]  'bool]
             [['a 'float2 'b 'float2] 'bool]
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
@@ -83,12 +90,13 @@
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
             [['a 'int    'b 'int]    'bool]]
-           [:func '=  [['a 'float  'b 'float]  'bool]
+           [:func '= {:pure? true}
+            [['a 'float  'b 'float]  'bool]
             [['a 'float2 'b 'float2] 'bool]
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
             [['a 'int    'b 'int]    'bool]]
-           [:func 'not=
+           [:func 'not= {:pure? true}
             [['a 'float  'b 'float]  'bool]
             [['a 'float2 'b 'float2] 'bool]
             [['a 'float3 'b 'float3] 'bool]
@@ -107,11 +115,16 @@
            [:func 'float2 [['a 'float 'b 'float] 'float2]]
 
            ;; 单重载函数
-           [:func 'normalize ['v 'float3] 'float3]
-           [:func 'dot       ['a 'float3 'b 'float3] 'float]
-           [:func 'cross     ['a 'float3 'b 'float3] 'float3]
-           [:func 'length    ['v 'float3] 'float]
-           [:func 'mul       ['a 'float4x4 'b 'float4] 'float4]
+           [:func 'normalize {:pure? true}
+            ['v 'float3] 'float3]
+           [:func 'dot {:pure? true}
+            ['a 'float3 'b 'float3] 'float]
+           [:func 'cross {:pure? true}
+            ['a 'float3 'b 'float3] 'float3]
+           [:func 'length  {:pure? true}
+            ['v 'float3] 'float]
+           [:func 'mul    {:pure? true}
+            ['a 'float4x4 'b 'float4] 'float4]
            [:func 'sample {:io? true}
             ['tex 'texture2D 'samp 'sampler 'uv 'float2] 'float4]
            [:func 'max       ['a 'float 'b 'float] 'float]

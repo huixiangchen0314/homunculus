@@ -13,9 +13,13 @@
 
 (defmulti propagate-node (fn [node _env] (ast/kind node)))
 
+(defn walk [node env]
+  (ast/reduce-children node propagate-node env))
+
 ;; 默认：递归所有子节点
 (defmethod propagate-node :default [node env]
-  (ast/reduce-children node propagate-node env))
+  (walk node env))
+
 
 ;; ── 变量引用：替换为映射目标 ──
 (defmethod propagate-node :variable
@@ -25,7 +29,7 @@
       [(assoc node :name subst) env]
       [node env])))
 
-;; ── 赋值：右值若是变量则建立映射，保留赋值 ──
+;; ── 赋值：右值若是变量则建立映射，删除赋值 ──
 (defmethod propagate-node :assign
   [node env]
   (let [[val-node env1] (propagate-node (:val node) env)
@@ -52,6 +56,32 @@
   (let [inner-env (make-env)
         [new-body _] (propagate-node (:body node) inner-env)]
     [(assoc node :body new-body) env]))
+
+(defn flatten-body [body]
+  (let [stmts (:stmts body)
+        ret   (:ret body)]
+    (if ret
+      (assoc body :stmts (conj stmts ret) :ret nil)
+      body)))
+
+(defmethod propagate-node :while
+  [node env]
+  (let [[test' env1] (propagate-node (:test node) env)
+        [body env2] (propagate-node (:body node) env1)
+        new-body (flatten-body body)]
+    [(assoc node :test test' :body new-body) env2]))
+
+(defmethod propagate-node :if
+  [node env]
+  (let [[test' env1] (propagate-node (:test node) env)
+        [then' env2] (propagate-node (:then node) env1)
+        [else' env3] (if-let [e (:else node)]
+                       (propagate-node e env2)
+                       [nil env2])]
+    [(assoc node :test test'
+                 :then (flatten-body then')
+                 :else (flatten-body else'))
+     env3]))
 
 ;; ── 顶层入口：处理所有顶层节点 ──
 (defn propagate-nodes [nodes]

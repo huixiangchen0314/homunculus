@@ -73,12 +73,11 @@
   (compile-module [_ unit context]
     (let [frontend (p/frontend context)
           backend (p/backend context)
-          roots     (mu/module-nodes unit)
+          roots   (mu/module-nodes unit)
           dce-ctx (dce/make-context context)                ;; 这些是必须在HLSL 消除的代码
           roots (dce/eliminate-ho-defs roots dce-ctx)
           roots (dce/eliminate-inline-defs roots dce-ctx)
           roots (dce/eliminate-polymorphic-defs roots dce-ctx)
-          roots (dce-analyze/analyze-nodes roots context)
           emitter (p/emitter context)
           checked   (check/check roots (check/make-context context frontend backend))
           result    (p/emit emitter checked context)]

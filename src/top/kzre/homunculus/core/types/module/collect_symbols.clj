@@ -5,7 +5,6 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.type :as ty]
     [top.kzre.homunculus.internal.symbol :as sym]
-    [top.kzre.homunculus.internal.module-unit]
     [top.kzre.homunculus.internal.protocol :as p]
     [top.kzre.homunculus.internal.module-unit :as mu])
   (:import (top.kzre.homunculus.internal.module_unit ModuleUnit)))
@@ -27,12 +26,15 @@
             ret    (when-let [body (n/lambda-body val)]
                      (sym/make-ret (ty/get-type body)
                                    :meta (n/node-meta body)))
+            attrs (n/attrs node)
             entry  (sym/make-func s
                                   :params params
                                   :ret ret
                                   :type (ty/get-type val)
+                                  :io? (:io? attrs)
+                                  :pure? (:pure? attrs)
                                   :meta (n/node-meta val))
-            attrs (n/attrs node)
+
             flags (->> (select-keys attrs [:ho? :inline :polymorphic])
                        (filter (fn [[_ v]] (true? v)))
                        (into {}))]
@@ -83,6 +85,9 @@
                                    :params ctor-params
                                    :ret (sym/make-ret record-ty)
                                    :type ctor-type
+                                   :ctor? true
+                                   :pure? true
+                                   :io? false
                                    :meta {})]
     (p/register-sym context record-entry)
     (p/register-sym context ctor-entry)

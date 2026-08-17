@@ -4,7 +4,8 @@
    [top.kzre.homunculus.core.ir2.ast :as m]
    [top.kzre.homunculus.core.ir2.node :as n]
    [top.kzre.homunculus.core.ir2.ast :as ir2p]
-   [top.kzre.homunculus.core.types.utils :as u]))
+   [top.kzre.homunculus.core.types.utils :as u]
+   [top.kzre.homunculus.core.types.alpha-rename :as rename]))
 
 ;; ── 辅助：上下文 ──────────────────────────
 (defn- make-ctx [var-names result-var recur-flag]
@@ -112,7 +113,8 @@
 (defmulti eliminate (fn [node] (n/kind node)))
 
 (defmethod eliminate :loop [node]
-  (transform-loop node))
+  (rename/rename-node (transform-loop node)))
+
 (defmethod eliminate :recur [node]
   (throw (ex-info "recur outside loop" {:node node})))
 
