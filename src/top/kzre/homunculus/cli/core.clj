@@ -47,17 +47,10 @@
       ;; 输出
       (if (:split-modules options)
         ;; 分割输出：每个模块单独生成文件，使用配置的命名风格
-        (let [all-units (p/all-module-units context)
-              out-dir   (:output options "out")
-              style     (p/module-naming-style config)]   ;; 从配置获取风格
+        (let [all-units (p/all-module-units context)]   ;; 从配置获取风格
           (doseq [unit all-units]
-            (let [code     (p/compile-module compiler unit context)
-                  ns-sym   (mu/module-ns unit)
-                  filename (u/ns->module-path ns-sym style ".hlsl")
-                  f (io/file out-dir filename)]  ;; 根据风格生成文件名
-              (io/make-parents f)
-              (spit f code)
-              (println "生成文件:" (str out-dir "/" filename)))))
+            (when-let [result     (p/compile-module compiler unit context)]
+              (p/write-result result))))
         ;; 合并输出（单文件链接）
         (let [code (p/link compiler context)]
           (println code))))))

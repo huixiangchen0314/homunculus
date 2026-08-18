@@ -5,7 +5,8 @@
     [top.kzre.homunculus.backend.shader.ast :as ast]
     [top.kzre.homunculus.backend.util.naming :refer [cname]]
     [top.kzre.homunculus.core.types.type :as ty]
-    [top.kzre.homunculus.backend.util.format :refer [T]]))
+    [top.kzre.homunculus.backend.util.format :refer [T]]
+    [top.kzre.homunculus.backend.shader.metadata :as md]))
 
 ;; ── 空环境记录 ──
 (defrecord Env [])
@@ -210,9 +211,54 @@
         body-str (indent (emit-block-body (:body node) env true))]
     (T "${ret-type} ${name-str}(${param-str})\n{\n${body-str}\n}")))
 
+(defn hlsl-sematic-str [kw stage]
+  (case kw
+    :position (if (= stage :vertex) "POSITION" "SV_POSITION")
+    :normal       "NORMAL"
+    :tangent      "TANGENT"
+    :texcoord0    "TEXCOORD0"
+    :texcoord1    "TEXCOORD1"
+    :texcoord2    "TEXCOORD2"
+    :texcoord3    "TEXCOORD3"
+    :texcoord4    "TEXCOORD4"
+    :texcoord5    "TEXCOORD5"
+    :texcoord6    "TEXCOORD6"
+    :texcoord7    "TEXCOORD7"
+    :color0       "COLOR0"
+    :color1       "COLOR1"
+    :target0      "SV_TARGET"
+    :target1      "SV_TARGET1"
+    :depth        "SV_DEPTH"
+    :instance-id  "SV_INSTANCEID"
+    :vertex-id    "SV_VERTEXID"
+    :primitive-id "SV_PRIMITIVEID"
+    :user0        "USER0"
+    :user1        "USER1"
+    :user2        "USER2"
+    :user3        "USER3"
+    nil))
+
 ;; ── 入口点 ──
 (defmethod emit-node :entry-point [node env]
-  ((get-method emit-node :function) node env))
+  (let [name-str (cname (name (:name node)))
+        ret-type (render-type (:return-type node))
+        params (:params node)
+        stage (:stage node)
+        sematic (md/shader-semantic node)
+        param-str (str/join ", " (map #(let [type (render-type (:type %))
+                                             name (cname (name (:name %)))
+                                             sematic (md/shader-semantic %)]
+                                         (if sematic
+                                           (let [s (hlsl-sematic-str sematic stage)]
+                                             (T "${type} ${name} : ${s}"))
+                                           (T "${type} ${name}")))
+                                      params))
+
+        body-str (indent (emit-block-body (:body node) env true))]
+    (if sematic
+      (let [s (hlsl-sematic-str sematic stage)]
+        (T "${ret-type} ${name-str}(${param-str}) : ${s}\n{\n${body-str}\n}"))
+      (T "${ret-type} ${name-str}(${param-str})\n{\n${body-str}\n}"))))
 
 ;; ── 结构体 ──
 (defmethod emit-node :struct [node env]
@@ -220,8 +266,12 @@
         members (:members node)
         member-str (when (seq members)
                      (indent (str/join "\n" (map #(let [type (render-type (:type %))
-                                                        name (name (:name %))]
-                                                    (T "${type} ${name};"))
+                                                        name (name (:name %))
+                                                        sematic (md/shader-semantic %)]
+                                                    (if sematic
+                                                      (let [s (hlsl-sematic-str sematic :vertex)]
+                                                        (T "${type} ${name} : ${s};"))
+                                                      (T "${type} ${name};")))
                                                  members))))]
     (T "struct ${name-str}\n{\n${member-str}\n};")))
 

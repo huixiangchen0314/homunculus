@@ -23,6 +23,7 @@
      (if (ty/con-type? target-ty)
        (let [record-name (ty/type-sym target-ty)
              symbol-table (proto/symbol-table ctx)
+             ;; TODO  传递 ns，用新环境
              record-entry (sym/lookup-record symbol-table record-name)]
          (if record-entry
            (if-let [field-ty (sym/lookup-field-type record-entry member-sym)]

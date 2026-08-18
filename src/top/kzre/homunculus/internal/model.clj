@@ -6,14 +6,35 @@
     [top.kzre.homunculus.internal.protocol :as p]
     [top.kzre.homunculus.internal.utils :as u]))
 
-(defrecord CompileConfig [options source-paths lib-paths output-dir target module-naming-style]
+(defrecord ModuledResult [path content]
+ p/ICompileResult
+  (paths [_] [path])
+  (content [_ f]
+    (when (= f path)
+      content)))
+
+(defn make-module-result
+  [path content]
+ (->ModuledResult path content))
+
+(defrecord DividedResult [file-map]
+ p/ICompileResult
+  (paths [_] (keys file-map))
+  (content [_ f]
+    (get file-map f)))
+
+(defn make-divided-result
+  [file-map]
+  (->DividedResult file-map))
+
+(defrecord CompileConfig [options target]
   p/ICompileConfig
   (options [_] options)
-  (source-paths [_] source-paths)
-  (lib-paths [_] lib-paths)
-  (output-dir [_] output-dir)
+  (source-paths [_] (or (:include options) []))
+  (lib-paths [_] (or (not-empty (:lib options)) ["."]))
+  (output-dir [_] (:output options "out"))
   (target [_] (or target :hlsl))
-  (module-naming-style [_] (or module-naming-style :default)))
+  (module-naming-style [_] (or (:style options) :default)))
 
 (defrecord CompileTarget [frontend backend compiler emitter])
 
@@ -23,12 +44,8 @@
 
 (defn make-compile-config
   [options]
-  (let [target        (keyword (get options :target "hlsl"))
-        lib-paths     (or (not-empty (:lib options)) ["."])
-        source-paths  (or (:include options) [])
-        output-dir    (:output options)
-        style         (or (:style options) :default)]
-    (->CompileConfig options source-paths lib-paths output-dir target style)))
+  (let [target        (keyword (get options :target "hlsl"))]
+    (->CompileConfig options target)))
 
 
 (defrecord CompileContextState [compiling

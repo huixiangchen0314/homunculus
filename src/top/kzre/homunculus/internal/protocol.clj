@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.internal.protocol
   "编译器内部协议：配置、上下文与编译器入口。"
-  (:refer-clojure :exclude [compile]))
+  (:refer-clojure :exclude [compile])
+  (:require [clojure.java.io :as io]))
 
 (defprotocol ICompileConfig
   "一次编译指令所需的静态配置。"
@@ -31,7 +32,7 @@
   (all-module-units [this] "返回积累的所有模块单元"))
 
 (defprotocol IEmitter
-  (emit [this nodes context] "发射AST"))
+  (emit [this nodes context opts] "发射AST"))
 
 
 (defprotocol ICompiler
@@ -45,3 +46,16 @@
      返回生成代码.")
   (compile-module [this unit context]
     "编译单个 ModuleUnit，执行最终类型检查，返回生成代码."))
+
+
+(defprotocol ICompileResult
+  (paths [this] "编译产生的文件路径")
+  (content [this f] "根据编译文件路径获取该文件的内容"))
+
+(defn write-result [result]
+  (let [paths (paths result)]
+    (doseq [p paths]
+      (let [c (content result p)
+            f (io/file p)]
+        (io/make-parents f)
+        (spit f c)))))

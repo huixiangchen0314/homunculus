@@ -16,13 +16,13 @@
 
 (defn remin-sum [a] (- a 1.0))
 
-(defrecord MyInout [^:SV_TARGET ^float a])
+(defrecord MyInout [^:target0 ^float a])
 
 ;; ── 顶点着色器 (包含高阶调用测试) ────────
 (defshader :vertex vsMain
-           [^:POSITION ^float4 pos
-            ^:NORMAL ^float3 nrm
-            ^:TEXCOORD0 ^float2 uv
+           [^:position ^float4 pos
+            ^:normal ^float3 nrm
+            ^:texcoord0 ^float2 uv
             ]
            (def x (%%new-array 3))
 
@@ -47,9 +47,10 @@
 
 ;; ── 片段着色器 ────────────────────────────
 (defshader :fragment psMain
-           [^:SV_POSITION ^float4 pos
-            ^:NORMAL ^float3 nrm
-            ^:TEXCOORD0 ^float2 uv]
+           ^:target0
+           [^:position ^float4 pos
+            ^:normal ^float3 nrm
+            ^:texcoord0 ^float2 uv]
            (let [diffuse (sample myTexture mySampler uv)
                  N (normalize nrm)
                  L (normalize lightDir)

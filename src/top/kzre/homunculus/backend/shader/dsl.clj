@@ -2,9 +2,11 @@
   "着色器 DSL 语法糖。提供统一的资源/入口声明，通过元数据传递给后端。"
   (:refer-clojure :exclude [float int]))
 
-(defmacro defshader [stage name params & body]
-  (let [meta-map {:shader/stage stage :shader/entry? true}
-        fn-form (list* 'fn params body)]
+(defmacro defshader [stage name param-vec & body]
+  (let [meta-map (merge {:shader/stage stage :shader/entry? true}
+                        (meta name)
+                        (meta param-vec))
+        fn-form (list* 'fn param-vec body)]
     `(def ~(vary-meta name merge meta-map) ~fn-form)))
 
 ;; 类型构造器（运行时无操作，仅用于类型标记）

@@ -80,7 +80,7 @@
           roots (dce/eliminate-polymorphic-defs roots dce-ctx)
           emitter (p/emitter context)
           checked   (check/check roots (check/make-context context frontend backend))
-          result    (p/emit emitter checked context)]
+          result    (p/emit emitter checked context {:unit unit})]
       result))
 
   ;; 全局链接
@@ -99,7 +99,7 @@
           backend   (p/backend context)
           checked   (check/check roots (check/make-context context frontend backend))
           ;; 代码生成
-          result    (p/emit emitter checked context)]
+          result    (p/emit emitter checked context {})]
       result)))
 
 (defonce compiler (->TypedCompiler))

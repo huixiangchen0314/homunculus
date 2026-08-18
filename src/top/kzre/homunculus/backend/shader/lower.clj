@@ -103,7 +103,7 @@
 (defmethod lower-ast :record [node env]
   (let [struct-name (n/record-name node)
         fields (n/record-fields node)
-        members (mapv (fn [f] (ast/->StructMember (:name f) (ty/get-type f) nil)) fields)]
+        members (mapv (fn [f] (ast/->StructMember (:name f) (ty/get-type f) (irstmt/node-meta f))) fields)]
     [(ast/->Struct struct-name members (ir-meta node)) env]))
 
 ;; 复合结构
