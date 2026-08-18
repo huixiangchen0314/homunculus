@@ -24,19 +24,6 @@
     (second x)
     x))
 
-(defn- parse-type [type-spec]
-  (cond
-    (keyword? type-spec) (ty/make-tcon (symbol (name type-spec)))
-    (symbol? type-spec)  (ty/make-tcon type-spec)
-    (vector? type-spec)
-    (let [parts (partition-by #{'->} type-spec)
-          types (remove #{['->]} parts)]
-      (reduce (fn [ret arg]
-                (ty/make-tfun (parse-type (first arg)) ret))
-              (parse-type (last (last types)))
-              (reverse (butlast types))))
-    :else type-spec))
-
 ;; ── 构建函数（均保持不变） ──
 
 (defn make-func
@@ -162,9 +149,9 @@
                             (let [[params ret] arity
                                   pairs (partition 2 params)
                                   params (mapv (fn [[n t]]
-                                                 (make-param (unquote-name n) :type (parse-type t)))
+                                                 (make-param (unquote-name n) :type (ty/parse-type t)))
                                                pairs)]
-                              (make-func-arity params :ret (make-ret (parse-type ret)))))
+                              (make-func-arity params :ret (make-ret (ty/parse-type ret)))))
                           arities)]
         (list [sym (apply make-func sym :arities arities (apply concat attrs))]))
       ;; 单重载形式
@@ -172,9 +159,9 @@
             param-part (butlast args)
             param-pairs (partition 2 param-part)
             params (mapv (fn [[n t]]
-                           (make-param (unquote-name n) :type (parse-type t)))
+                           (make-param (unquote-name n) :type (ty/parse-type t)))
                          param-pairs)]
-        (list [sym (apply make-func sym :params params :ret (make-ret (parse-type ret-item)) (apply concat attrs))])))))
+        (list [sym (apply make-func sym :params params :ret (make-ret (ty/parse-type ret-item)) (apply concat attrs))])))))
 
 ;; ── 解析 :alias ──
 (defmethod parse-table-entry :alias
@@ -210,7 +197,7 @@
                          (when-not (symbol? fname)
                            (throw (ex-info "Record field name must be a symbol"
                                            {:fname fname :fdef fdef})))
-                         (make-field fname :type (parse-type ftype))))
+                         (make-field fname :type (ty/parse-type ftype))))
                      field-vec)
         ;; 解析协议实现：每个实现描述形如 [ProtocolName method1 method2 ...]
         protocols (mapv (fn [impl-desc]
@@ -241,9 +228,9 @@
                                      (mapv (fn [[params ret]]
                                              (let [pairs (partition 2 params)
                                                    params (mapv (fn [[n t]]
-                                                                  (make-param (unquote-name n) :type (parse-type t)))
+                                                                  (make-param (unquote-name n) :type (ty/parse-type t)))
                                                                 pairs)]
-                                               (make-func-arity params :ret (make-ret (parse-type ret)))))
+                                               (make-func-arity params :ret (make-ret (ty/parse-type ret)))))
                                            arities)))
                       rest)]
     (list [sym (make-protocol sym :methods methods)])))
@@ -251,14 +238,14 @@
 (defmethod parse-table-entry :var
   [[_ sym & rest]]
   (let [sym (unquote-name sym)
-        type (parse-type (first rest))]
+        type (ty/parse-type (first rest))]
     (list [sym (make-variable sym :type type)])))
 
 (defmethod parse-table-entry :primitive
   [[_ sym & rest]]
   (let [sym (unquote-name sym)
         type (if (seq rest)
-               (parse-type (first rest))
+               (ty/parse-type (first rest))
                (ty/make-tcon sym))]
     (list [sym (make-primitive sym :type type)])))
 

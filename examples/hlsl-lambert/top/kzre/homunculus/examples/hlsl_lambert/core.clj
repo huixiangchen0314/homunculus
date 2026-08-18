@@ -18,7 +18,6 @@
 
 (defrecord MyInout [^:SV_TARGET ^float a])
 
-
 ;; ── 顶点着色器 (包含高阶调用测试) ────────
 (defshader :vertex vsMain
            [^:POSITION ^float4 pos

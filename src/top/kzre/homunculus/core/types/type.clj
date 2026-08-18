@@ -1,9 +1,12 @@
 (ns top.kzre.homunculus.core.types.type
   "统一的类型访问与修改工具。提供 get-type, has-type?, ensure-type, set-type! 等 API。
    确保所有 Pass 对类型的操作一致，避免覆盖错误。"
-  (:require [top.kzre.homunculus.core.types.model :as t]
+  (:require [clojure.string :as str]
+            [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.protocol :as p]
             [top.kzre.homunculus.internal.utils :as iu]))
+
+
 
 ;; ── 类型 kind 查询（基于 IType 协议）──
 
@@ -85,6 +88,42 @@
 
 ;; 类型级值
 (defn value-val [ty] (:val ty))
+
+(defn- parse-type-symbol
+  "解析符号字符串中的函数类型表达式，支持 'int->int->int 和 'int->(int->int)。"
+  [s]
+  (let [tokens (re-seq #"[a-zA-Z0-9_]+|->|\(|\)" s)
+        pos (atom 0)]
+    (letfn [(peek-token [] (nth tokens @pos nil))
+            (next-token [] (let [t (peek-token)] (swap! pos inc) t))
+            (parse-atom []
+              (let [t (next-token)]
+                (cond
+                  (= t "(") (let [ty (parse-expr)]
+                              (when (not= (next-token) ")")
+                                (throw (ex-info "Expected )" {:s s})))
+                              ty)
+                  (= t ")") (throw (ex-info "Unexpected )" {:s s}))
+                  (= t "->") (throw (ex-info "Unexpected ->" {:s s}))
+                  :else (make-tcon (symbol t)))))
+            (parse-expr []
+              (let [left (parse-atom)]
+                (if (= (peek-token) "->")
+                  (do (next-token) ; consume arrow
+                      (let [right (parse-expr)]
+                        (make-tfun left right)))
+                  left)))]
+      (parse-expr))))
+
+(defn parse-type [type-spec]
+  (cond
+    (keyword? type-spec) (make-tcon (symbol (name type-spec)))
+    (symbol? type-spec)
+    (let [s (name type-spec)]
+      (if (or (str/includes? s "->") (str/includes? s "("))
+        (parse-type-symbol s)
+        (make-tcon type-spec)))
+    :else type-spec))
 
 (defn arity->tfun
   "从 符号表 标准 arity 构造函数类型."
