@@ -12,16 +12,14 @@
    tv 必须是 TVar 实例，ty 是任意的 IType。
    返回 true 表示 tv 存在于 ty 的叶节点中，否则返回 false。"
   [tv ty]
-  (if (satisfies? p/IType ty)
-    (case (p/type-kind ty)
-      :var (= tv ty)
-      :fun (or (occur? tv (:arg ty)) (occur? tv (:ret ty)))
-      :vec (or (occur? tv (ty/vec-element-type ty))
-               (when (ty/var-type? (ty/vec-size ty))
-                 (occur? tv (ty/vec-size ty))))
-      :hetero-vec (some #(occur? tv %) (ty/hetero-vec-types ty))
-      :hetero-map (some #(occur? tv (second %)) (:entries ty))
-      false)
+  (case (p/type-kind ty)
+    :var (= tv ty)
+    :fun (or (occur? tv (:arg ty)) (occur? tv (:ret ty)))
+    :vec (or (occur? tv (ty/vec-element-type ty))
+             (when (ty/var-type? (ty/vec-size ty))
+               (occur? tv (ty/vec-size ty))))
+    :hetero-vec (some #(occur? tv %) (ty/hetero-vec-types ty))
+    :hetero-map (some #(occur? tv (second %)) (:entries ty))
     false))
 
 ;; ── 类型替换 ──
@@ -31,33 +29,30 @@
   (let [visited (atom #{})]
     (letfn [(sub [t]
               (when t
-                (if (satisfies? p/IType t)
-                  (let [kind (p/type-kind t)]
-                    (case kind
-                      :var (if-let [new (get subst-map t)]
-                             (if (contains? @visited t)
-                               t   ;; 检测到循环，停止替换
-                               (do (swap! visited conj t)
-                                   (sub new)))
-                             t)
-                      :fun (let [new-arg (sub (:arg t))
-                                 new-ret (sub (:ret t))]
-                             (if (and new-arg new-ret)
-                               (t/->TFun new-arg new-ret)
-                               t))
-                      :vec (let [elem-ty (sub (ty/vec-element-type t))
-                                 sz       (ty/vec-size t)
-                                 new-sz   (if (and sz (ty/var-type? sz)) (sub sz) sz)]
-                             (if elem-ty
-                               (t/->TVec elem-ty new-sz)
-                               t))
-                      :hetero-vec (let [new-types (mapv sub (ty/hetero-vec-types t))]
-                                    (t/->THeteroVec new-types))
-                      :hetero-map (let [new-entries (mapv (fn [[k v]] [k (sub v)]) (:entries t))]
-                                    (t/->THeteroMap new-entries))
-                      t))
-                  ;; 类型级值
-                  t)))]
+                (let [kind (p/type-kind t)]
+                  (case kind
+                    :var (if-let [new (get subst-map t)]
+                           (if (contains? @visited t)
+                             t   ;; 检测到循环，停止替换
+                             (do (swap! visited conj t)
+                                 (sub new)))
+                           t)
+                    :fun (let [new-arg (sub (:arg t))
+                               new-ret (sub (:ret t))]
+                           (if (and new-arg new-ret)
+                             (t/->TFun new-arg new-ret)
+                             t))
+                    :vec (let [elem-ty (sub (ty/vec-element-type t))
+                               sz       (ty/vec-size t)
+                               new-sz   (if (and sz (ty/var-type? sz)) (sub sz) sz)]
+                           (if elem-ty
+                             (t/->TVec elem-ty new-sz)
+                             t))
+                    :hetero-vec (let [new-types (mapv sub (ty/hetero-vec-types t))]
+                                  (t/->THeteroVec new-types))
+                    :hetero-map (let [new-entries (mapv (fn [[k v]] [k (sub v)]) (:entries t))]
+                                  (t/->THeteroMap new-entries))
+                    t))))]
       (sub ty))))
 
 (declare subst-walk)
@@ -102,16 +97,16 @@
                    (go (substitute (:ret t1) s) (substitute (:ret t2) s) s))
 
                  (and (ty/vec-type? t1) (ty/vec-type? t2))
-                 (let [len1 (ty/vec-size t1)
-                       len2 (ty/vec-size t2)
-                       len-substs
-                       (cond
-                         (= len1 len2) (go (ty/vec-element-type t1) (ty/vec-element-type t2) subst-map')
-                         (number? len1)
-                         (go len2 len1 subst-map')
-                         (number? len2)
-                         (go len1 len2 subst-map'))]
+                 (let [len-substs
+                       (go  (ty/vec-size t1) (ty/vec-size t2) subst-map')]
                    (go (ty/vec-element-type t1) (ty/vec-element-type t2) len-substs))
+
+                 (and (ty/type-value? t1) (ty/type-value? t2))
+                 (let [v1 (ty/value-val t1)
+                       v2 (ty/value-val t2)]
+                   (if (not= v1 v2)
+                     (throw (ex-info "Type value mismatch" {}))
+                     (assoc subst-map' t1 t2)))
 
                  (and (ty/hetero-vec? t1) (ty/hetero-vec? t2))
                  (let [types1 (ty/hetero-vec-types t1)

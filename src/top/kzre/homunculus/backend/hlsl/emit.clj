@@ -27,7 +27,7 @@
   (cond
     (ty/vec-type? ir-type)
     (let [elem-type (render-type (ty/vec-element-type ir-type))
-          size (ty/vec-size ir-type)]
+          size (ty/value-val (ty/vec-size ir-type))]
       (T "${elem-type}[${size}]"))
     (ty/type-sym ir-type) (name (ty/type-sym ir-type))
     ;:else (throw (ex-info (str "Unknown type: " ir-type) {}))
@@ -113,7 +113,7 @@
 (defn- render-var-decl [ir-type var-name]
   (if (ty/vec-type? ir-type)
     (let [elem (render-type (ty/vec-element-type ir-type))
-          size (ty/vec-size ir-type)]
+          size (ty/value-val (ty/vec-size ir-type))]
       (str elem " " var-name "[" size "]"))
     (str (render-type ir-type) " " var-name)))
 

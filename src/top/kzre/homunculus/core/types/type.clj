@@ -19,7 +19,7 @@
 (defn app-type?   [ty] (= :app       (type-kind ty)))
 (defn container-type? [ty] (= :container (type-kind ty)))
 (defn scheme-type? [ty] (= :scheme        (type-kind ty)))
-
+(defn type-value? [ty] (= :value (type-kind ty)))
 ;; 新增谓词
 (defn hetero-vec? [ty] (= :hetero-vec (type-kind ty)))
 (defn hetero-map? [ty] (= :hetero-map (type-kind ty)))
@@ -76,12 +76,15 @@
 
 (defn make-tvar [id] (t/->TVar id))
 (defn make-tcon [name] (t/->TCon (iu/->symbol name)))
-
+(defn make-tvalue [val] (t/->TValue val))
 ;; 柯里化函数
 (defn make-tfun [arg ret] (t/->TFun arg ret))
 (defn make-fun-type
   [arg-tys ret-tv]
   (reduce (fn [ret arg] (make-tfun arg ret)) ret-tv (reverse arg-tys)))
+
+;; 类型级值
+(defn value-val [ty] (:val ty))
 
 (defn arity->tfun
   "从 符号表 标准 arity 构造函数类型."

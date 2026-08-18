@@ -11,7 +11,7 @@
 (defmethod gen/cg-node-raw :new-array [node context]
   (let [[size-tv size-node size-constrs size-ctx] (gen/cg-node-raw (n/new-array-size node) context)
         int-ty   (ty/make-tcon (tp/integer-type (u/frontend context)))
-        ;; ★ 约束 size 的类型为 int
+        ;; 约束 size 的类型为 int
         size-eq  (cons/make-cequal size-tv int-ty)
         backend  (u/backend context)
         hetero?  (when backend (tp/support-hetero-vec backend))]
@@ -19,10 +19,11 @@
       (let [tv (ty/make-hetero-vec [])
             new-node (n/make-new-array size-node (n/node-meta node) )]
         [tv (ty/set-type! new-node tv) (concat size-constrs [size-eq]) size-ctx])
-      (let [;; 长度：若 size 是字面量整数则直接提取值，否则使用 size-tv 作为长度变量
+      (let [;; 长度：若 size 是字面量整数则直接提取值，否则新鲜类型变量
             len      (if (and (n/literal-node? size-node) (integer? (n/lit-val size-node)))
-                       (n/lit-val size-node)
-                       size-tv)   ;; 使用与 size 关联的类型变量
+                       (ty/make-tvalue (n/lit-val size-node))
+                       (gen/fresh-tvar))
+            ;; TODO 提取注解类型
             elem-tv  (gen/fresh-tvar)
             tv       (ty/make-tvec elem-tv len)
             new-node (n/make-new-array size-node (n/node-meta node) )]
@@ -81,9 +82,9 @@
 (defmethod gen/cg-node-raw :alength [node context]
   (let [[target-tv target-node target-constrs target-ctx] (gen/cg-node-raw (n/alength-target node) context)
         int-ty (ty/make-tcon (tp/integer-type (u/frontend context)))]
-    (if (and (ty/vec-type? target-tv) (integer? (ty/vec-size target-tv)))
+    (if (and (ty/vec-type? target-tv) (ty/type-value? (ty/vec-size target-tv)))
       ;; 长度已知，直接返回整数字面量节点
-      (let [len-val (ty/vec-size target-tv)
+      (let [len-val (ty/value-val (ty/vec-size target-tv))
             lit-node (n/make-literal len-val nil nil)]
         [int-ty (ty/set-type! lit-node int-ty) target-constrs target-ctx])
       ;; 长度未知，保留原调用
