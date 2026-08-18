@@ -46,11 +46,9 @@
                  (ty/vec-type? target-tv) (ty/vec-size target-tv)
                  :else (gen/fresh-tvar))
         vec-tv (ty/make-tvec elem-tv len-tv)
-        target-eq (when (and (not (ty/vec-type? target-tv))
-                             (not (ty/hetero-vec? target-tv)))
-                    (cons/make-cequal target-tv vec-tv))
-        new-node (n/make-aget target-node idx-node (n/node-meta node) )
-        constrs (concat target-constrs idx-constrs (when target-eq [target-eq]))]
+        new-node (n/make-aget target-node idx-node (n/attrs node) (n/node-meta node) )
+        constrs (concat target-constrs idx-constrs
+                        [(cons/make-cequal target-tv vec-tv)])]
     [elem-tv (ty/set-type! new-node elem-tv) constrs idx-ctx]))
 
 ;; ── aset ───────────────────────────────────
