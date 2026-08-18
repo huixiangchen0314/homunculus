@@ -43,8 +43,7 @@
   (let [ctx (:ctx env)
         tbl (proto/symbol-table ctx)
         entry (sym/lookup-sym tbl fn-name)]
-    (or (:io? entry)
-        (not (:pure? entry)))))
+    (sym/func-fx? entry)))
 
 (defonce fx-nodes #{:record :field :param :method :protocol :protocol-impl :ns :try :catch :throw :function})
 

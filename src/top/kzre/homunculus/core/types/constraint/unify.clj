@@ -3,7 +3,9 @@
    不依赖 typed 模块，完全通过 IType 协议操作。"
   (:require [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.protocol :as p]
-            [top.kzre.homunculus.core.types.type :as ty]))
+            [top.kzre.homunculus.core.types.type :as ty]
+            [clojure.walk :as walk]
+            [top.kzre.homunculus.core.ir2.ast :as ir2]))
 
 ;; ── 发生检查 ──
 (defn occur?
@@ -23,14 +25,14 @@
 
 ;; ── 类型替换 ──
 (defn substitute
-  "根据替换映射 subst 对类型 ty 应用替换。内置循环检测，遇到循环时返回原变量。"
-  [ty subst]
+  "根据替换映射 subst-map 对类型 ty 应用替换。内置循环检测，遇到循环时返回原变量。"
+  [ty subst-map]
   (let [visited (atom #{})]
     (letfn [(sub [t]
               (when t
                 (let [kind (p/type-kind t)]
                   (case kind
-                    :var (if-let [new (get subst t)]
+                    :var (if-let [new (get subst-map t)]
                            (if (contains? @visited t)
                              t   ;; 检测到循环，停止替换
                              (do (swap! visited conj t)
@@ -54,35 +56,52 @@
                     t))))]
       (sub ty))))
 
+(declare subst-walk)
+(defn subst-fn
+  [node subst-map]
+  (let [[new-node _] (subst-walk node subst-map)]
+    (if-let [t (ty/get-type node)]
+      [(ty/set-type! new-node (substitute t subst-map)) subst-map]
+      [new-node subst-map])))
+
+(defn subst-walk
+  [node subst-map]
+  (ir2/reduce-children node subst-fn subst-map))
+
+(defn subst-nodes
+  [nodes subst-map]
+  (mapv #(first (subst-fn % subst-map)) nodes))
+
+
 ;; ── 统一 ──
 (defn unify
-  "尝试使类型 t1 和 t2 相等，返回一个替换映射 subst 使得 apply(subst, t1) = apply(subst, t2)。
+  "尝试使类型 t1 和 t2 相等，返回一个替换映射 subst-map 使得 apply(subst-map, t1) = apply(subst-map, t2)。
    如果不可能统一，则抛出异常。"
   ([t1 t2] (unify t1 t2 {}))
-  ([t1 t2 subst]
-   (letfn [(go [t1 t2 subst]
-             (let [t1 (substitute t1 subst)
-                   t2 (substitute t2 subst)]
+  ([t1 t2 subst-map]
+   (letfn [(go [t1 t2 subst-map']
+             (let [t1 (substitute t1 subst-map')
+                   t2 (substitute t2 subst-map')]
                (cond
-                 (= t1 t2) subst
+                 (= t1 t2) subst-map'
 
                  (ty/var-type? t1)
                  (if (occur? t1 t2)
                    (throw (ex-info "Occurs check failed" {:var t1 :type t2}))
-                   (assoc subst t1 t2))
+                   (assoc subst-map' t1 t2))
 
                  (ty/var-type? t2)
-                 (go t2 t1 subst)
+                 (go t2 t1 subst-map')
 
                  (and (ty/fun-type? t1) (ty/fun-type? t2))
-                 (let [s (go (:arg t1) (:arg t2) subst)]
+                 (let [s (go (:arg t1) (:arg t2) subst-map')]
                    (go (substitute (:ret t1) s) (substitute (:ret t2) s) s))
 
                  (and (ty/vec-type? t1) (ty/vec-type? t2))
                  (let [len1 (ty/vec-size t1)
                        len2 (ty/vec-size t2)]
                    (if (= len1 len2)  ; 长度必须严格相等（常量或同一类型变量）
-                     (go (ty/vec-element-type t1) (ty/vec-element-type t2) subst)
+                     (go (ty/vec-element-type t1) (ty/vec-element-type t2) subst-map')
                      (throw (ex-info "TVec length mismatch" {:len1 len1 :len2 len2}))))
 
                  (and (ty/hetero-vec? t1) (ty/hetero-vec? t2))
@@ -90,14 +109,14 @@
                        types2 (ty/hetero-vec-types t2)]
                    (if (= (count types1) (count types2))
                      (reduce (fn [s [e1 e2]] (go e1 e2 s))
-                             subst
+                             subst-map'
                              (map vector types1 types2))
                      (throw (ex-info "HeteroVec size mismatch"
                                      {:size1 (count types1) :size2 (count types2)}))))
 
                  (and (ty/con-type? t1) (ty/con-type? t2))
                  (if (= (:name t1) (:name t2))
-                   subst
+                   subst-map'
                    (throw (ex-info "Type mismatch" {:t1 t1 :t2 t2})))
 
                  (and (= (p/type-kind t1) :hetero-map)
@@ -108,9 +127,9 @@
                      (throw (ex-info "HeteroMap size mismatch" {})))
                    (reduce (fn [s [e1 e2]]
                              (go (second e1) (second e2) s))
-                           subst
+                           subst-map'
                            (map vector entries1 entries2)))
 
                  :else
                  (throw (ex-info "Cannot unify" {:t1 t1 :t2 t2})))))]
-     (go t1 t2 subst))))
+     (go t1 t2 subst-map))))

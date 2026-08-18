@@ -1,10 +1,10 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.record
   (:require
-    [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.types.constraint.constraint :as c]
-    [top.kzre.homunculus.core.types.constraint.utils :as u]
-    [top.kzre.homunculus.core.types.type :as ty]))
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
+   [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
+   [top.kzre.homunculus.core.types.constraint.utils :as u]
+   [top.kzre.homunculus.core.types.type :as ty]))
 
 (defmethod gen/cg-node-raw :record [node context]
   (let [fields       (n/record-fields node)
@@ -22,7 +22,7 @@
                                                              (gen/cg-node-raw init-expr ctx)
                                                              [nil nil nil ctx])
                   eq-constr (when (and declared init-tv)
-                              [(c/make-cequal declared init-tv)])
+                              [(cons/make-cequal declared init-tv)])
                   new-field (cond-> (assoc field :type field-tv)
                                     init-node (assoc :init init-node))]
               [(conj flds new-field)

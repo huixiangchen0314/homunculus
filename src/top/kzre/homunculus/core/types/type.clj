@@ -1,10 +1,9 @@
 (ns top.kzre.homunculus.core.types.type
   "统一的类型访问与修改工具。提供 get-type, has-type?, ensure-type, set-type! 等 API。
    确保所有 Pass 对类型的操作一致，避免覆盖错误。"
-  (:require [top.kzre.homunculus.core.ir2.ast :as ir2p]
-            [top.kzre.homunculus.core.types.model :as t]
-            [top.kzre.homunculus.internal.utils :as iu]
-            [top.kzre.homunculus.core.types.protocol :as p]))
+  (:require [top.kzre.homunculus.core.types.model :as t]
+            [top.kzre.homunculus.core.types.protocol :as p]
+            [top.kzre.homunculus.internal.utils :as iu]))
 
 ;; ── 类型 kind 查询（基于 IType 协议）──
 
@@ -42,11 +41,15 @@
 
 ;; ── 函数类型访问器（TFun 字段，非协议）──
 
-(defn fun-arg [fn-ty]
+(defn fun-param [fn-ty]
   (:arg fn-ty))
 
 (defn fun-ret [fn-ty]
   (:ret fn-ty))
+
+(defn fun-params [fn-ty]
+  (when (fun-type? fn-ty)
+    (cons (fun-param fn-ty) (fun-params (fun-ret fn-ty)))))
 
 (defn fun-return-type
   ([fn-ty]
@@ -76,6 +79,9 @@
 
 ;; 柯里化函数
 (defn make-tfun [arg ret] (t/->TFun arg ret))
+(defn make-fun-type
+  [arg-tys ret-tv]
+  (reduce (fn [ret arg] (make-tfun arg ret)) ret-tv (reverse arg-tys)))
 
 (defn arity->tfun
   "从 符号表 标准 arity 构造函数类型."
@@ -187,7 +193,7 @@
   [ty]
   (cond
     (con-type? ty) true
-    (fun-type? ty) (and (concrete? (fun-arg ty))
+    (fun-type? ty) (and (concrete? (fun-param ty))
                         (concrete? (fun-ret ty)))
     (vec-type? ty) (and (concrete? (vec-element-type ty))
                         (let [sz (vec-size ty)]

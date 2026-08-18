@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.assign
-  (:require [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.types.constraint.constraint :as c]
-            [top.kzre.homunculus.core.ir2.node :as n]
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
+            [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
             [top.kzre.homunculus.core.types.type :as t]))
 
 (defmethod gen/cg-node-raw :assign [node context]
@@ -12,7 +12,7 @@
         ;; 赋值表达式类型与左右两侧一致（通过约束相等）
         all-constr (concat var-constr val-constr
                            (when (and var-tv val-tv)
-                             [(c/make-cequal var-tv val-tv)]))]
+                             [(cons/make-cequal var-tv val-tv)]))]
     [var-tv
      (t/set-type! (n/make-assign var-node val-node
                                   (n/attrs node) (n/node-meta node) )

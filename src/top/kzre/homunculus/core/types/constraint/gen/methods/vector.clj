@@ -1,10 +1,11 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.vector
-  (:require [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.types.constraint.constraint :as c]
-            [top.kzre.homunculus.core.types.constraint.utils :as u]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.type :as ty]
-            [top.kzre.homunculus.core.types.protocol :as tp]))
+  (:require
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
+   [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
+   [top.kzre.homunculus.core.types.constraint.utils :as u]
+   [top.kzre.homunculus.core.types.protocol :as tp]
+   [top.kzre.homunculus.core.types.type :as ty]))
 
 (defmethod gen/cg-node-raw :vector [node context]
   (let [items (n/vector-items node)
@@ -25,7 +26,7 @@
           [(ty/make-hetero-vec item-tys) []]
           ;; 同构向量：所有元素类型必须一致，引入公共元素类型变量
           (let [elem-tv (gen/fresh-tvar)
-                elem-constrs (mapv (fn [item-ty] (c/make-cequal elem-tv item-ty)) item-tys)]
+                elem-constrs (mapv (fn [item-ty] (cons/make-cequal elem-tv item-ty)) item-tys)]
             [(ty/make-tvec elem-tv (count items)) elem-constrs]))
         new-node (n/make-vector (vec item-nodes)
                                 (n/attrs node)

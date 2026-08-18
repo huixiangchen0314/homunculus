@@ -1,8 +1,8 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.while
-  (:require [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.types.constraint.constraint :as c]
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
+            [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
             [top.kzre.homunculus.core.types.constraint.utils :as u]
-            [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.types.type :as ty]))
 
 (defmethod gen/cg-node-raw :while [node context]
@@ -14,10 +14,10 @@
         ;; 根据前端策略添加 test 真值类型约束
         test-eq (when-let [req-ty (u/truthy-type-requirement context)]
                   (when test-tv
-                    [(c/make-cequal test-tv (ty/make-tcon req-ty))]))
+                    [(cons/make-cequal test-tv (ty/make-tcon req-ty))]))
         new-node (n/make-while test-node body-node
                                (n/attrs node) (n/node-meta node) )]
     ;; 返回四元组：类型、新节点、约束、最终上下文
-    [nil (ty/set-type! new-node nil)
+    [body-tv (ty/set-type! new-node nil)
      (concat test-constr body-constr test-eq)
      body-ctx]))

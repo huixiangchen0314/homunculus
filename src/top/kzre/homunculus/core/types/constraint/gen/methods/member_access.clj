@@ -1,8 +1,9 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.member-access
-  (:require [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.types.constraint.constraint :as c]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.type :as ty]))
+  (:require
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
+   [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
+   [top.kzre.homunculus.core.types.type :as ty]))
 
 (defmethod gen/cg-node-raw :member-access [node context]
   (let [[target-tv target-node target-constr target-ctx] (gen/cg-node-raw (n/access-target node) context)
@@ -18,7 +19,7 @@
         arg-nodes (mapv :node arg-results)
         arg-constr (mapcat :constr arg-results)
         ret-tv (gen/fresh-tvar)
-        proj-constr (c/make-cproject target-node target-tv (n/access-member node) ret-tv)
+        proj-constr (cons/make-cproject target-tv (n/access-member node) ret-tv)
         new-node (n/make-member-access target-node
                                        (n/access-member node)
                                        arg-nodes

@@ -334,6 +334,12 @@
           func
           (when-let [alias (entry->alias entry)]
             (recur visited (alias-target alias))))))))
+
+(defn func-fx?
+  [entry]
+  (or (:io? entry)
+      (not (:pure? entry))))
+
 (defn lookup-record    [table sym] (entry->record    (lookup-sym table sym)))
 (defn lookup-protocol  [table sym] (entry->protocol  (lookup-sym table sym)))
 (defn lookup-variable  [table sym] (entry->variable  (lookup-sym table sym)))

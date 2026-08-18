@@ -1,9 +1,10 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.define
-  (:require [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.types.constraint.utils :as u]
-            [top.kzre.homunculus.core.types.constraint.constraint :as c]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.type :as t]))
+  (:require
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
+   [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
+   [top.kzre.homunculus.core.types.constraint.utils :as u]
+   [top.kzre.homunculus.core.types.type :as t]))
 
 (defmethod gen/cg-node-raw :define [node context]
   (if (true? (:ho? (n/attrs node)))
@@ -22,7 +23,7 @@
           annotated-ty (t/get-type node)
           final-tv     (or annotated-ty val-tv)
           extra-constr (when annotated-ty
-                         [(c/make-cequal val-tv annotated-ty)])
+                         [(cons/make-cequal val-tv annotated-ty)])
           new-node     (n/make-define (n/define-name node)
                                       val-node
                                       (n/define-docstring node)

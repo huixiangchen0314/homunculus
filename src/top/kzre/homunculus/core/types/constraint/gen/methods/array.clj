@@ -1,18 +1,18 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.array
   "数组特殊节点的约束生成。"
-  (:require [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.types.constraint.constraint :as c]
+  (:require [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
+            [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
             [top.kzre.homunculus.core.types.constraint.utils :as u]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.type :as ty]
-            [top.kzre.homunculus.core.types.protocol :as tp]))
+            [top.kzre.homunculus.core.types.protocol :as tp]
+            [top.kzre.homunculus.core.types.type :as ty]))
 
 ;; ── new-array ──────────────────────────────
 (defmethod gen/cg-node-raw :new-array [node context]
   (let [[size-tv size-node size-constrs size-ctx] (gen/cg-node-raw (n/new-array-size node) context)
         int-ty   (ty/make-tcon (tp/integer-type (u/frontend context)))
         ;; ★ 约束 size 的类型为 int
-        size-eq  (c/make-cequal size-tv int-ty)
+        size-eq  (cons/make-cequal size-tv int-ty)
         backend  (u/backend context)
         hetero?  (when backend (tp/support-hetero-vec backend))]
     (if hetero?
@@ -48,7 +48,7 @@
         vec-tv (ty/make-tvec elem-tv len-tv)
         target-eq (when (and (not (ty/vec-type? target-tv))
                              (not (ty/hetero-vec? target-tv)))
-                    (c/make-cequal target-tv vec-tv))
+                    (cons/make-cequal target-tv vec-tv))
         new-node (n/make-aget target-node idx-node (n/node-meta node) )
         constrs (concat target-constrs idx-constrs (when target-eq [target-eq]))]
     [elem-tv (ty/set-type! new-node elem-tv) constrs idx-ctx]))
@@ -72,8 +72,8 @@
         vec-tv (ty/make-tvec elem-tv len-tv)
         target-eq (when (and (not (ty/vec-type? target-tv))
                              (not (ty/hetero-vec? target-tv)))
-                    (c/make-cequal target-tv vec-tv))
-        val-eq (c/make-cequal val-tv elem-tv)
+                    (cons/make-cequal target-tv vec-tv))
+        val-eq (cons/make-cequal val-tv elem-tv)
         new-node (n/make-aset target-node idx-node val-node (n/node-meta node) )
         constrs (concat target-constrs idx-constrs val-constrs
                         (when target-eq [target-eq]) [val-eq])]

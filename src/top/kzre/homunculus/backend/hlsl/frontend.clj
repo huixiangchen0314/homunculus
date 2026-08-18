@@ -55,6 +55,7 @@
             [['a 'float3 'b 'float3] 'float3]
             [['a 'float4 'b 'float4] 'float4]
             [['a 'float4 'b 'float] 'float4]
+            [['a 'float 'b 'float4] 'float4]
             [['a 'float3 'b 'float] 'float3]
             [['a 'float2 'b 'float] 'float2]
             [['a 'int   'b 'int]   'int]]

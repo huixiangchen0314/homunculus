@@ -1,10 +1,11 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.loop
-  (:require [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.types.constraint.constraint :as c]
-            [top.kzre.homunculus.core.types.constraint.utils :as u]
-            [top.kzre.homunculus.core.types.env :as e]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.type :as t]))
+  (:require
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
+   [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
+   [top.kzre.homunculus.core.types.constraint.utils :as u]
+   [top.kzre.homunculus.core.types.env :as e]
+   [top.kzre.homunculus.core.types.type :as t]))
 
 ;; ── loop 节点约束生成 ──
 (defmethod gen/cg-node-raw :loop [node context]
@@ -17,7 +18,7 @@
                   [val-tv new-val val-constr _] (gen/cg-node-raw val-node (assoc context :env env))
                   var-name (:name var-node)
                   binding-tv (gen/fresh-tvar)
-                  init-constr (c/make-cequal binding-tv val-tv)
+                  init-constr (cons/make-cequal binding-tv val-tv)
                   typed-var (t/set-type! var-node binding-tv)
                   ;; 重建 binding，保留原 attrs/meta
                   new-b (assoc b :var typed-var :val new-val)]
@@ -50,7 +51,7 @@
           loop-eqs (->> (map vector arg-tys loop-var-names)
                         (keep (fn [[arg-ty var-name]]
                                 (when-let [vty (e/lookup-env (u/env context) var-name)]
-                                  (c/make-cequal arg-ty vty)))))
+                                  (cons/make-cequal arg-ty vty)))))
           new-node (n/make-recur (vec arg-nodes)
                                  (n/attrs node) (n/node-meta node))]
       [nil (t/set-type! new-node nil)

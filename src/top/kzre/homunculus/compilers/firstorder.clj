@@ -8,8 +8,7 @@
  [top.kzre.homunculus.core.types.alias :as alias]
  [top.kzre.homunculus.core.types.alpha-rename :as rename]
  [top.kzre.homunculus.core.types.check.api :as check]
- [top.kzre.homunculus.core.types.constraint.api :as solve]
- [top.kzre.homunculus.core.types.dc-elim.analyze :as dce-analyze]
+ [top.kzre.homunculus.core.types.constraint.core :as constraint]
  [top.kzre.homunculus.core.types.dc-elim.core :as dce]
  [top.kzre.homunculus.core.types.fold.core :as fold]
  [top.kzre.homunculus.core.types.ho-elim.core :as ho-elim]
@@ -63,7 +62,8 @@
           no-recur   (recur/eliminate no-closure)
           folded     (fold/fold no-recur (fold/make-context ctx frontend backend folder))
           inferred   (infer/infer folded (infer/make-context ctx frontend backend))
-          solved     (solve/process inferred (solve/make-context ctx frontend backend))
+          ;solved     (solve/process inferred (solve/make-context ctx frontend backend))
+          solved (constraint/solve inferred ctx)
           ;mutable    (mut/analyze solved)
           unit2      (module/collect-symbols solved ctx unit1)
           unit3      (assoc unit2 :nodes solved)]

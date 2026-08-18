@@ -1,8 +1,30 @@
 (ns top.kzre.homunculus.core.types.constraint.core
   "约束系统的编排入口：构造上下文、运行约束生成与求解。"
   (:require
+    [top.kzre.homunculus.core.types.constraint.env :as env]
     [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.types.constraint.solve :as solve]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.array]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.assign]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.block]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.call]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.convert]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.define]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.if]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.lambda]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.let]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.literal]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.loop]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.map]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.member-access]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.ns]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.protocol]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.record]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.try]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.variable]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.vector]
+    [top.kzre.homunculus.core.types.constraint.gen.methods.while]
+    [top.kzre.homunculus.core.types.constraint.protocol :as p]
+    [top.kzre.homunculus.core.types.constraint.unify :as u]
     [top.kzre.homunculus.core.types.protocol :as tp]
     [top.kzre.homunculus.internal.protocol :as ip]
     [top.kzre.homunculus.internal.symbol :as sym]))
@@ -23,12 +45,26 @@
      :symbol-table symbols
      :known-types (sym/types-symbols symbols)}))
 
-(defn process
-  "对 IR2 节点树进行约束生成与求解，返回类型标注后的新 IR。"
-  [ir2-roots context]
-  (let [{:keys [roots constraints]} (gen/generate-constraints ir2-roots context)
-        conversion-fn (when-let [be (:backend context)]
-                        (fn [s d] (tp/type-conversion be s d)))
-        subst (solve/solve-constraints constraints conversion-fn context)
-        typed-roots (mapv #(solve/apply-subst % subst) roots)]
-    typed-roots))
+
+
+(defn solve
+  [asts ctx]
+  (let [{:keys [nodes constraints]}
+        (gen/gen-constraints asts (make-context ctx (ip/frontend ctx) (ip/backend ctx)))]
+    (loop [constrs constraints
+           subs-map {}
+           env (env/make-env ctx)]
+      (let [[remaining subst-map' env']
+            (reduce
+              (fn [[cs substs e] c]
+                (let [s (p/solve-constraint c substs e)
+                      c' (p/substitute-constraint c s)]
+                  (if (p/solved? c')
+                    [cs s e]
+                    [(conj cs c') s e])))
+              [[] subs-map env]
+              constrs)]
+        (if (or (empty? remaining)
+                 (= subs-map subst-map'))
+          (u/subst-nodes nodes subst-map')
+          (recur remaining subst-map' env'))))))

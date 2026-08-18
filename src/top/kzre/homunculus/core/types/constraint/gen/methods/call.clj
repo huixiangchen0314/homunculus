@@ -2,11 +2,11 @@
   "约束生成：:call 节点。查找顺序：局部环境 → 符号表。
    当实参全部具体且候选匹配时，直接确定返回类型。"
   (:require
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
     [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.types.constraint.constraint :as c]
     [top.kzre.homunculus.core.types.constraint.scheme :as scheme]
     [top.kzre.homunculus.core.types.constraint.utils :as u]
-    [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.types.type :as t]
     [top.kzre.homunculus.internal.symbol :as sym]))
 
@@ -14,7 +14,6 @@
   (let [[_fn-tv fn-node fn-constrs fn-ctx] (gen/cg-node-raw (n/call-fn node) context)
         fn-name (when (= (n/kind fn-node) :variable)
                   (n/var-name fn-node))
-        env (u/env fn-ctx)
         ;; 1. 尝试从环境获取函数类型
         env-binding (when fn-name
                       (or (u/lookup-env fn-ctx fn-name)
@@ -65,7 +64,7 @@
         (if (seq candidates)
           [ret-tv
            (t/set-type! new-node ret-tv)
-           (concat (list (c/make-coverload candidates arg-tys ret-tv new-node))
+           (concat (list (cons/make-coverload candidates arg-tys ret-tv))
                    fn-constrs arg-constrs)
            final-ctx]
           ;; 无候选，返回新类型变量，无额外约束

@@ -27,12 +27,12 @@
             ]
            (def x (%%new-array 3))
 
-           (%%aset x 0 1.0)
-           (%%aset x 1 1.0)
-           (%%aset x 2 2.0)
+           (%%aset x 0 1)
+           (%%aset x 1 1)
+           (%%aset x 2 2)
            (def svsv (remin-sum (%%aget x 1)))
-           (def sum-x (reduce + 0.0 x))
-           (def sv (conj x 6.0))
+           (def sum-x (reduce + 0 x))
+           (def sv (conj x 6))
            (%%aset sv 3 0)
            (def vv 6)
            (set! vv 3)
@@ -44,7 +44,7 @@
            (let [worldPos (mul worldViewProj pos)
                  ll (if true 1 2)
                  xxxxx [1 2 3]]
-             (float4 (float3 (%%aget x 0) 1.0 1.0) 1.0)))
+             (float4 (float3 sum-x 1.0 1.0) 1.0)))
 
 ;; ── 片段着色器 ────────────────────────────
 (defshader :fragment psMain
