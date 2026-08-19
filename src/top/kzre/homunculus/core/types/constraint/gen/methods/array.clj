@@ -1,11 +1,13 @@
 (ns top.kzre.homunculus.core.types.constraint.gen.methods.array
   "数组特殊节点的约束生成。"
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
-            [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.types.constraint.utils :as u]
-            [top.kzre.homunculus.core.types.protocol :as tp]
-            [top.kzre.homunculus.core.types.type :as ty]))
+  (:require
+   [top.kzre.homunculus.core.ir2.ast :as ir2]
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.types.constraint.constraints.core :as cons]
+   [top.kzre.homunculus.core.types.constraint.gen.core :as gen]
+   [top.kzre.homunculus.core.types.constraint.utils :as u]
+   [top.kzre.homunculus.core.types.protocol :as tp]
+   [top.kzre.homunculus.core.types.type :as ty]))
 
 ;; ── new-array ──────────────────────────────
 (defmethod gen/cg-node-raw :new-array [node context]
@@ -20,13 +22,14 @@
             new-node (n/make-new-array size-node (n/node-meta node) )]
         [tv (ty/set-type! new-node tv) (concat size-constrs [size-eq]) size-ctx])
       (let [;; 长度：若 size 是字面量整数则直接提取值，否则新鲜类型变量
-            len      (if (and (n/literal-node? size-node) (integer? (n/lit-val size-node)))
+            len-tv      (if (and (n/literal-node? size-node)
+                              (integer? (n/lit-val size-node)))
                        (ty/make-tvalue (n/lit-val size-node))
                        (gen/fresh-tvar))
             ;; TODO 提取注解类型
             elem-tv  (gen/fresh-tvar)
-            tv       (ty/make-tvec elem-tv len)
-            new-node (n/make-new-array size-node (n/node-meta node) )]
+            tv       (ty/make-tvec elem-tv len-tv)
+            new-node (n/make-new-array size-node (n/attrs node) (n/node-meta node) )]
         [tv (ty/set-type! new-node tv) (concat size-constrs [size-eq]) size-ctx]))))
 
 
@@ -82,10 +85,11 @@
 (defmethod gen/cg-node-raw :alength [node context]
   (let [[target-tv target-node target-constrs target-ctx] (gen/cg-node-raw (n/alength-target node) context)
         int-ty (ty/make-tcon (tp/integer-type (u/frontend context)))]
-    (if (and (ty/vec-type? target-tv) (ty/type-value? (ty/vec-size target-tv)))
+    (if (and (ty/vec-type? target-tv)
+             (integer? (ty/type-value? (ty/vec-size target-tv))))
       ;; 长度已知，直接返回整数字面量节点
       (let [len-val (ty/value-val (ty/vec-size target-tv))
-            lit-node (n/make-literal len-val nil nil)]
+            lit-node (n/make-literal len-val (ir2/attrs node) (ir2/node-meta node))]
         [int-ty (ty/set-type! lit-node int-ty) target-constrs target-ctx])
       ;; 长度未知，保留原调用
       (let [new-node (n/make-alength target-node (n/node-meta node) )]

@@ -27,7 +27,7 @@
           ;; 同构向量：所有元素类型必须一致，引入公共元素类型变量
           (let [elem-tv (gen/fresh-tvar)
                 elem-constrs (mapv (fn [item-ty] (cons/make-cequal elem-tv item-ty)) item-tys)]
-            [(ty/make-tvec elem-tv (count items)) elem-constrs]))
+            [(ty/make-tvec elem-tv (ty/make-tvalue (count items))) elem-constrs]))
         new-node (n/make-vector (vec item-nodes)
                                 (n/attrs node)
                                 (n/node-meta node)

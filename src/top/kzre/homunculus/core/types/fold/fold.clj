@@ -1,21 +1,16 @@
 (ns top.kzre.homunculus.core.types.fold.fold
   "常量折叠 Pass：递归遍历 IR2 树，利用后端实现的 IFolder 协议进行常量折叠。"
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.ast :as ir2]
+  (:require [top.kzre.homunculus.core.ir2.ast :as ir2]
+            [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.types.fold.protocol :as p]
-            [top.kzre.homunculus.core.types.constraint.env :as env]
             [top.kzre.homunculus.core.types.type :as ty]))
 
 ;; env 积累数组长度进行折叠
-(defrecord Env [ctx folder arr-lens])
+(defrecord Env [ctx folder])
 
 (defn make-env
   [ctx folder]
-  (->Env ctx folder {}))
-
-(defn env-add-arr-len
-  [env var-name sz]
-  (update-in env [:arr-lens var-name] sz))
+  (->Env ctx folder))
 
 (defmulti fold-node (fn [node _env] (n/kind node)))
 
@@ -33,12 +28,13 @@
 (defmethod fold-node :alength
  [node env]
  (let [[node' env'] (walk node env)
-       t (ty/get-type node')]
+       target (n/alength-target node')
+       t (ty/get-type target)]
    (if (ty/vec-type? t)
      (let [sz (ty/vec-size t)
-           len (ty/value-val sz)]
-       (if (number? len)
-         [(n/make-literal len {} (ir2/node-meta node))
+           len (when (ty/type-value? sz) (ty/value-val sz))]
+       (if (integer? len)
+         [(n/make-literal len (ir2/attrs node) (ir2/node-meta node))
           env']
          [node' env']))
      [node' env'])))

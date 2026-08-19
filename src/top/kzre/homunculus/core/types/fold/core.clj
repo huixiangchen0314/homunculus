@@ -3,7 +3,9 @@
   (:require
    [top.kzre.homunculus.core.types.fold.fold :as fd]
    [top.kzre.homunculus.core.types.fold.mutable :as mutable]
-   [top.kzre.homunculus.core.types.fold.propagate :as fp]))
+   [top.kzre.homunculus.core.types.fold.propagate :as fp]
+   [top.kzre.homunculus.core.ir2.ast :as ir2]
+   [top.kzre.homunculus.core.ir2.node :as n]))
 
 (defn make-context
   [compile-ctx frontend backend folder]
@@ -15,12 +17,17 @@
 (defn fold
   "循环执行常量折叠和传播，直到 IR 不再变化。"
   [ir2-roots context]
-  (let [folder (:folder context)]
-    (loop [roots ir2-roots]
+  (let [folder (:folder context)
+        mutabled (mutable/analyze ir2-roots)
+        change-atom (atom false)]
+    (loop [roots mutabled]
       (let [folded   (fd/fold roots folder context)
             mutable (mutable/analyze folded)
             prop-ctx (fp/make-context (:ctx context) (:frontend context) (:backend context))
             propagated (:roots (fp/propagate mutable prop-ctx))]
-        (if (= (hash (vec roots)) (hash (vec propagated)))
-          propagated
-          (recur propagated))))))
+        (if (not (n/diff? roots propagated))
+          {:nodes propagated
+           :changed? @change-atom}
+          (do
+            (reset! change-atom true)
+            (recur propagated)))))))

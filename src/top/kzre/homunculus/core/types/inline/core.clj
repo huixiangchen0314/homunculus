@@ -28,12 +28,7 @@
 
 ;; ── 内联辅助函数 ─────────────────────────
 (defn- clear-node [node]
-  (let [node' (walk/prewalk
-                (fn [x]
-                  (if (ir2/ir2? x)
-                    (ty/set-type! x nil)
-                    x))
-                node)
+  (let [node' (ty/clear-type node)
         node'' (rename/rename-node node')]
     node''))
 

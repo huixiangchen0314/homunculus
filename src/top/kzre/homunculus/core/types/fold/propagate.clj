@@ -128,6 +128,7 @@
        (assoc ctx1 :env env')])
     [node context]))
 
+
 ;; ── assign：左值不替换，右值替换，并从环境中移除被赋值的变量（因其可变）──
 (defmethod propagate-node :assign [node context]
   (let [new-var (n/assign-var node)

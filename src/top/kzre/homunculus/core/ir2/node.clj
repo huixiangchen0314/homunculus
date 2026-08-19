@@ -556,3 +556,33 @@
 (defn binding-val [node]
   (:val node))
 
+
+
+(defn diff?
+  "判断两个节点是否不同（发生了折叠/变化）。忽略 attrs 和 meta。"
+  [old-node new-node]
+  (cond
+    ;; 两个都是序列：比较长度，再递归比较每个位置
+    (and (sequential? old-node) (sequential? new-node))
+    (if (not= (count old-node) (count new-node))
+      true
+      (boolean (some (fn [[a b]] (diff? a b))
+                     (map vector old-node new-node))))
+
+    ;; 一个是序列另一个不是：发生了变化
+    (or (sequential? old-node) (sequential? new-node))
+    true
+
+    ;; 两个都为 nil：无变化
+    (and (nil? old-node) (nil? new-node))
+    false
+
+    ;; 一个为 nil：发生了变化
+    (or (nil? old-node) (nil? new-node))
+    true
+
+    ;; 两个都是非 nil、非序列节点：比较 kind，再递归比较 children
+    :else
+    (if (not= (ir2/kind old-node) (ir2/kind new-node))
+      true
+      (diff? (ir2/children old-node) (ir2/children new-node)))))

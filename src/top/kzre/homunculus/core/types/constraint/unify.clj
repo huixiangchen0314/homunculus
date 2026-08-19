@@ -46,7 +46,7 @@
                                sz       (ty/vec-size t)
                                new-sz   (if (and sz (ty/var-type? sz)) (sub sz) sz)]
                            (if elem-ty
-                             (t/->TVec elem-ty new-sz)
+                             (ty/make-tvec elem-ty new-sz)
                              t))
                     :hetero-vec (let [new-types (mapv sub (ty/hetero-vec-types t))]
                                   (t/->THeteroVec new-types))

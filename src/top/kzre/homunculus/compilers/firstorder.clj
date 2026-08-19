@@ -20,7 +20,8 @@
  [top.kzre.homunculus.core.types.protocol :as tp]
  [top.kzre.homunculus.core.types.recur-elim.api :as recur]
  [top.kzre.homunculus.internal.module-unit :as mu]
- [top.kzre.homunculus.internal.protocol :as p]))
+ [top.kzre.homunculus.internal.protocol :as p]
+ [top.kzre.homunculus.core.types.type :as ty]))
 
 ;; ── 闭包消除配置 ──────────────────────
 (defn- default-lift-config []
@@ -33,6 +34,23 @@
       ;; 生成唯一的提升函数名
       (symbol (str "lifted_" (gensym "lambda"))))))
 
+(defn solve-fold
+  "循环执行 clear → solve → fold，直到 fold 不再改变节点。
+   退出时返回 solved（保留类型）。"
+  [nodes ctx]
+  (let [frontend (p/frontend ctx)
+        backend (p/backend ctx)
+        folder (tp/folder backend)
+        solve (fn [n] (constraint/solve n ctx))
+        fold* (fn [n] (fold/fold n (fold/make-context ctx frontend backend folder)))
+        clear (fn [n] (mapv ty/clear-type n))]
+    (loop [current nodes]
+      (let [cleared (clear current)
+            solved  (solve cleared)
+            {:keys [nodes changed?]}  (fold* solved)]
+        (if (not changed?)
+          solved
+          (recur nodes))))))
 
 (defrecord TypedCompiler []
   p/ICompiler
@@ -60,10 +78,9 @@
           no-ho      (ho-elim/eliminate ir2-roots' (ho-elim/make-context ctx frontend backend))
           no-closure (lambda-elim/eliminate no-ho lift-cfg)
           no-recur   (recur/eliminate no-closure)
-          folded     (fold/fold no-recur (fold/make-context ctx frontend backend folder))
-          inferred   (infer/infer folded (infer/make-context ctx frontend backend))
+          inferred   (infer/infer no-recur (infer/make-context ctx frontend backend))
           ;solved     (solve/process inferred (solve/make-context ctx frontend backend))
-          solved (constraint/solve inferred ctx)
+          solved     (solve-fold inferred ctx)
           ;mutable    (mut/analyze solved)
           unit2      (module/collect-symbols solved ctx unit1)
           unit3      (assoc unit2 :nodes solved)]

@@ -2,9 +2,11 @@
   "统一的类型访问与修改工具。提供 get-type, has-type?, ensure-type, set-type! 等 API。
    确保所有 Pass 对类型的操作一致，避免覆盖错误。"
   (:require [clojure.string :as str]
+            [clojure.walk :as walk]
             [top.kzre.homunculus.core.types.model :as t]
             [top.kzre.homunculus.core.types.protocol :as p]
-            [top.kzre.homunculus.internal.utils :as iu]))
+            [top.kzre.homunculus.internal.utils :as iu]
+            [top.kzre.homunculus.core.ir2.ast :as ir2]))
 
 
 
@@ -133,7 +135,7 @@
           (reverse (:params arity))))
 
 (defn make-tapp [ctor args] (t/->TApp ctor args))
-(defn make-tvec [element-type size] (t/->TVec element-type size))
+(defn make-tvec [elem-ty size] (t/->TVec elem-ty size))
 (defn make-hetero-vec [types] (t/->THeteroVec types))
 (defn make-hetero-map [entries] (t/->THeteroMap entries))
 ;; 在 type.clj 中补充以下内容
@@ -238,8 +240,22 @@
     (fun-type? ty) (and (concrete? (fun-param ty))
                         (concrete? (fun-ret ty)))
     (vec-type? ty) (and (concrete? (vec-element-type ty))
-                        (let [sz (vec-size ty)]
-                          (and sz (not (var-type? sz)))))
+                        (integer? (value-val (vec-size ty))))
     (hetero-vec? ty) (every? concrete? (hetero-vec-types ty))
     (hetero-map? ty) (every? (fn [[_ v]] (concrete? v)) (hetero-map-entries ty))
     :else false))
+
+(defn clear-type
+  ([node]
+   (clear-type node true))
+  ([node force]
+   (let [node' (walk/prewalk
+                 (fn [x]
+                   (if (and
+                         (ir2/ir2? x)
+                         (or force
+                             (not (concrete? (get-type x)))))
+                     (set-type! x nil)
+                     x))
+                 node)]
+     node')))
