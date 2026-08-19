@@ -57,4 +57,7 @@
                  diff (max 0 (dot N L))
                  color (* diffuse (* lightColor diff))
                  finalColor (+ color ambient)]
-             finalColor))
+                (def f (range 10))
+                (def g (drop 3 f))
+                (def z (butlast g))
+                finalColor))

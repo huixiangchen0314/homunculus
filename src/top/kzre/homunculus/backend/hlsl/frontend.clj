@@ -18,11 +18,11 @@
          [:primitive 'texture2D]
          [:primitive 'sampler]
          [:primitive 'cbuffer]
-
-          [:alias '%%+ '+]
-          [:alias '%%< '<]
-          [:alias '%%= '=]
-          [:alias '%%not= 'not=]
+           [:alias '%%+ '+]
+           [:alias '%%- '-]
+           [:alias '%%< '<]
+           [:alias '%%= '=]
+           [:alias '%%not= 'not=]
 
            ;; 类型记录（字段类型用符号）
            [:record 'float4   ['x 'float] ['y 'float] ['z 'float] ['w 'float]]

@@ -5,13 +5,15 @@
             [top.kzre.homunculus.core.types.type :as ty]
             [top.kzre.homunculus.core.types.protocol :as tp]))
 
+(defn fresh-tvar [] (ty/make-tvar (gensym "elem-")))
+
 (defmethod infer/local-infer :new-array [node context]
-  (let [[size-ty size-node size-ctx] (infer/local-infer (n/new-array-size node) context)
+  (let [[size-ty size-node env1] (infer/local-infer (n/new-array-size node) context)
         backend (infer/backend context)
         hetero? (when backend (tp/support-hetero-vec backend))]
     (if hetero?
-      (infer/nothing (n/make-new-array size-node (n/attrs node) (n/node-meta node) ) size-ctx)
-      (infer/nothing (n/make-new-array size-node (n/attrs node) (n/node-meta node) ) size-ctx))))
+      (infer/nothing (n/make-new-array size-node (n/attrs node) (n/node-meta node) ) env1)
+      (infer/nothing (n/make-new-array size-node (n/attrs node) (n/node-meta node) ) env1))))
 
 (defmethod infer/local-infer :aget [node context]
   (let [[target-ty target-node target-ctx] (infer/local-infer (n/aget-target node) context)

@@ -1,28 +1,54 @@
 (ns top.kzre.homunculus.core.types.fold.fold
   "常量折叠 Pass：递归遍历 IR2 树，利用后端实现的 IFolder 协议进行常量折叠。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.ast :as ir2p]
-            [top.kzre.homunculus.core.types.fold.protocol :as p]))
+            [top.kzre.homunculus.core.ir2.ast :as ir2]
+            [top.kzre.homunculus.core.types.fold.protocol :as p]
+            [top.kzre.homunculus.core.types.constraint.env :as env]
+            [top.kzre.homunculus.core.types.type :as ty]))
 
-(defmulti fold-node (fn [node _folder _context] (n/kind node)))
+;; env 积累数组长度进行折叠
+(defrecord Env [ctx folder arr-lens])
 
+(defn make-env
+  [ctx folder]
+  (->Env ctx folder {}))
+
+(defn env-add-arr-len
+  [env var-name sz]
+  (update-in env [:arr-lens var-name] sz))
+
+(defmulti fold-node (fn [node _env] (n/kind node)))
+
+(defn walk
+  [node env]
+  (ir2/reduce-children node fold-node env))
 
 ;; ── 调用节点：先递归处理子节点，再尝试折叠 ──
-(defmethod fold-node :call [node folder context]
-  (let [new-fn  (fold-node (n/call-fn node) folder context)
-        new-args (mapv #(fold-node % folder context) (n/call-args node))
-        temp-node (n/make-call new-fn new-args (n/attrs node) (n/node-meta node))]
-    (or (p/fold-node folder temp-node context)
-        temp-node)))
+(defmethod fold-node :call [node env]
+  (let [[node' env'] (walk node env)]
+    [(or (p/fold-node (:folder env) node' (:ctx env))
+         node')
+     env']))
 
+(defmethod fold-node :alength
+ [node env]
+ (let [[node' env'] (walk node env)
+       t (ty/get-type node')]
+   (if (ty/vec-type? t)
+     (let [sz (ty/vec-size t)
+           len (ty/value-val sz)]
+       (if (number? len)
+         [(n/make-literal len {} (ir2/node-meta node))
+          env']
+         [node' env']))
+     [node' env'])))
 
-(defmethod fold-node :default [node folder context]
-  (first (ir2p/reduce-children node
-                               (fn [child ctx] [(fold-node child folder ctx) ctx])
-                               context)))
+(defmethod fold-node :default [node env]
+  (walk node env))
+
 
 ;; ── 入口 ──
 (defn fold
-  "进行一趟代码折叠，折叠是前向的，不需要积累上下文."
-  [ir2-roots folder context]
-  (mapv #(fold-node % folder context) ir2-roots))
+  [ir2-roots folder ctx]
+  (let [init-env (make-env ctx folder)]
+    (mapv #(first (fold-node % init-env)) ir2-roots)))

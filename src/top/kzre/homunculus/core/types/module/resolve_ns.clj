@@ -152,7 +152,7 @@
 
 ;; ── 主函数不变 ──
 (defn resolve-ns
-  [ir2-roots context frontend]
+  [ir2-roots ctx frontend]
   (let [ns-nodes      (filter #(= (ir2/kind %) :ns) ir2-roots)
         non-ns-roots  (remove #(= (ir2/kind %) :ns) ir2-roots)
         self-ns       (some-> ns-nodes first :name)
@@ -166,14 +166,20 @@
         dep-syms (cond-> dep-syms
                          (not= self-ns 'cljh.core)
                          (conj 'cljh.core))]
-    (ip/register-deps context dep-syms)
+    (ip/register-deps ctx dep-syms)
     (let [user-aliases (reduce merge {}
                                (map (fn [ns-node]
-                                      (namespace/ns-reference-aliases ns-node (ip/symbol-table context)))
+                                      (namespace/ns-reference-aliases ns-node (ip/symbol-table ctx)))
                                     ns-nodes))
-          std-aliases (namespace/ns-exported-syms (ip/symbol-table context) 'cljh.core)
+          std-aliases (namespace/ns-exported-syms (ip/symbol-table ctx) 'cljh.core)
           aliases (merge user-aliases std-aliases)
-          env0 {:self-ns self-ns :aliases aliases :locals #{} :global-defs #{} :toplevel? true}
+          ;; TODO 局部定义def
+          env0 {:self-ns self-ns
+                :aliases aliases
+                :locals #{}
+                :global-defs #{}
+                :toplevel? true
+                :def-global? false}
           [qualified-non-ns _]
           (reduce (fn [[nodes env] root]
                     (let [[new-root new-env] (resolve-node root env)]

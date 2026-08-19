@@ -18,16 +18,17 @@
 
 
 (defprotocol ICompileContext
-  (config           [this] "获取配置选项 map")
+  (config  [this] "获取配置选项 map")
   (frontend [this] "前端协议")
   (backend [this] "后端协议")
   (compiler [this] "编译器")
   (emitter [this] "代码发射器")
-  (register-deps    [this dep-syms] "递归编译所有依赖，确保它们已就绪")
+  (register-deps [this dep-syms] "递归编译所有依赖，确保它们已就绪")
   (register-sym [this sym-entry] "注册一个符号表项")
-  (symbol-table      [this] "返回全局符号表")
+  (symbol-table [this] "返回全局符号表")
+  ;; TODO 使用这个符号表方法函数，保证可见性
   (symbols [this ns-sym] "返回模块可见的符号表")
-  (module-unit [_ ns-sym])
+  (module-unit [this ns-sym])
   (set-module-unit! [this unit])
   (all-module-units [this] "返回积累的所有模块单元"))
 

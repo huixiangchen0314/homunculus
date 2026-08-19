@@ -4,11 +4,13 @@
   (:require
    [clojure.walk :as walk]
    [top.kzre.homunculus.core.ir2.node :as n]
-   [top.kzre.homunculus.core.ir2.ast :as p]
+   [top.kzre.homunculus.core.ir2.ast :as ir2]
    [top.kzre.homunculus.core.types.protocol :as tp]
    [top.kzre.homunculus.core.types.subst.replace :as replace]
    [top.kzre.homunculus.internal.protocol :as ip]
-   [top.kzre.homunculus.internal.symbol :as sym]))
+   [top.kzre.homunculus.internal.symbol :as sym]
+   [top.kzre.homunculus.core.types.type :as ty]
+   [top.kzre.homunculus.core.types.alpha-rename :as rename]))
 
 ;; ── 构建上下文 ──────────────────────────
 (defn make-context
@@ -25,13 +27,15 @@
      :local-inline-defs {}}))
 
 ;; ── 内联辅助函数 ─────────────────────────
-(defn- strip-types [node]
-  (walk/prewalk
-    (fn [x]
-      (if (p/ir2? x)
-        (n/set-type-attr x nil)
-        x))
-    node))
+(defn- clear-node [node]
+  (let [node' (walk/prewalk
+                (fn [x]
+                  (if (ir2/ir2? x)
+                    (ty/set-type! x nil)
+                    x))
+                node)
+        node'' (rename/rename-node node')]
+    node''))
 
 (defn- find-lambda-to-inline [fn-name ctx]
   (or (get-in ctx [:local-inline-defs fn-name])
@@ -42,7 +46,7 @@
 
 (defn- inline-call
   [fn-node args node ctx]
-  (let [fn-name (when (= (p/kind fn-node) :variable)
+  (let [fn-name (when (= (ir2/kind fn-node) :variable)
                   (n/var-name fn-node))
         lam     (when fn-name (find-lambda-to-inline fn-name ctx))]
     (if lam
@@ -52,13 +56,13 @@
                               (replace/replace-var b (n/var-name p) a))
                             body
                             (map vector params args))]
-        (strip-types inlined))
+        (clear-node inlined))
       (n/make-call fn-node args (n/attrs node) (n/node-meta node)))))
 
 (defn- add-inline-def [ctx node]
-  (if (and (= (p/kind node) :define)
+  (if (and (= (ir2/kind node) :define)
            (n/define-val node)
-           (= (p/kind (n/define-val node)) :lambda))
+           (= (ir2/kind (n/define-val node)) :lambda))
     (let [attrs (n/attrs node)]
       (if (or (true? (:inline attrs))
               (true? (:polymorphic attrs)))
@@ -70,7 +74,7 @@
 (declare walk)
 (defn- inline-fn
   [node ctx]
-  (case (p/kind node)
+  (case (ir2/kind node)
     :call
     (let [fn-node (n/call-fn node)
           args    (n/call-args node)
@@ -99,7 +103,7 @@
 
 (defn walk
   [node ctx]
-  (p/reduce-children node inline-fn ctx))
+  (ir2/reduce-children node inline-fn ctx))
 
 ;; ── 入口 ──
 (defn inline-nodes

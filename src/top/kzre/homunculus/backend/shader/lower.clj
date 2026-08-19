@@ -52,7 +52,7 @@
                  (ast/->UnaryOp op-sym (first args) (ir-meta node))
                  (and (contains? infix-ops op-sym) (= (count args) 2))
                  (ast/->BinaryOp op-sym (first args) (second args) (ir-meta node))
-                 ;; 结构体构造函数
+                 ;; 结构体构造函数 TODO 使用符号表查询
                  (str/starts-with? (name op-sym) "->")
                  (ast/->Constructor (ty/get-type node) args
                                     (assoc (ir-meta node) :struct? true))
@@ -95,8 +95,10 @@
 (defmethod lower-ast :alength [node env]
   (let [[_ env'] (lower-ast (n/alength-target node) env)
         target (n/alength-target node)
-        target-ty (ty/get-type target)]
-    (if-let [len (when (ty/vec-type? target-ty) (ty/vec-size target-ty))]
+        target-ty (ty/get-type target)
+        len (when (ty/vec-type? target-ty)
+              (ty/value-val (ty/vec-size target-ty)))]
+    (if (integer? len)
       [(ast/->Literal len (ir-meta node)) env']
       (throw (ex-info "Cannot determine array length at compile time" {:node node})))))
 
@@ -131,7 +133,6 @@
         [lhs env1] (lower-ast lhs-node env)
         [rhs env2] (lower-ast (n/assign-val node) env1)]
     (if (and (ty/vec-type? lhs-type)
-             (pos? (ty/vec-size lhs-type))
              (not= :literal (ast/kind rhs))
              (not= :constructor (ast/kind rhs)))
       [(ast/->Assign lhs rhs (assoc (ir-meta node)
