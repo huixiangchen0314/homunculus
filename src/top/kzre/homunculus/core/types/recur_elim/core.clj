@@ -1,9 +1,8 @@
 (ns top.kzre.homunculus.core.types.recur-elim.core
   "消除 loop-recur 递归，将 LoopNode 转换为 WhileNode。"
   (:require
-   [top.kzre.homunculus.core.ir2.ast :as m]
+   [top.kzre.homunculus.core.ir2.ast :as ir2]
    [top.kzre.homunculus.core.ir2.node :as n]
-   [top.kzre.homunculus.core.ir2.ast :as ir2p]
    [top.kzre.homunculus.core.types.utils :as u]
    [top.kzre.homunculus.core.types.alpha-rename :as rename]))
 
@@ -95,9 +94,9 @@
                             bindings)
 
         ;; 追加 result 和 recur-flag 绑定
-        result-binding (m/->Binding (n/make-variable result-var {} nil)
+        result-binding (ir2/->Binding (n/make-variable result-var {} nil)
                                     (n/make-literal nil {} nil) {} nil)
-        recur-binding  (m/->Binding (n/make-variable recur-flag {} nil)
+        recur-binding  (ir2/->Binding (n/make-variable recur-flag {} nil)
                                     (n/make-literal true {} nil) {} nil)
 
         all-bindings (into (vec loop-bindings) [result-binding recur-binding])
@@ -125,7 +124,7 @@
   [(eliminate node) env])
 
 (defmethod eliminate :default [node]
-  (first (ir2p/reduce-children node elim-fn nil)))
+  (first (ir2/reduce-children node elim-fn nil)))
 
 (defn elim-nodes [ir2-roots]
   (mapv eliminate ir2-roots))

@@ -1,8 +1,7 @@
 (ns top.kzre.homunculus.core.ir2.node
   "IR2 节点字段的安全访问器、构造器与更新器。所有对节点内部关键字的直接操作都应通过此命名空间。
    统一使用 make-* 构造函数，不再使用旧的 ->* 风格。"
-  (:require [top.kzre.homunculus.core.ir2.ast :as ir2])
-  (:import (top.kzre.homunculus.core.ir2.ast Binding)))
+  (:require [top.kzre.homunculus.core.ir2.ast :as ir2]))
 
 
 (defn make-field
@@ -125,10 +124,7 @@
 (defn block-node? [bode] (= (kind bode) :block))
 
 (defn let-bindings [node]
-  (let [binds (:bindings node)]
-    (if (and (seq binds) (instance? Binding (first binds)))
-      binds
-      (throw (ex-info "Invalid bindings form" {})))))
+  (:bindings node))
 
 (defn let-body     [node] (:body node))
 
@@ -136,9 +132,6 @@
   ([bindings body]                      (make-let bindings body {} nil))
   ([bindings body attrs]                (make-let bindings body attrs nil))
   ([bindings body attrs meta]
-   (when (and (seq bindings) (not (instance? Binding (first bindings))))
-     (throw (ex-info "make-let requires bindings to be Binding nodes, got old [var val] format"
-                     {:bindings bindings})))
    (ir2/->Let (vec bindings) body attrs meta)))
 
 (defn let-with-bindings [node bindings] (assoc node :bindings bindings))
@@ -201,12 +194,7 @@
   ([bindings body]                      (make-loop bindings body {} nil))
   ([bindings body attrs]                (make-loop bindings body attrs nil))
   ([bindings body attrs meta]
-   (let [binds (if (and (seq bindings)
-                        (not (instance? Binding (first bindings))))
-                 ;; 旧格式 [var val] → Binding 向量，保留原有 attrs/meta 为空
-                 (mapv (fn [[var val]] (ir2/->Binding var val {} nil)) bindings)
-                 bindings)]
-     (ir2/->Loop (vec binds) body attrs meta))))
+   (ir2/->Loop (vec bindings) body attrs meta)))
 
 (defn loop-with-bindings [node bindings] (assoc node :bindings bindings))
 (defn loop-with-body     [node body]     (assoc node :body body))

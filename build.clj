@@ -45,6 +45,7 @@
 
 (defn uberjar [_]
       (clean nil)
+      ;(compile-java nil)
       (compile-clj nil)
       (copy-resources nil)
       (b/uber {:class-dir class-dir

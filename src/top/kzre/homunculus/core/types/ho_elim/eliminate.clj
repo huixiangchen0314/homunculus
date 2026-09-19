@@ -12,7 +12,6 @@
   (:import
    [java.util Set]))
 
-(defrecord Env [^Set hos])
 
 ;; ── 环境操作 ──────────────────────────────
 (defn- empty-env []

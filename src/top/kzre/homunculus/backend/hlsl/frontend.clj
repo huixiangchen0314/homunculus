@@ -12,12 +12,13 @@
          (sym/build-symbol-table
 
            ;; 原始类型
-         [:primitive 'float]
-         [:primitive 'int]
-         [:primitive 'bool]
-         [:primitive 'texture2D]
-         [:primitive 'sampler]
-         [:primitive 'cbuffer]
+
+           [:primitive 'float]
+           [:primitive 'int]
+           [:primitive 'bool]
+           [:primitive 'texture2D]
+           [:primitive 'sampler]
+           [:primitive 'cbuffer]
            [:alias '%%+ '+]
            [:alias '%%- '-]
            [:alias '%%< '<]
@@ -86,7 +87,8 @@
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
             [['a 'int    'b 'int]    'bool]]
-           [:func '>= [['a 'float  'b 'float]  'bool]
+           [:func '>=  {:pure? true}
+            [['a 'float  'b 'float]  'bool]
             [['a 'float2 'b 'float2] 'bool]
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
@@ -128,23 +130,40 @@
             ['a 'float4x4 'b 'float4] 'float4]
            [:func 'sample {:io? true}
             ['tex 'texture2D 'samp 'sampler 'uv 'float2] 'float4]
-           [:func 'max       ['a 'float 'b 'float] 'float]
-           [:func 'min       ['a 'float 'b 'float] 'float]
-           [:func 'clamp     ['x 'float 'min 'float 'max 'float] 'float]
-           [:func 'abs       ['x 'float] 'float]
-           [:func 'sin       ['x 'float] 'float]
-           [:func 'cos       ['x 'float] 'float]
-           [:func 'pow       ['x 'float 'y 'float] 'float]
-           [:func 'sqrt      ['x 'float] 'float]
-           [:func 'lerp      ['a 'float 'b 'float 't 'float] 'float]
-           [:func 'step      ['edge 'float 'x 'float] 'float]
-           [:func 'smoothstep ['min 'float 'max 'float 'x 'float] 'float]
-           [:func 'exp   ['x 'float] 'float]
-           [:func 'exp2  ['x 'float] 'float]
-           [:func 'log   ['x 'float] 'float]
-           [:func 'log2  ['x 'float] 'float]
-           [:func 'rsqrt ['x 'float] 'float]
-           [:func 'frac  ['x 'float] 'float]
+           [:func 'max     {:pure? true}
+            ['a 'float 'b 'float] 'float]
+           [:func 'min      {:pure? true}
+            ['a 'float 'b 'float] 'float]
+           [:func 'clamp    {:pure? true}
+            ['x 'float 'min 'float 'max 'float] 'float]
+           [:func 'abs       {:pure? true}
+            ['x 'float] 'float]
+           [:func 'sin        {:pure? true}
+            ['x 'float] 'float]
+           [:func 'cos       {:pure? true}
+            ['x 'float] 'float]
+           [:func 'pow        {:pure? true}
+            ['x 'float 'y 'float] 'float]
+           [:func 'sqrt      {:pure? true}
+            ['x 'float] 'float]
+           [:func 'lerp      {:pure? true}
+            ['a 'float 'b 'float 't 'float] 'float]
+           [:func 'step      {:pure? true}
+            ['edge 'float 'x 'float] 'float]
+           [:func 'smoothstep  {:pure? true}
+            ['min 'float 'max 'float 'x 'float] 'float]
+           [:func 'exp    {:pure? true}
+            ['x 'float] 'float]
+           [:func 'exp2   {:pure? true}
+            ['x 'float] 'float]
+           [:func 'log   {:pure? true}
+            ['x 'float] 'float]
+           [:func 'log2   {:pure? true}
+            ['x 'float] 'float]
+           [:func 'rsqrt {:pure? true}
+            ['x 'float] 'float]
+           [:func 'frac   {:pure? true}
+            ['x 'float] 'float]
 
            ;; HLSL 特有函数
            [:func 'tex2D  {:io? true}
