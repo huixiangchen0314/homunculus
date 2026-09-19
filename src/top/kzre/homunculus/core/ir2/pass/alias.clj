@@ -6,7 +6,7 @@
     [top.kzre.homunculus.core.ir2.ast :as p]
     [top.kzre.homunculus.core.ir2.pass.protocol :as types]
     [top.kzre.homunculus.internal.protocol :as ip]
-    [top.kzre.homunculus.internal.symbol :as sym]))
+    [top.kzre.homunculus.core.symbol :as sym]))
 
 (defn- build-alias-map [symbol-table]
   (into {}

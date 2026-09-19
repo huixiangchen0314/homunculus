@@ -5,7 +5,7 @@
     [top.kzre.homunculus.core.ir2.ast :as ir2p]
     [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
    [top.kzre.homunculus.internal.protocol :as ip]
-   [top.kzre.homunculus.internal.symbol :as sym]))
+   [top.kzre.homunculus.core.symbol :as sym]))
 
 (defmulti local-infer
           "对节点树递归进行局部类型推导, 返回向量，其形式为 [type new-node]

@@ -7,7 +7,7 @@
     [clojure.set :as set]
     [top.kzre.homunculus.core.ir2.ast :as ir2]
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.internal.symbol :as sym]
+    [top.kzre.homunculus.core.symbol :as sym]
     [top.kzre.homunculus.internal.protocol :as proto]))
 
 ;; ── 环境：移除了 assign-table 字段 ──

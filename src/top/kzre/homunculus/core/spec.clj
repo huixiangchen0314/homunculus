@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.internal.spec
+(ns top.kzre.homunculus.core.spec
   "编译器内部数据结构规范"
   (:require [clojure.spec.alpha :as s]))
 

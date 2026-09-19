@@ -8,7 +8,7 @@
    [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
    [top.kzre.homunculus.core.ir2.pass.subst.replace :as replace]
    [top.kzre.homunculus.internal.protocol :as ip]
-   [top.kzre.homunculus.internal.symbol :as sym]
+   [top.kzre.homunculus.core.symbol :as sym]
    [top.kzre.homunculus.core.ir2.pass.type :as ty]
    [top.kzre.homunculus.core.ir2.pass.alpha-rename :as rename]))
 

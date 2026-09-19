@@ -4,7 +4,7 @@
     [top.kzre.homunculus.core.ir2.ast :as ir2]
     [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.internal.symbol :as sym]))
+    [top.kzre.homunculus.core.symbol :as sym]))
 
 
 ;; ── 用 DSL 构建完整的内置符号表 ──

@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.core.ir2.pass.io-propagate
   "副作用标记传播pass"
   (:require [top.kzre.homunculus.internal.protocol :as proto]
-            [top.kzre.homunculus.internal.symbol :as sym]))
+            [top.kzre.homunculus.core.symbol :as sym]))
 
 (defn- fn-fx?
   "查询函数是否有副作用。默认不纯（即未标记 pure? 的视为有副作用）。"

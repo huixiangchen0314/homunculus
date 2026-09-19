@@ -34,8 +34,6 @@
 
         :literal         ['val 'attrs]
         :variable        ['name 'attrs]
-        ;; TODO 改名叫做 Symbol
-        :symbol          ['name 'attrs]
         :call            [:expr 'fn :exprs 'args 'attrs]
         :if              [:expr 'test :expr 'then :expr 'else {:optional true} 'attrs]
         :block           [:exprs 'exprs 'attrs]

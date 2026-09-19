@@ -27,7 +27,7 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.unify :as u]
     [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.internal.protocol :as ip]
-    [top.kzre.homunculus.internal.symbol :as sym]))
+    [top.kzre.homunculus.core.symbol :as sym]))
 
 (defn make-context
   "构造约束生成所需的上下文 map。

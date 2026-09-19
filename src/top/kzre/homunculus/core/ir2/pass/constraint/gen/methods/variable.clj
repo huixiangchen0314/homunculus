@@ -8,7 +8,7 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.scheme :as scheme]
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.internal.symbol :as sym]))
+    [top.kzre.homunculus.core.symbol :as sym]))
 
 (defmethod gen/cg-node-raw :variable [node context]
   (let [name (n/var-name node)

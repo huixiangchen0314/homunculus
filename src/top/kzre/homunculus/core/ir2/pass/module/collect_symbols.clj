@@ -4,7 +4,7 @@
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.internal.symbol :as sym]
+    [top.kzre.homunculus.core.symbol :as sym]
     [top.kzre.homunculus.internal.protocol :as p]
     [top.kzre.homunculus.internal.module-unit :as mu])
   (:import (top.kzre.homunculus.internal.module_unit ModuleUnit)))

@@ -8,7 +8,7 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.scheme :as scheme]
     [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
     [top.kzre.homunculus.core.ir2.pass.type :as t]
-    [top.kzre.homunculus.internal.symbol :as sym]))
+    [top.kzre.homunculus.core.symbol :as sym]))
 
 (defmethod gen/cg-node-raw :call [node context]
   (let [[_fn-tv fn-node fn-constrs fn-ctx] (gen/cg-node-raw (n/call-fn node) context)

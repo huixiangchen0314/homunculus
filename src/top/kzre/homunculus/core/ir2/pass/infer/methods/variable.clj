@@ -4,7 +4,7 @@
     [top.kzre.homunculus.core.ir2.pass.env :as e]
     [top.kzre.homunculus.core.ir2.pass.infer.core :as core]
     [top.kzre.homunculus.core.ir2.pass.type :as t]
-    [top.kzre.homunculus.internal.symbol :as sym]))
+    [top.kzre.homunculus.core.symbol :as sym]))
 
 (defmethod core/local-infer :variable [node context]
   (let [env  (core/env context)

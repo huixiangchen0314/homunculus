@@ -3,7 +3,7 @@
   (:require
    [top.kzre.homunculus.core.irstmt.ast :as ast]
    [top.kzre.homunculus.internal.protocol :as proto]
-   [top.kzre.homunculus.internal.symbol :as sym]
+   [top.kzre.homunculus.core.symbol :as sym]
    [top.kzre.homunculus.core.ir2.node :as n]))
 
 (defrecord Env [ctx

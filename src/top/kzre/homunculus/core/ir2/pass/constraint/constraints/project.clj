@@ -3,7 +3,7 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.protocol :as p]
     [top.kzre.homunculus.core.ir2.pass.constraint.unify :as unify]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.internal.symbol :as sym]
+    [top.kzre.homunculus.core.symbol :as sym]
     [top.kzre.homunculus.internal.protocol :as proto]))
 
 ;; target-tv + member => ret-tv

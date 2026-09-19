@@ -1,9 +1,9 @@
-(ns top.kzre.homunculus.internal.symbol
+(ns top.kzre.homunculus.core.symbol
   "符号表条目构建、访问和判断工具。提供类似 Hiccup 的 DSL 来构建符号表。
    支持同一符号的不同 kind 共存（如 record + function）。"
   (:require [clojure.spec.alpha :as s]
             [top.kzre.homunculus.core.ir2.pass.type :as ty]
-            [top.kzre.homunculus.internal.spec :as spec]))
+            [top.kzre.homunculus.core.spec :as spec]))
 
 (defn private-symbol?
   [symbol-entry]
@@ -114,20 +114,8 @@
 ;; ── 访问器 ──
 (defn alias-target [entry] (:alias-target entry))
 
-;; ── 访问函数 ──
-
-(defn get-kind   [entry] (:kind entry))
 (defn get-type   [entry] (:type entry))
-(defn get-meta   [entry] (:meta entry))
-(defn get-fields [entry] (:fields entry))
-(defn get-protocols [entry] (:protocols entry))
-(defn get-methods [entry] (:methods entry))
-(defn get-params [entry] (:params entry))
-(defn get-ret    [entry] (:ret entry))
-(defn get-rets   [entry] (:rets entry))
 
-(defn get-arities [entry]
-  (:arities entry))
 
 ;; ── 解析 DSL 的多方法 ──
 
