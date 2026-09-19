@@ -2,7 +2,7 @@
   "符号表条目构建、访问和判断工具。提供类似 Hiccup 的 DSL 来构建符号表。
    支持同一符号的不同 kind 共存（如 record + function）。"
   (:require [clojure.spec.alpha :as s]
-            [top.kzre.homunculus.core.types.type :as ty]
+            [top.kzre.homunculus.core.ir2.pass.type :as ty]
             [top.kzre.homunculus.internal.spec :as spec]))
 
 (defn private-symbol?

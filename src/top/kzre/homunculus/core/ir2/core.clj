@@ -3,7 +3,7 @@
   (:require [top.kzre.homunculus.core.ir1.ast :as ir1]
             [top.kzre.homunculus.core.ir1.node :as n1]
             [top.kzre.homunculus.core.ir2.node :as n2]
-            [top.kzre.homunculus.core.types.protocol :as tp]
+            [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
             [top.kzre.homunculus.internal.protocol :as ip]))
 
 (defrecord Env [ctx])

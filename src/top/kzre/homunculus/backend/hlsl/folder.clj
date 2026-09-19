@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.backend.hlsl.folder
   "HLSL 常量折叠器：实现 IFolder 协议，对编译时可求值的表达式进行常量折叠。"
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.types.fold.protocol :as fp]))
+            [top.kzre.homunculus.core.ir2.pass.fold.protocol :as fp]))
 
 ;; ── 多方法处理 call 节点 ──
 (defmulti fold-call (fn [fn-name _args _context] fn-name))

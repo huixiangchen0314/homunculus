@@ -2,7 +2,7 @@
   "Statementize 后展开数组整体赋值为临时变量 + 逐元素赋值。"
   (:require
    [top.kzre.homunculus.backend.shader.ast :as ast]
-   [top.kzre.homunculus.core.types.type :as ty]))
+   [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 (defn- expand-assign [assign]
   (let [meta     (:meta assign)

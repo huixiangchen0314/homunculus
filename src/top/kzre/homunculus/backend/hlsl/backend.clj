@@ -1,8 +1,8 @@
 (ns top.kzre.homunculus.backend.hlsl.backend
   "HLSL 后端实现，提供类型转换规则。"
   (:require
-    [top.kzre.homunculus.core.types.protocol :as tp]
-    [top.kzre.homunculus.core.types.type :as ty]
+    [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]
     [top.kzre.homunculus.backend.hlsl.folder :as folder]))
 
 (defrecord HLSLBackend []

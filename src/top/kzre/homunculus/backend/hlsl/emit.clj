@@ -4,7 +4,7 @@
     [clojure.string :as str]
     [top.kzre.homunculus.backend.shader.ast :as ast]
     [top.kzre.homunculus.backend.util.naming :refer [cname]]
-    [top.kzre.homunculus.core.types.type :as ty]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]
     [top.kzre.homunculus.backend.util.format :refer [T]]
     [top.kzre.homunculus.backend.shader.metadata :as md]))
 

@@ -6,7 +6,7 @@
     [top.kzre.homunculus.backend.shader.metadata :as md]
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.irstmt.ast :as irstmt]
-    [top.kzre.homunculus.core.types.type :as ty]))
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 (def ^:private unary-ops #{'! '- '++ '--})
 (def ^:private infix-ops #{'+ '- '* '/ '% '== '!= '< '> '<= '>= '&& '||})

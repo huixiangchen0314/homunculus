@@ -1,0 +1,37 @@
+(ns top.kzre.homunculus.core.ir2.pass.infer.methods.let
+  (:require [top.kzre.homunculus.core.ir2.pass.env :as e]
+            [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.ir2.pass.infer.core :as infer]
+            [top.kzre.homunculus.core.ir2.pass.type :as t]))
+
+(defmethod infer/local-infer :let [node context]
+  (let [bindings (n/let-bindings node)        ;; Binding 向量
+        [bind-nodes final-ctx]
+        (reduce (fn [[bnds ctx] b]
+                  (let [var-node (:var b)
+                        val-node (:val b)
+                        [val-ty val-new val-ctx] (infer/local-infer val-node ctx)
+                        var-name (:name var-node)
+                        cur-env  (infer/env val-ctx)
+                        new-env  (if val-ty
+                                   (e/extend-env cur-env var-name val-ty)
+                                   cur-env)
+                        var-new  (if val-ty
+                                   (t/ensure-type var-node val-ty)
+                                   var-node)
+                        next-ctx (if val-ty
+                                   (infer/new-env val-ctx new-env)
+                                   val-ctx)
+                        new-binding (assoc b :var var-new :val val-new)]
+                    [(conj bnds new-binding) next-ctx]))
+                [[] context]
+                bindings)
+        [body-ty body-node body-ctx] (infer/local-infer (n/let-body node) final-ctx)]
+    (if body-ty
+      (let [new-node   (n/make-let (vec bind-nodes) body-node
+                                   (n/attrs node) (n/node-meta node))
+            typed-node (t/set-type! new-node body-ty)]
+        (infer/success body-ty typed-node body-ctx))
+      (let [new-node (n/make-let (vec bind-nodes) body-node
+                                 (n/attrs node) (n/node-meta node))]
+        (infer/nothing new-node body-ctx)))))

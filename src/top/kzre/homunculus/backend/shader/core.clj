@@ -3,8 +3,8 @@
    不依赖任何具体着色语言。"
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.types.type :as ty]
-    [top.kzre.homunculus.core.types.metadata :as md]))
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]
+    [top.kzre.homunculus.core.ir2.pass.metadata :as md]))
 
 (def shader-semantics
   "已知的 HLSL 语义集合（大小写敏感，通常全大写）。

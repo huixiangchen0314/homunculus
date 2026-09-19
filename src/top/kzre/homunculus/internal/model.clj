@@ -1,7 +1,7 @@
 (ns top.kzre.homunculus.internal.model
   "编译配置和上下文的默认实现。"
   (:require
-    [top.kzre.homunculus.core.types.protocol :as tp]
+    [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.internal.module-unit :as mu]
     [top.kzre.homunculus.internal.protocol :as p]
     [top.kzre.homunculus.internal.utils :as u]))
