@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.core.irstmt.dce
+(ns top.kzre.homunculus.core.irstmt.pass.dce
   "死代码消除"
   (:require
    [top.kzre.homunculus.core.irstmt.ast :as ast]

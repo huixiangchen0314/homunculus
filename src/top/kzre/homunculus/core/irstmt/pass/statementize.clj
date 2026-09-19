@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.core.irstmt.statementize
+(ns top.kzre.homunculus.core.irstmt.pass.statementize
   (:require
    [top.kzre.homunculus.core.irstmt.ast :as ast]))
 

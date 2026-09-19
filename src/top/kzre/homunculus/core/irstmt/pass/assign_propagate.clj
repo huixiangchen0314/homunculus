@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.core.irstmt.assign-propagate
+(ns top.kzre.homunculus.core.irstmt.pass.assign-propagate
   (:require
     [top.kzre.homunculus.core.irstmt.ast :as ast]))
 
