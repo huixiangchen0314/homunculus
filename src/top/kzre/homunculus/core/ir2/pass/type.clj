@@ -61,8 +61,18 @@
    (if (fun-type? fn-ty)
      (recur (fun-ret fn-ty))
      fn-ty))
-  ([fun-ty arity]                                           ;; 知道参数个数用这个推导
-   (nth (iterate :ret fun-ty) arity)))
+  ([fun-ty arity]
+   ;; 消耗 arity 个参数后的剩余类型。
+   ;;
+   ;; 普通函数：arity=0 返回函数本身；arity=n 返回消耗 n 个参数后的类型。
+   ;; 零参函数（arg 为 nil）：arity=0 返回 ret——调用零个参数即得到返回类型。
+   (loop [ty fun-ty
+          n  arity]
+     (if (zero? n)
+       (if (and (fun-type? ty) (nil? (fun-param ty)))
+         (fun-ret ty)
+         ty)
+       (recur (fun-ret ty) (dec n))))))
 
 
 
@@ -84,12 +94,10 @@
 (defn make-tvalue [val] (t/->TValue val))
 ;; 柯里化函数
 (defn make-tfun [arg ret] (t/->TFun arg ret))
-(defn make-fun-type
-  [arg-tys ret-tv]
-  (reduce (fn [ret arg] (make-tfun arg ret)) ret-tv (reverse arg-tys)))
 
 ;; 类型级值
 (defn value-val [ty] (:val ty))
+
 
 (defn- parse-type-symbol
   "解析符号字符串中的函数类型表达式，支持 'int->int->int 和 'int->(int->int)。"
@@ -127,12 +135,23 @@
         (make-tcon type-spec)))
     :else type-spec))
 
+
+(defn make-fun-type
+  "从参数类型列表和返回类型构造柯里化函数类型。
+
+   空参数列表返回 ()->ret 的 TFun 形式——
+   和零参函数的类型表示一致。"
+  [arg-tys ret-type]
+  (if (seq arg-tys)
+    (reduce (fn [ret arg] (make-tfun arg ret))
+            ret-type
+            (reverse arg-tys))
+    (make-tfun nil ret-type)))
 (defn arity->tfun
-  "从 符号表 标准 arity 构造函数类型."
+  "从符号表标准 arity 构造函数类型。"
   [arity]
-  (reduce (fn [ret param] (make-tfun (:type param) ret))
-          (some-> (:ret arity) :type)
-          (reverse (:params arity))))
+  (make-fun-type (mapv :type (:params arity))
+                 (some-> (:ret arity) :type)))
 
 (defn make-tapp [ctor args] (t/->TApp ctor args))
 (defn make-tvec [elem-ty size] (t/->TVec elem-ty size))
@@ -233,11 +252,13 @@
 
 (defn concrete?
   "判断类型是否为确定的（具体）类型。
-   TCon、整数长度同构向量、元素全部具体的异构向量/异构 Map 均为具体。"
+   TCon、零参函数、参数和返回都具体的函数、
+   整数长度同构向量、元素全部具体的异构向量/异构 Map 均为具体。"
   [ty]
   (cond
     (con-type? ty) true
-    (fun-type? ty) (and (concrete? (fun-param ty))
+    (fun-type? ty) (and (or (nil? (fun-param ty))
+                            (concrete? (fun-param ty)))
                         (concrete? (fun-ret ty)))
     (vec-type? ty) (and (concrete? (vec-element-type ty))
                         (integer? (value-val (vec-size ty))))

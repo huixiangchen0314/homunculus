@@ -24,6 +24,7 @@
         checked-target (check/check-node* target nil env)
         ;; aget 的返回类型已由约束求解标记在节点上，expected 可用来验证或插入转换
         new-node (n/make-aget checked-target checked-idx
+                              (n/attrs node)
                               (n/node-meta node))
         actual   (ty/get-type new-node)]
     (if (and expected actual)
@@ -45,9 +46,12 @@
                  (if elem-type
                    (check/check-node* val elem-type env)
                    (check/check-node* val nil env))
+                 (n/attrs node)
+
                  (n/node-meta node))))
 
 (defmethod check/check-node* :alength [node expected env]
   (let [target (n/alength-target node)]
     (n/make-alength (check/check-node* target nil env)
+                    (n/attrs node)
                     (n/node-meta node))))

@@ -10,14 +10,17 @@
     [top.kzre.homunculus.core.ir2.pass.type :as t]))
 
 (defmethod gen/gen-node* :call [current-node env]
-  (let [{fn-node        :node
+  (let [{fn-type        :type
+         fn-node        :node
          fn-constraints :constraints
          fn-env         :env}
         (gen/gen-node* (n/call-fn current-node) env)
         fn-name     (when (= (n/kind fn-node) :variable)
                       (n/var-name fn-node))
-        ;; 候选函数类型由 env 统一解析（本地优先，全局兜底）
-        candidates  (if fn-name (p/resolve-callees fn-env fn-name) [])
+        candidates  (cond
+                      (and fn-type (t/fun-type? fn-type)) [fn-type]
+                      fn-name                             (p/resolve-callees fn-env fn-name)
+                      :else                               [])
         [arg-results final-env]
         (reduce (fn [[results current-env] arg]
                   (let [{:keys [env] :as r} (gen/gen-node* arg current-env)]
@@ -36,22 +39,24 @@
                                    cand)))
                              candidates))]
     (if matched-cand
-      ;; 精确匹配，直接确定返回类型
       (let [ret-type (t/fun-return-type matched-cand (count arg-types))
             new-node (n/make-call fn-node (vec arg-nodes)
                                   (n/attrs current-node)
-                                  (n/node-meta current-node))]
+                                  (n/node-meta current-node))
+            ;; callee 类型是 TVar 时（多 arity 函数在 variable 阶段未解析），
+            ;; 约束到匹配的候选
+            fn-eq    (when (and fn-type (t/var-type? fn-type))
+                       [(cons/make-cequal fn-type matched-cand)])]
         {:type        ret-type
          :node        (t/set-type! new-node ret-type)
-         :constraints (concat fn-constraints arg-constrs)
+         :constraints (concat fn-eq fn-constraints arg-constrs)
          :env         final-env})
-      ;; 无法精确匹配：有候选则生成 COverload，否则只返回新类型变量
       (let [ret-tv   (gen/fresh-tvar)
             new-node (n/make-call fn-node (vec arg-nodes)
                                   (n/attrs current-node)
                                   (n/node-meta current-node))
             extra    (if (seq candidates)
-                       [(cons/make-coverload candidates arg-types ret-tv)]
+                       [(cons/make-coverload candidates arg-types ret-tv fn-type)]
                        [])]
         {:type        ret-tv
          :node        (t/set-type! new-node ret-tv)

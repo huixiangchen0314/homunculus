@@ -99,9 +99,7 @@
   (resolve-var-type [_ name]
     (if-let [binding (lookup-local type-scope name)]
       (instantiate-if-scheme binding)
-      (when-let [entry (sym/lookup-in-tables name symbols)]
-        (when-let [type-entry (sym/entry->type entry)]
-          (:type type-entry)))))
+      (sym/resolve-sym-type symbols name)))
 
   (resolve-callees [_ name]
     (if-let [binding (lookup-local type-scope name)]
@@ -113,6 +111,9 @@
 
   ;; ── 作用域扩展 ──
   (bind-var [this name type]
+    ;; TODO 当前只支持单类型绑定。函数重载需要表达「一个名字对应多个类型」，
+    ;;      未来通过引入联合类型（union type）解决——比显式重载列表更通用，
+    ;;      也适用于非函数场景（如 let 绑定的值可能是多种类型）。
     (assoc this :type-scope (assoc type-scope name type)))
   (unbind-var [this name]
     (assoc this :type-scope

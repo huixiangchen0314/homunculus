@@ -8,17 +8,14 @@ all: test
 clean:
 	clj -T:build clean
 
-compile:
-	clj -T:build compile-clj
-
 # test 自动发现 test 目录下所有 *_test.clj 文件
-test: compile
+test: jar
 	clj -M:test test/run_tests.clj
 
-jar: compile
+jar:
 	clj -T:build jar
 
-uberjar: compile
+uberjar:
 	clj -T:build uberjar
 
 repl:

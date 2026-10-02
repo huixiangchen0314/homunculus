@@ -23,13 +23,13 @@
                                                              (p/module-naming-style config)
                                                              ".hlsl"))
                         out-dir)
-          irstmts (irstmt.lower/lower-nodes nodes)
+          irstmts (irstmt.lower/lower nodes)
           sted (statementize/statementize-nodes irstmts)
           ped (irstmt.assign-propagate/propagate-nodes sted)
           dced (irstmt.dce/elim-nodes ped ctx)
-          shader-asts (lower/lower-nodes dced)
+          shader-asts (lower/lower dced)
           vec-copied (vec-assign/expand-vec-assigns shader-asts)
-          emitted (emit/emit-nodes vec-copied)]
+          emitted (emit/emit vec-copied)]
       (println "ir-stmts " irstmts)
       (println "stmted" sted)
       (println "shader-asts" shader-asts)

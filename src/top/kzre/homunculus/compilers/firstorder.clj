@@ -77,11 +77,11 @@
   (compile-module [_ unit context]
     (let [roots   (mu/module-nodes unit)
           dce-ctx (dce/make-context context)                ;; 这些是必须在HLSL 消除的代码
-          roots (dce/eliminate-ho-defs roots dce-ctx)
-          roots (dce/eliminate-inline-defs roots dce-ctx)
-          roots (dce/eliminate-polymorphic-defs roots dce-ctx)
+          no-ho (dce/eliminate-ho-defs roots dce-ctx)
+          inlined (dce/eliminate-inline-defs no-ho dce-ctx)
+          no-poly (dce/eliminate-polymorphic-defs inlined dce-ctx)
           emitter (p/emitter context)
-          checked   (check/check roots (check/make-env context))
+          checked   (check/check no-poly (check/make-env context))
           result    (p/emit emitter checked context {:unit unit})]
       result))
 

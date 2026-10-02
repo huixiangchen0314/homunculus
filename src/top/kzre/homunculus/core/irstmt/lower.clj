@@ -10,11 +10,11 @@
 (defn env-contains? [env var-name] (contains? (:locals env) var-name))
 (defonce empty-env (make-env))
 
-(defmulti lower-ast (fn [node _env] (ir2/kind node)))
+(defmulti lower-node* (fn [node _env] (ir2/kind node)))
 
-(defn walk [node env] (ir2/reduce-children node lower-ast env))
+(defn walk [node env] (ir2/reduce-children node lower-node* env))
 
-(defmethod lower-ast :default
+(defmethod lower-node* :default
  [node env]
  (let [[node' new-env] (walk node env)
        node-kind (ir2/kind node')
@@ -52,26 +52,26 @@
          (throw (ex-info (str "Unsupported IR2 kind in IRStmt lower: " (ir2/kind node')) {:node node'})))]
    [new-node new-env]))
 
-(defmethod lower-ast :block [node env]
+(defmethod lower-node* :block [node env]
   (let [children (n/block-exprs node)
         [stmts env1] (reduce (fn [[stmts e] child]
-                               (let [[stmt ne] (lower-ast child e)]
+                               (let [[stmt ne] (lower-node* child e)]
                                  [(conj stmts stmt) ne]))
                              [[] env] (butlast children))
-        [last-expr env2] (lower-ast (last children) env1)]
+        [last-expr env2] (lower-node* (last children) env1)]
     [(ast/->Block stmts last-expr (n/attrs node) (n/node-meta node)) env2]))
 
 
-(defmethod lower-ast :if [node env]
+(defmethod lower-node* :if [node env]
   (let [tmp-name (gensym "ifval")
         tmp-decl (ast/->VarDecl tmp-name nil
                                 "Variable for if-expr"
                                 (n/attrs node) (n/node-meta node))
         tmp-var (ast/->Variable tmp-name (n/attrs node) (n/node-meta node))
-        [test env1] (lower-ast (n/if-test node) env)
-        [then-val _] (lower-ast (n/if-then node) env1)
+        [test env1] (lower-node* (n/if-test node) env)
+        [then-val _] (lower-node* (n/if-then node) env1)
         [else-val _] (if-let [e (n/if-else node)]
-                          (lower-ast e env1)
+                          (lower-node* e env1)
                           [nil env1])
         then-assign (ast/->Assign tmp-var then-val nil nil)
         then-node (n/if-then node)
@@ -83,11 +83,11 @@
         ]
     [(ast/->Block [tmp-decl if-stmt] tmp-var (n/attrs node) (n/node-meta node)) env1]))
 
-(defmethod lower-ast :let [node env]
+(defmethod lower-node* :let [node env]
   (let [bindings (n/let-bindings node)
         [decls env1] (reduce (fn [[stmts e] b]
-                               (let [[init-expr e1] (lower-ast (:val b) e)
-                                     [var-node e2] (lower-ast (:var b) e1)
+                               (let [[init-expr e1] (lower-node* (:val b) e)
+                                     [var-node e2] (lower-node* (:var b) e1)
                                      var-name (:name var-node)]
                                  (if (env-contains? e2 var-name)
                                    [(conj stmts
@@ -99,32 +99,32 @@
                                                          (ast/attrs var-node) (ast/node-meta var-node)))
                                     (env-add-local e2 var-name)])))
                              [[] env] bindings)
-        [body-expr _] (lower-ast (n/let-body node) env1)]
+        [body-expr _] (lower-node* (n/let-body node) env1)]
     [(ast/->Block decls body-expr (n/attrs node) (n/node-meta node)) env1]))
 
-(defmethod lower-ast :define [node env]
+(defmethod lower-node* :define [node env]
   (let [val (n/define-val node)]
     (if (and val (= :lambda (ir2/kind val)))
       ;; 函数/入口点
       (let [lam   val
             params (n/lambda-params lam)
             param-nodes (mapv (fn [p] (ast/->Param (:name p) (n/attrs p) (n/node-meta p))) params)
-            [body-node env'] (lower-ast (n/lambda-body lam) env)]
+            [body-node env'] (lower-node* (n/lambda-body lam) env)]
         [(ast/->Function (n/define-name node) param-nodes body-node (n/attrs node) (n/node-meta node)) env'])
       ;; 变量声明
       (let [var-name (n/define-name node)
-            [init-expr env'] (if val (lower-ast val env) [nil env])]
+            [init-expr env'] (if val (lower-node* val env) [nil env])]
         [(ast/->VarDecl var-name init-expr (n/define-docstring node) (n/attrs node) (n/node-meta node)) env']))))
 
-(defmethod lower-ast :while [node env]
-  (let [[test env1] (lower-ast (n/while-test node) env)
-        [body _] (lower-ast (n/while-body node) env1)
+(defmethod lower-node* :while [node env]
+  (let [[test env1] (lower-node* (n/while-test node) env)
+        [body _] (lower-node* (n/while-body node) env1)
         ]
     [(ast/->While test body (n/attrs node) (n/node-meta node)) env1]))
 
-(defn lower-nodes [nodes]
+(defn lower [nodes]
   (let [[stmts _] (reduce (fn [[stmts env] n]
-                            (let [[node new-env] (lower-ast n env)]
+                            (let [[node new-env] (lower-node* n env)]
                               [(conj stmts node) new-env]))
                           [[] empty-env] nodes)]
     stmts))

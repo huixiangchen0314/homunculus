@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.core.ir2.pass.check.core
   "类型检查 pass：利用 typed-pass 的结果和后端信息进行双向检查，插入类型转换。"
   (:require
+    [top.kzre.homunculus.core.error :as err]
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.ast :as ir2p]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
@@ -22,26 +23,30 @@
 (defn- try-convert [node actual expected env]
   (if-let [cost (p/conversion-cost env actual expected)]
     (make-convert node actual expected cost)
-    (throw (ex-info (str "Type mismatch: expected " expected ", got " actual)
-                    {:node node :expected expected :actual actual}))))
+    (throw (err/compile-error
+             :type-mismatch
+             (str "Type mismatch: expected " expected ", got " actual)
+             {:node node :expected expected :actual actual}))))
 
 ;; ── 通用类型检查 ──
 (defn check-type
   "检查节点实际类型是否与期望类型兼容。
-   - 若 expected 为 nil，直接放行。
-   - 若节点无确定类型（nil 或类型变量），报错。
-   - 否则进行类型比较，不兼容时尝试隐式转换或报错。"
+   - 节点 actual 必须已确定（nil / var 都是错误）
+   - expected 为 nil 时，只验证 actual 已确定
+   - expected 非 nil 时，不匹配则尝试转换或报错"
   [node expected env]
-  (if (nil? expected)
-    node
-    (let [actual  (ty/get-type node)
-          actual* (if (ty/scheme-type? actual)
-                    (scheme/instantiate actual)
-                    actual)]
-      (when (or (nil? actual*)
-                (ty/var-type? actual*))
-        (throw (ex-info "Node type is not determined"
-                        {:node node :actual actual})))
+  (let [actual  (ty/get-type node)
+        actual* (if (ty/scheme-type? actual)
+                  (scheme/instantiate actual)
+                  actual)]
+    (when (or (nil? actual*)
+              (not (ty/concrete? actual*)))
+      (throw (err/compile-error
+               :type-not-determined
+               "Node type is not determined"
+               {:node node :actual actual})))
+    (if (nil? expected)
+      node
       (if (= actual* expected)
         node
         (try-convert node actual* expected env)))))

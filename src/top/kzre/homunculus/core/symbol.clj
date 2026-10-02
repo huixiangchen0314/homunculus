@@ -126,30 +126,40 @@
 
 (defmethod parse-table-entry :func
   [[_ sym & xs]]
-  (let [sym (unquote-name sym)
+  (let [sym          (unquote-name sym)
         [attrs args] (if (map? (first xs))
                        [(first xs) (rest xs)]
-                       [{} xs])]
-    (if (and (seq args) (vector? (first args)) (vector? (ffirst args)))
-      ;; 多重载形式
-      (let [arities args
-            arities (mapv (fn [arity]
-                            (let [[params ret] arity
-                                  pairs (partition 2 params)
-                                  params (mapv (fn [[n t]]
-                                                 (make-param (unquote-name n) :type (ty/parse-type t)))
-                                               pairs)]
-                              (make-func-arity params :ret (make-ret (ty/parse-type ret)))))
-                          arities)]
+                       [{} xs])
+        parse-params (fn [param-vec]
+                       (mapv (fn [[n t]]
+                               (make-param (unquote-name n)
+                                           :type (ty/parse-type t)))
+                             (partition 2 param-vec)))]
+    (cond
+      ;; 多重载：args 每个是 [params-vec ret]，且 params-vec 本身是 vector
+      (and (seq args) (vector? (first args)) (vector? (ffirst args)))
+      (let [arities (mapv (fn [[params ret]]
+                            (make-func-arity (parse-params params)
+                                             :ret (make-ret (ty/parse-type ret))))
+                          args)]
         (list [sym (apply make-func sym :arities arities (apply concat attrs))]))
-      ;; 单重载形式
-      (let [ret-item (last args)
-            param-part (butlast args)
-            param-pairs (partition 2 param-part)
-            params (mapv (fn [[n t]]
-                           (make-param (unquote-name n) :type (ty/parse-type t)))
-                         param-pairs)]
-        (list [sym (apply make-func sym :params params :ret (make-ret (ty/parse-type ret-item)) (apply concat attrs))])))))
+
+      ;; 单重载-向量：[params-vec ret]
+      (and (seq args) (vector? (first args)))
+      (let [[params ret] args]
+        (list [sym (apply make-func sym
+                          :params (parse-params params)
+                          :ret    (make-ret (ty/parse-type ret))
+                          (apply concat attrs))]))
+
+      ;; 单重载-打平：n t n t ... ret
+      :else
+      (let [ret        (last args)
+            param-part (butlast args)]
+        (list [sym (apply make-func sym
+                          :params (parse-params (vec param-part))
+                          :ret    (make-ret (ty/parse-type ret))
+                          (apply concat attrs))])))))
 
 ;; ── 解析 :alias ──
 (defmethod parse-table-entry :alias
@@ -243,15 +253,43 @@
 
 ;; ── 主构建函数：支持同符号多条目合并 ──
 
-(defn- combine-entries [existing new-entry]
-  (if (= :overloaded (:kind existing))
-    (update existing :entries conj new-entry)
-    {:kind :overloaded :entries [existing new-entry]}))
+(defn entry-domain
+  "符号表条目所属的域。
+
+   :value —— 值域（:variable / :function / :alias）
+   :type  —— 类型域（:primitive / :record / :protocol）"
+  [kind]
+  (cond
+    (#{:variable :function :alias} kind)         :value
+    (#{:primitive :record :protocol} kind)       :type
+    :else                                        nil))
+
+(defn entries->overload
+  "合并同名条目。
+
+   同域条目冲突——一个符号在值域或类型域中最多一个。
+   不同域可共存（例如同名 record + function）。
+   冲突时抛异常。"
+  [sym existing new-entry]
+  (let [existing-entries (if (= :overloaded (:kind existing))
+                           (:entries existing)
+                           [existing])
+        new-domain       (entry-domain (:kind new-entry))]
+    (doseq [e existing-entries]
+      (when (= (entry-domain (:kind e)) new-domain)
+        (throw (ex-info (str "Conflicting symbol entries for " sym
+                             ": " (:kind e) " and " (:kind new-entry))
+                        {:sym      sym
+                         :existing e
+                         :new      new-entry}))))
+    (if (= :overloaded (:kind existing))
+      (update existing :entries conj new-entry)
+      {:kind :overloaded :entries [existing new-entry]})))
 
 (defn build-symbol-table [& entries]
   (reduce (fn [table [sym entry :as _]]
             (if-let [old (get table sym)]
-              (assoc table sym (combine-entries old entry))
+              (assoc table sym (entries->overload sym old entry))
               (assoc table sym entry)))
           {}
           (mapcat parse-table-entry entries)))
@@ -266,30 +304,35 @@
 
 ;; ── 工具：从可能的重载条目中筛选指定 kind ──
 
-(defn find-entry-by-kind [entry kind-pred]
+(defn resolve-overload-entry
+  "从条目（可能为重载）中提取指定 kind 的子条目。
+   找不到返回 nil。"
+  [entry kind]
   (if (= :overloaded (:kind entry))
-    (first (filter kind-pred (:entries entry)))   ;; 返回第一个匹配的子条目
-    (when (kind-pred entry) entry)))
+    (first (filter #(= kind (:kind %)) (:entries entry)))
+    (when (= kind (:kind entry)) entry)))
 
 ;; ── 特化：从条目（可能为重载）中提取指定 kind 的单个条目 ──
 
-(defn entry->func      [entry] (find-entry-by-kind entry function-symbol?))
-(defn entry->record    [entry] (find-entry-by-kind entry record-symbol?))
-(defn entry->protocol  [entry] (find-entry-by-kind entry protocol-symbol?))
-(defn entry->variable  [entry] (find-entry-by-kind entry variable-symbol?))
-(defn entry->primitive [entry] (find-entry-by-kind entry primitive-symbol?))
-(defn entry->alias [entry] (find-entry-by-kind entry alias-symbol?))
-;; 任意类型提取（类型包括 :primitive, :record, :protocol）
-(defn entry->type      [entry] (find-entry-by-kind entry #(#{:primitive :record :protocol} (:kind %))))
+(defn entry->func      [entry] (resolve-overload-entry entry :function))
+(defn entry->record    [entry] (resolve-overload-entry entry :record))
+(defn entry->protocol  [entry] (resolve-overload-entry entry :protocol))
+(defn entry->variable  [entry] (resolve-overload-entry entry :variable))
+(defn entry->primitive [entry] (resolve-overload-entry entry :primitive))
+(defn entry->alias     [entry] (resolve-overload-entry entry :alias))
 
-;; ── 类型符号提取（支持重载）──
+(defn resolve-type-entries
+  "从条目中解析出所有声明类型的项（:primitive / :record / :protocol）。
+   返回向量；无匹配返回空向量。"
+  [entry]
+  (let [entries (if (= :overloaded (:kind entry))
+                  (:entries entry)
+                  [entry])]
+    (filterv (fn [e] (#{:primitive :record :protocol} (:kind e)))
+             entries)))
 
-(defn types-symbols
-  [symbol-table]
-  (into #{}
-        (comp (filter (fn [[_ entry]] (entry->type entry)))
-              (map key))
-        symbol-table))
+
+
 
 ;; ── 按种类查找（使用新工具）──
 
@@ -319,7 +362,6 @@
 (defn lookup-protocol  [table sym] (entry->protocol  (lookup-sym table sym)))
 (defn lookup-variable  [table sym] (entry->variable  (lookup-sym table sym)))
 (defn lookup-primitive [table sym] (entry->primitive (lookup-sym table sym)))
-(defn lookup-type      [table sym] (entry->type      (lookup-sym table sym)))
 
 ;; ── 其他辅助函数保持不变 ──
 
@@ -338,6 +380,34 @@
   (or (:arities func-entry)
       (when (:params func-entry)
         [(select-keys func-entry [:params :ret])])))
+
+
+(defn resolve-sym-type
+  "查找符号在运行时作为值引用时的类型。
+
+   合法符号：
+   - :variable  → 其 :type
+   - :function  → 单 arity 时返回其函数类型
+
+   不支持多 arity 函数：多 arity 的函数不具有显式类型，
+   必须由重载推断（由调用点提供实参类型后选优），
+   因此本函数对多 arity 的项静默返回 nil。
+
+   不处理 alias：alias 在管线初期已被替换展开，
+   到达本函数时符号表里不应再有 :alias 条目。
+   若遇到 :alias 条目，视为管线配置错误，静默返回 nil。
+
+   注意：本函数不查找编译期类型名（:primitive / :record / :protocol），
+   那是类型命名空间的查询，不属于运行时值。"
+  [table sym]
+  (when-let [entry (lookup-sym table sym)]
+    (or (when-let [var-entry (entry->variable entry)]
+          (:type var-entry))
+        (when-let [func-entry (entry->func entry)]
+          (let [arities (list-arities func-entry)]
+            (when (= 1 (count arities))
+              (ty/arity->tfun (first arities))))))))
+
 
 (defn find-matching-arities
   [func-entry arg-tys]

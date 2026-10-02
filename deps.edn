@@ -1,5 +1,6 @@
 {:paths ["src" "resources"
-
+         ;; for java repl
+        "target/classes"
          ]
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         top.kzre/krro-core {:mvn/version "0.1.0"}}

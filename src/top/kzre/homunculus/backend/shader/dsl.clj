@@ -20,6 +20,7 @@
 (defn float3         [] nil)
 (defn float4         [] nil)
 (defn float4x4       [] nil)
+
 ;; 根据短名返回全限定类型构造器符号
 (defn- fully-qualified-ctor [ctor-sym]
   (let [ctor-name (name ctor-sym)]
@@ -38,13 +39,15 @@
 (defmacro defuniform
   "定义全局 uniform 常量。示例：(defuniform worldViewProj float4x4)"
   [name type-ctor]
-  `(def ~(vary-meta name assoc :shader/uniform? true)
+  `(def ~(vary-meta name assoc
+                    :shader/uniform? true)
      (~(fully-qualified-ctor type-ctor))))
 
 (defmacro defstatic
   "定义全局静态变量专用宏. eg. (defstatic accumColor (float4 0.0 0.0 0.0 0.0))"
   [name type-ctor]
-  `(def ~(vary-meta name assoc :shader/static-var? true) ~type-ctor))    ;; 不展开成声明专用类型构造器
+  `(def ~(vary-meta name assoc
+                    :shader/static-var? true) ~type-ctor))    ;; 不展开成声明专用类型构造器
 
 (defmacro deftexture
   "定义纹理资源。"
