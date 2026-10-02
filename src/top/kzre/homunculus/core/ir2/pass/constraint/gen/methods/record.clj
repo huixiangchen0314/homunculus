@@ -1,37 +1,48 @@
 (ns top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.record
   (:require
-   [top.kzre.homunculus.core.ir2.node :as n]
-   [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
-   [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-   [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
-   [top.kzre.homunculus.core.ir2.pass.type :as ty]))
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
+    [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
-(defmethod gen/cg-node-raw :record [node context]
-  (let [fields       (n/record-fields node)
-        record-name  (n/record-name node)
-        known-types  (u/known-types context)
-        ;; 顺序处理字段，累积上下文
-        [new-fields constrs final-ctx]
+(defmethod gen/gen-node* :record [current-node context]
+  (let [fields      (n/record-fields current-node)
+        record-name (n/record-name current-node)
+        ;; 顺序处理字段，累积环境
+        [new-fields constraints final-env]
         (reduce
-          (fn [[flds constrs ctx] field]
-            (let [init-expr (n/field-init field)
+          (fn [[fields constraints current-env] field]
+            (let [init-expr (:init field)
                   ;; 用统一入口获取字段声明类型
-                  declared  (ty/meta->type (:meta field) known-types)
-                  field-tv  (or declared (gen/fresh-tvar))
-                  [init-tv init-node init-constr init-ctx] (if init-expr
-                                                             (gen/cg-node-raw init-expr ctx)
-                                                             [nil nil nil ctx])
-                  eq-constr (when (and declared init-tv)
-                              [(cons/make-cequal declared init-tv)])
-                  new-field (cond-> (assoc field :type field-tv)
-                                    init-node (assoc :init init-node))]
-              [(conj flds new-field)
-               (into constrs (concat init-constr eq-constr))
-               (or init-ctx ctx)]))
+                  declared   (ty/meta->type (:meta field))
+                  field-tv   (or declared (gen/fresh-tvar))
+                  {init-type        :type
+                   init-node        :node
+                   init-constraints :constraints
+                   init-env         :env}
+                  (if init-expr
+                    (gen/gen-node* init-expr current-env)
+                    {:type        nil
+                     :node        nil
+                     :constraints nil
+                     :env         current-env})
+                  eq-constr  (when (and declared init-type)
+                               [(cons/make-cequal declared init-type)])
+                  new-field  (cond-> (assoc field :type field-tv)
+                                     init-node (assoc :init init-node))]
+              [(conj fields new-field)
+               (into constraints (concat init-constraints eq-constr))
+               init-env]))
           [[] [] context]
           fields)
-        record-tv   (gen/fresh-tvar)
-        new-node    (-> node (assoc :fields new-fields) (ty/set-type! record-tv))
+        record-tv (gen/fresh-tvar)
+        new-node  (-> current-node
+                      (assoc :fields new-fields)
+                      (ty/set-type! record-tv))
         ;; 记录类型加入已知类型，非环境
-        new-ctx     (u/add-known-type final-ctx record-name)]
-    [record-tv new-node (vec constrs) new-ctx]))
+        new-env   (u/add-known-type final-env record-name)]
+    {:type        record-tv
+     :node        new-node
+     :constraints (vec constraints)
+     :env         new-env}))

@@ -50,7 +50,7 @@
 (defn solve
   [asts ctx]
   (let [{:keys [nodes constraints]}
-        (gen/gen-constraints asts (make-context ctx (ip/frontend ctx) (ip/backend ctx)))]
+        (gen/gen asts (make-context ctx (ip/frontend ctx) (ip/backend ctx)))]
     (loop [constrs constraints
            subs-map {}
            env (env/make-env ctx)]

@@ -5,19 +5,24 @@
             [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
             [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
-(defmethod gen/cg-node-raw :while [node context]
-  ;; 1. 推导 test 表达式
-  (let [[test-tv test-node test-constr test-ctx] (gen/cg-node-raw (n/while-test node) context)
-        ;; 2. 推导 body，使用 test 后的上下文
-        [body-tv body-node body-constr body-ctx] (gen/cg-node-raw (n/while-body node) test-ctx)
-
-        ;; 根据前端策略添加 test 真值类型约束
-        test-eq (when-let [req-ty (u/truthy-type-requirement context)]
-                  (when test-tv
-                    [(cons/make-cequal test-tv (ty/make-tcon req-ty))]))
+(defmethod gen/gen-node* :while [current-node context]
+  (let [{test-type        :type
+         test-node        :node
+         test-constraints :constraints
+         test-env         :env}
+        (gen/gen-node* (n/while-test current-node) context)
+        {body-type        :type
+         body-node        :node
+         body-constraints :constraints
+         body-env         :env}
+        (gen/gen-node* (n/while-body current-node) test-env)
+        test-eq  (when-let [required-type (u/truthy-type-requirement context)]
+                   (when test-type
+                     [(cons/make-cequal test-type (ty/make-tcon required-type))]))
         new-node (n/make-while test-node body-node
-                               (n/attrs node) (n/node-meta node) )]
-    ;; 返回四元组：类型、新节点、约束、最终上下文
-    [body-tv (ty/set-type! new-node nil)
-     (concat test-constr body-constr test-eq)
-     body-ctx]))
+                               (n/attrs current-node)
+                               (n/node-meta current-node))]
+    {:type        body-type
+     :node        (ty/set-type! new-node nil)
+     :constraints (concat test-constraints body-constraints test-eq)
+     :env         body-env}))

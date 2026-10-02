@@ -1,27 +1,29 @@
 (ns top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.block
-  (:require [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.pass.type :as t]))
+  (:require
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
+    [top.kzre.homunculus.core.ir2.pass.type :as t]))
 
-(defmethod gen/cg-node-raw :block [node context]
-  (let [exprs (n/block-exprs node)
-        ;; 使用 cg-node（四元组）顺序处理子节点，传递上下文
-        [results final-ctx]
-        (reduce
-          (fn [[results ctx] expr]
-            (let [[tv new-expr constrs new-ctx] (gen/cg-node expr ctx)]
-              [(conj results [tv new-expr constrs]) new-ctx]))
-          [[] context]
-          exprs)
-        types     (mapv first results)
-        new-exprs (mapv second results)
-        constrs   (mapcat #(nth % 2) results)
-        ;; 若块为空，分配新类型变量（通常不会空）
-        block-tv  (if (seq types)
-                    (last types)
-                    (gen/fresh-tvar))
-        new-node  (n/make-block new-exprs
-                                (n/attrs node)
-                                (n/node-meta node))]
-    ;; 返回四元组：类型、节点、约束、最终上下文
-    [block-tv (t/set-type! new-node block-tv) constrs final-ctx]))
+(defmethod gen/gen-node* :block [current-node context]
+  (let [exprs     (n/block-exprs current-node)
+        ;; 顺序处理每个表达式，用 gen-node（含注解处理），环境随遍历推进
+        [results final-env]
+        (reduce (fn [[results current-env] expr]
+                  (let [{:keys [env] :as result} (gen/gen-node expr current-env)]
+                    [(conj results result) env]))
+                [[] context]
+                exprs)
+        types       (mapv :type results)
+        new-exprs   (mapv :node results)
+        constraints (mapcat :constraints results)
+        ;; 块类型取最后一个表达式的类型；空块分配新类型变量
+        block-type  (if (seq types)
+                      (last types)
+                      (gen/fresh-tvar))
+        new-node    (n/make-block new-exprs
+                                  (n/attrs current-node)
+                                  (n/node-meta current-node))]
+    {:type        block-type
+     :node        (t/set-type! new-node block-type)
+     :constraints constraints
+     :env         final-env}))

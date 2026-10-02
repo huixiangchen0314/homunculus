@@ -1,56 +1,78 @@
 (ns top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.try
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-            [top.kzre.homunculus.core.ir2.pass.type :as ty]))
+  (:require
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
-(defmethod gen/cg-node-raw :try [node context]
-  ;; 1. 处理 body
-  (let [[body-tv body-node body-constr body-ctx] (gen/cg-node-raw (n/try-body node) context)
-        ;; 2. 顺序处理 catches，累积上下文
-        [catch-nodes catch-constr catch-ctx]
-        (reduce (fn [[nodes constrs ctx] c]
-                  (let [[_tv new-c cc new-ctx] (gen/cg-node-raw c ctx)]
-                    [(conj nodes new-c) (into constrs cc) new-ctx]))
-                [[] [] body-ctx]
-                (n/try-catches node))
-        ;; 3. 处理 finally（如果有）
-        [finally-node finally-constr final-ctx]
-        (if-let [f (n/try-finally node)]
-          (let [[_tv new-f fc new-ctx] (gen/cg-node-raw f catch-ctx)]
-            [new-f fc new-ctx])
-          [nil nil catch-ctx])
-        ;; try 整体类型为 body 类型
-        tv (or body-tv (gen/fresh-tvar))
+(defmethod gen/gen-node* :try [current-node context]
+  (let [{body-type        :type
+         body-node        :node
+         body-constraints :constraints
+         body-env         :env}
+        (gen/gen-node* (n/try-body current-node) context)
+        [catch-nodes catch-constraints catch-env]
+        (reduce (fn [[nodes collected current-env] c]
+                  (let [{:keys [node constraints env]} (gen/gen-node* c current-env)]
+                    [(conj nodes node)
+                     (into collected constraints)
+                     env]))
+                [[] [] body-env]
+                (n/try-catches current-node))
+        {finally-node        :node
+         finally-constraints :constraints
+         finally-env         :env}
+        (if-let [f (n/try-finally current-node)]
+          (gen/gen-node* f catch-env)
+          {:node        nil
+           :constraints nil
+           :env         catch-env})
+        tv       (or body-type (gen/fresh-tvar))
         new-node (n/make-try body-node
                              (vec catch-nodes)
                              finally-node
-                             (n/attrs node) (n/node-meta node) )]
-    [tv (ty/set-type! new-node tv)
-     (concat body-constr catch-constr finally-constr)
-     final-ctx]))
+                             (n/attrs current-node)
+                             (n/node-meta current-node))]
+    {:type        tv
+     :node        (ty/set-type! new-node tv)
+     :constraints (concat body-constraints catch-constraints finally-constraints)
+     :env         finally-env}))
 
-(defmethod gen/cg-node-raw :catch [node context]
-  (let [[_class-tv class-node class-constr class-ctx] (gen/cg-node-raw (n/catch-class node) context)
-        [_sym-tv sym-node sym-constr sym-ctx] (gen/cg-node-raw (n/catch-sym node) class-ctx)
-        ;; 顺序处理 body 表达式
-        [body-nodes body-constr body-ctx]
-        (reduce (fn [[nodes constrs ctx] expr]
-                  (let [[_tv new-expr cc new-ctx] (gen/cg-node-raw expr ctx)]
-                    [(conj nodes new-expr) (into constrs cc) new-ctx]))
-                [[] [] sym-ctx]
-                (n/catch-body node))
-        tv (gen/fresh-tvar)
+(defmethod gen/gen-node* :catch [current-node context]
+  (let [{class-node        :node
+         class-constraints :constraints
+         class-env         :env}
+        (gen/gen-node* (n/catch-class current-node) context)
+        {sym-node        :node
+         sym-constraints :constraints
+         sym-env         :env}
+        (gen/gen-node* (n/catch-sym current-node) class-env)
+        [body-nodes body-constraints body-env]
+        (reduce (fn [[nodes collected current-env] expr]
+                  (let [{:keys [node constraints env]} (gen/gen-node* expr current-env)]
+                    [(conj nodes node)
+                     (into collected constraints)
+                     env]))
+                [[] [] sym-env]
+                (n/catch-body current-node))
+        tv       (gen/fresh-tvar)
         new-node (n/make-catch class-node sym-node (vec body-nodes)
-                               (n/attrs node) (n/node-meta node) )]
-    [tv (ty/set-type! new-node tv)
-     (concat class-constr sym-constr body-constr)
-     body-ctx]))
+                               (n/attrs current-node)
+                               (n/node-meta current-node))]
+    {:type        tv
+     :node        (ty/set-type! new-node tv)
+     :constraints (concat class-constraints sym-constraints body-constraints)
+     :env         body-env}))
 
-(defmethod gen/cg-node-raw :throw [node context]
-  (let [[_expr-tv expr-node expr-constr expr-ctx] (gen/cg-node-raw (n/throw-expr node) context)
-        tv (gen/fresh-tvar)
+(defmethod gen/gen-node* :throw [current-node context]
+  (let [{expr-node        :node
+         expr-constraints :constraints
+         expr-env         :env}
+        (gen/gen-node* (n/throw-expr current-node) context)
+        tv       (gen/fresh-tvar)
         new-node (n/make-throw expr-node
-                               (n/attrs node) (n/node-meta node) )]
-    [tv (ty/set-type! new-node tv)
-     expr-constr
-     expr-ctx]))
+                               (n/attrs current-node)
+                               (n/node-meta current-node))]
+    {:type        tv
+     :node        (ty/set-type! new-node tv)
+     :constraints expr-constraints
+     :env         expr-env}))
