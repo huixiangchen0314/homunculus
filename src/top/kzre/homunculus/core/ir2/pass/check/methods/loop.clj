@@ -1,28 +1,46 @@
 (ns top.kzre.homunculus.core.ir2.pass.check.methods.loop
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.pass.check.core :as check]
-            [top.kzre.homunculus.core.ir2.pass.type :as ty]))
+  (:require
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.ir2.pass.check.core :as check]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
-(defmethod check/check-node :loop [node expected context]
-  (let [bindings (n/loop-bindings node)          ;; Binding 向量
-        checked-bindings (mapv (fn [b]
-                                 (let [new-var (check/check-node (:var b) nil context)
-                                       new-val (check/check-node (:val b) nil context)]
-                                   (assoc b :var new-var :val new-val)))
+(defmethod check/check-node* :loop [node expected env]
+  (let [bindings         (n/loop-bindings node)
+        checked-bindings (mapv (fn [binding]
+                                 (let [new-var (check/check-node* (:var binding) nil env)
+                                       new-val (check/check-node* (:val binding) nil env)]
+                                   (assoc binding :var new-var :val new-val)))
                                bindings)
-        loop-var-tys (mapv (fn [b] (ty/get-type (:var b))) checked-bindings)
-        body-context (assoc context :loop-var-tys loop-var-tys)
-        body-node (check/check-node (n/loop-body node) nil body-context)]
+        ;; 把循环变量绑进 env，供 body 和 recur 查询
+        body-env   (reduce (fn [current-env binding]
+                             (let [var-node (:var binding)
+                                   var-name (:name var-node)
+                                   var-type (ty/get-type var-node)]
+                               (if var-type
+                                 (p/bind-var current-env var-name var-type)
+                                 current-env)))
+                           env
+                           checked-bindings)
+        ;; 标记当前循环的变量名列表
+        body-env   (p/with-loop-vars body-env
+                                     (mapv #(:name (:var %)) checked-bindings))
+        body-node  (check/check-node* (n/loop-body node) nil body-env)]
     (n/make-loop checked-bindings body-node
-                 (n/attrs node) (n/node-meta node))))
+                 (n/attrs node)
+                 (n/node-meta node))))
 
-(defmethod check/check-node :recur [node expected context]
-  (let [loop-var-tys (get context :loop-var-tys)]
-    (when-not loop-var-tys
+(defmethod check/check-node* :recur [node expected env]
+  (let [loop-names (p/loop-vars env)]
+    (when-not loop-names
       (throw (ex-info "recur outside loop" {})))
-    (let [args (:args node)
-          _ (when (not= (count args) (count loop-var-tys))
-              (throw (ex-info "recur arg count mismatch" {})))
-          checked-args (mapv (fn [arg exp-ty] (check/check-node arg exp-ty context))
-                             args loop-var-tys)]
-      (n/make-recur checked-args (n/attrs node) (n/node-meta node)))))
+    (let [args (:args node)]
+      (when (not= (count args) (count loop-names))
+        (throw (ex-info "recur arg count mismatch" {})))
+      (let [checked-args (mapv (fn [arg var-name]
+                                 (let [expected-type (p/resolve-var-type env var-name)]
+                                   (check/check-node* arg expected-type env)))
+                               args loop-names)]
+        (n/make-recur checked-args
+                      (n/attrs node)
+                      (n/node-meta node))))))

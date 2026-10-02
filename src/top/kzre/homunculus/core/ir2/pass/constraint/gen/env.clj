@@ -36,6 +36,9 @@
   ;; ── 作用域扩展 ──
   (bind-var [this name type]
     "在当前作用域绑定 name → type，返回新环境。")
+  (unbind-var [this name]
+    "移除 name 在当前作用域的绑定，返回新环境。
+     名字不存在时返回等价环境（幂等）。")
 
   (generalize [this type]
     "对 type 做泛化。
@@ -111,7 +114,9 @@
   ;; ── 作用域扩展 ──
   (bind-var [this name type]
     (assoc this :type-scope (assoc type-scope name type)))
-
+  (unbind-var [this name]
+    (assoc this :type-scope
+                (dissoc type-scope name (symbol name))))
   (generalize [_ type]
     (cond
       (t/concrete? type) type

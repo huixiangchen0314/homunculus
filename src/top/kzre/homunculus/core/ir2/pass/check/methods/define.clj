@@ -1,7 +1,8 @@
 (ns top.kzre.homunculus.core.ir2.pass.check.methods.define
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.pass.check.core :as check]))
+  (:require
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.ir2.pass.check.core :as check]))
 
-(defmethod check/check-node :define [node expected context]
-  (let [val-node (check/check-node (n/define-val node) nil context)]
+(defmethod check/check-node* :define [node expected env]
+  (let [val-node (check/check-node* (n/define-val node) nil env)]
     (n/define-with-val node val-node)))

@@ -22,6 +22,5 @@
             [top.kzre.homunculus.core.ir2.pass.check.methods.array]
             [top.kzre.homunculus.core.ir2.pass.check.methods.while]))
 
-(def make-context core/make-context)
 
 (def check core/check)

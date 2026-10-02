@@ -114,24 +114,28 @@
      :env         val-env}))
 
 ;; ── alength ────────────────────────────────
-(defmethod gen/gen-node* :alength [current-node env]
+(defmethod gen/gen-node* :alength [node env]
   (let [{target-type        :type
          target-node        :node
          target-constraints :constraints
          target-env         :env}
-        (gen/gen-node* (n/alength-target current-node) env)
-        int-type (ty/make-tcon (p/integer-type env))]
-    (if (and (ty/vec-type? target-type)
-             (integer? (ty/type-value? (ty/vec-size target-type))))
-      (let [len-val  (ty/value-val (ty/vec-size target-type))
-            lit-node (n/make-literal len-val
-                                     (ir2/attrs current-node)
-                                     (ir2/node-meta current-node))]
+        (gen/gen-node* (n/alength-target node) env)
+        int-type    (ty/make-tcon (p/integer-type env))
+        target-size (when (ty/vec-type? target-type)
+                      (ty/vec-size target-type))
+        size-value  (when (and target-size (ty/type-value? target-size))
+                      (ty/value-val target-size))]
+    (if (integer? size-value)
+      ;; 长度已知且是整数常量，直接返回整数字面量节点
+      (let [lit-node (n/make-literal size-value
+                                     (ir2/attrs node)
+                                     (ir2/node-meta node))]
         {:type        int-type
          :node        (ty/set-type! lit-node int-type)
          :constraints target-constraints
          :env         target-env})
-      (let [new-node (n/make-alength target-node (n/node-meta current-node))]
+      ;; 长度未知或非整数，保留原调用
+      (let [new-node (n/make-alength target-node (n/node-meta node))]
         {:type        int-type
          :node        (ty/set-type! new-node int-type)
          :constraints target-constraints

@@ -86,7 +86,7 @@
           roots (dce/eliminate-inline-defs roots dce-ctx)
           roots (dce/eliminate-polymorphic-defs roots dce-ctx)
           emitter (p/emitter context)
-          checked   (check/check roots (check/make-context context frontend backend))
+          checked   (check/check roots (gen.env/make-env context))
           result    (p/emit emitter checked context {:unit unit})]
       result))
 
@@ -104,7 +104,7 @@
           ;; 最终类型检查
           frontend  (p/frontend context)
           backend   (p/backend context)
-          checked   (check/check roots (check/make-context context frontend backend))
+          checked   (check/check roots (gen.env/make-env context))
           ;; 代码生成
           result    (p/emit emitter checked context {})]
       result)))

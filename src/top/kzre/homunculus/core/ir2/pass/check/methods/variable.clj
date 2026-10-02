@@ -1,5 +1,6 @@
 (ns top.kzre.homunculus.core.ir2.pass.check.methods.variable
-  (:require [top.kzre.homunculus.core.ir2.pass.check.core :as check]))
+  (:require
+    [top.kzre.homunculus.core.ir2.pass.check.core :as check]))
 
-(defmethod check/check-node :variable [node expected context]
-  (check/check-type node expected context))
+(defmethod check/check-node* :variable [node expected env]
+  (check/check-type node expected env))
