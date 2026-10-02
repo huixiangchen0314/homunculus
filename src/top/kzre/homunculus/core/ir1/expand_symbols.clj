@@ -44,6 +44,7 @@
 (defn- qualify-symbol
   [sym ns-info-record]
   (if (namespace sym)
+    ;; 只服务于宏展开
     sym
     (or (get (ns-info/ns-aliases ns-info-record) sym)
         (get (ns-info/ns-refers ns-info-record) sym)
@@ -75,5 +76,5 @@
   (parse-ns ns-form))
 
 (defn expand-sym
-  [sym ns-info-record]
-  (qualify-symbol sym ns-info-record))
+  [sym ns-info]
+  (qualify-symbol sym ns-info))

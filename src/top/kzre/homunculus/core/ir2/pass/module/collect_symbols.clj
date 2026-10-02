@@ -134,22 +134,22 @@
     entry))
 
 (defn collect-symbols
-  "遍历 IR2 根节点，收集所有顶层定义并注册到 context。"
-  [ir2-roots context ^ModuleUnit unit]
+  "遍历 IR2 根节点，收集所有顶层定义并注册到 compile-ctx。"
+  [ir2-roots compile-ctx ^ModuleUnit unit]
   (let [module-atom (atom unit)]
     (doseq [root ir2-roots]
       (try
         (case (n/kind root)
-          :define   (when-let [entry (collect-define root context)]
+          :define   (when-let [entry (collect-define root compile-ctx)]
                       (swap! module-atom mu/register-symbol entry)
-                      (p/register-sym context entry))
-          :record   (when-let [entry (collect-record root context)]
+                      (p/register-sym compile-ctx entry))
+          :record   (when-let [entry (collect-record root compile-ctx)]
                       (swap! module-atom mu/register-symbol entry)
                       (let [ctor-entry (emit-record-ctor entry unit)]
                         (swap! module-atom mu/register-symbol ctor-entry)))
-          :protocol (when-let [entry (collect-protocol root context)]
+          :protocol (when-let [entry (collect-protocol root compile-ctx)]
                       (swap! module-atom mu/register-symbol entry)
-                      (p/register-sym context entry))
+                      (p/register-sym compile-ctx entry))
           nil)
         (catch Throwable t
           (println "[WARN] collect-symbols failed for" (n/kind root) ":" (.getMessage t)))))

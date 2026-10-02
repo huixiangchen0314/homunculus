@@ -38,9 +38,10 @@
   (p/reduce-children node alias-fn alias-map))
 
 (defn alias-nodes
-  [ir2-roots context frontend]
-  (let [builtin-table (types/builtin-symbols frontend)
-        user-table    (ip/symbol-table context)
+  [ir2-roots compile-ctx ]
+  (let [frontend (ip/frontend compile-ctx)
+        builtin-table (types/builtin-symbols frontend)
+        user-table    (ip/symbol-table compile-ctx)
         combined-table (merge builtin-table user-table)
         alias-map (build-alias-map combined-table)]
     (mapv (fn [root]
