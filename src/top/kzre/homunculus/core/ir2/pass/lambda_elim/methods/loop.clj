@@ -1,23 +1,22 @@
 (ns top.kzre.homunculus.core.ir2.pass.lambda-elim.methods.loop
   (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.pass.lambda-elim.core :as elim]))
+            [top.kzre.homunculus.core.ir2.pass.lambda-elim.core :as elim]
+            [top.kzre.homunculus.core.ir2.pass.lambda-elim.env :as p]))
 
-(defmethod elim/eliminate :loop [node config env]
-  (let [bindings (n/loop-bindings node)         ;; 现在是 Binding 向量
-        ;; 处理所有值表达式，使用外部环境；变量节点保持不变
+(defmethod elim/elim-node* :loop [node env]
+  (let [bindings (n/loop-bindings node)        ;; Binding 向量
+        ;; 值表达式在外部环境下处理
         [new-vals val-defs]
-        (reduce (fn [[vals defs] b]             ;; b 是 Binding 记录
+        (reduce (fn [[vals defs] b]
                   (let [val-node (:val b)
-                        [new-val val-defs'] (elim/eliminate val-node config env)]
+                        [new-val val-defs'] (elim/elim-node* val-node env)]
                     [(conj vals new-val) (into defs val-defs')]))
                 [[] []]
                 bindings)
-        ;; 收集绑定变量名，扩展内部环境
+        ;; 扩展内部环境——绑定名可见于 body
         binding-names (map #(:name (:var %)) bindings)
-        inner-env (into env binding-names)
-        ;; 在扩展环境中处理 body
-        [new-body body-defs] (elim/eliminate (n/loop-body node) config inner-env)
-        ;; 重建绑定：用消除后的值表达式更新每个 binding
+        inner-env     (reduce p/bind-var env binding-names)
+        [new-body body-defs] (elim/elim-node* (n/loop-body node) inner-env)
         new-bindings (mapv (fn [b new-val] (assoc b :val new-val))
                            bindings new-vals)]
     [(n/make-loop new-bindings new-body

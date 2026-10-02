@@ -54,7 +54,7 @@
   [node env*]
   (case (p/kind node)
     :variable
-    (if-let [new-name (env/resolve env* (n/var-name node))]
+    (if-let [new-name (env/resolve-subst-name env* (n/var-name node))]
       [(n/make-variable new-name (n/attrs node) (n/node-meta node)) env*]
       [node env*])
 
@@ -104,7 +104,7 @@
   [node]
   (first (rename-fn node (env/make-env))))
 
-(defn rename-nodes
+(defn rename
   "对 IR2 根节点列表做 alpha 重命名。
    环境在节点间顺序传递——前面节点引入的绑定对后续节点可见。"
   [nodes]

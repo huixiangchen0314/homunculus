@@ -6,7 +6,9 @@
    - 查询：统一查找——内部处理本地 / 全局的差异
 
    外部只看到「查找高阶 lambda」——不区分本地还是全局。
-   编译上下文、符号表在外不可见——它们在查询内部被使用。"
+   编译上下文、符号表在外不可见——它们在查询内部被使用。
+
+   frontend / backend 等外部依赖从 compile-ctx 查询，不单独传入。"
   (:require
     [top.kzre.homunculus.core.symbol :as sym]
     [top.kzre.homunculus.internal.protocol :as ip]))
@@ -27,24 +29,25 @@
   (with-depth [this n])
   (max-depth [this]))
 
-(defrecord Env [ho-lambdas ho-names ctx depth-limit current-depth]
+(defrecord Env [ho-lambdas ctx depth-limit current-depth]
   IEnv
   (track-ho [_ name lam]
     (->Env (assoc ho-lambdas name lam)
-           (conj ho-names name)
            ctx depth-limit current-depth))
 
   (lookup-ho [_ name]
-    (or (when (contains? ho-names name)
-          (get ho-lambdas name))
+    (or (get ho-lambdas name)
         (when-let [entry (sym/lookup-func (ip/symbol-table ctx) name)]
           (when (:ho? entry)
             (:ir2 entry)))))
 
   (depth      [_] current-depth)
   (with-depth [_ n]
-    (->Env ho-lambdas ho-names ctx depth-limit n))
+    (->Env ho-lambdas ctx depth-limit n))
   (max-depth  [_] depth-limit))
 
-(defn make-env [ctx]
-  (->Env {} #{} ctx 20 0))
+(defn make-env
+  "从 compile-ctx 构造 ho-elim 的环境。
+   frontend / backend 等由 compile-ctx 自己查询，调用方只需提供上下文。"
+  [compile-ctx]
+  (->Env {} compile-ctx 20 0))

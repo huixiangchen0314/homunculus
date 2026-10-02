@@ -6,33 +6,24 @@
  [top.kzre.homunculus.core.ir2.api :as ir2]
  [top.kzre.homunculus.core.ir2.node :as n]
  [top.kzre.homunculus.core.ir2.pass.alias :as alias]
- [top.kzre.homunculus.core.ir2.pass.alpha-rename :as rename]
+ [top.kzre.homunculus.core.ir2.transform.rename.rename :as rename]
  [top.kzre.homunculus.core.ir2.pass.check.api :as check]
  [top.kzre.homunculus.core.ir2.pass.constraint.core :as constraint]
  [top.kzre.homunculus.core.ir2.pass.dc-elim.core :as dce]
  [top.kzre.homunculus.core.ir2.pass.fold.core :as fold]
- [top.kzre.homunculus.core.ir2.pass.ho-elim.core :as ho-elim]
+ [top.kzre.homunculus.core.ir2.pass.ho-elim.api :as ho-elim]
  [top.kzre.homunculus.core.ir2.pass.infer.api :as infer]
  [top.kzre.homunculus.core.ir2.pass.inline.api :as inline]
+ [top.kzre.homunculus.core.ir2.pass.mark-trait :as mark-trait]
  [top.kzre.homunculus.core.ir2.pass.lambda-elim.api :as lambda-elim]
- [top.kzre.homunculus.core.ir2.pass.lambda-elim.protocol :as lambda-elim-p]
  [top.kzre.homunculus.core.ir2.pass.module.api :as module]
  [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
- [top.kzre.homunculus.core.ir2.pass.recur-elim.api :as recur]
+ [top.kzre.homunculus.core.ir2.pass.recur-elim.api :as recur-elim]
  [top.kzre.homunculus.internal.module-unit :as mu]
  [top.kzre.homunculus.internal.protocol :as p]
- [top.kzre.homunculus.core.ir2.pass.type :as ty]))
+ [top.kzre.homunculus.core.ir2.pass.type :as ty]
+ ))
 
-;; ── 闭包消除配置 ──────────────────────
-(defn- default-lift-config []
-  (reify lambda-elim-p/ILiftConfig
-    (max-iterations [_] 1000)
-    (strict-mode? [_] true)
-    (on-unresolved [_ lambda _reason]
-      (throw (ex-info "Unresolved closure" {:lambda lambda})))
-    (lift-name-gen [_ _lambda]
-      ;; 生成唯一的提升函数名
-      (symbol (str "lifted_" (gensym "lambda"))))))
 
 (defn solve-fold
   "循环执行 clear → solve → fold，直到 fold 不再改变节点。
@@ -60,7 +51,6 @@
           backend (p/backend ctx)
           folder (tp/folder backend)
 
-          lift-cfg  (default-lift-config)
           ns-sym    (some-> (first forms) (nth 1))
           _         (when (nil? ns-sym)
                       (throw (ex-info "No ns form found" {:forms forms})))
@@ -69,15 +59,15 @@
           ir1-roots (mapv ir1/->ir1 processed)
           ir1-roots1 (pm/polyfill-nodes ir1-roots)
           ir2-roots (ir2/lower-nodes ir1-roots1 ctx)
-          ir2-roots' (rename/rename-nodes ir2-roots)
+          ir2-roots' (rename/rename ir2-roots)
           ir2-roots' (alias/alias-nodes ir2-roots' ctx frontend)
           ir2-roots' (module/resolve-ns ir2-roots' ctx frontend)
           unit1      (module/collect-symbols ir2-roots' ctx unit)
-          ir2-roots' (inline/analyze ir2-roots')   ;; 分析标记
-          ir2-roots' (inline/inline-nodes ir2-roots' (inline/make-context ctx frontend backend))  ;; 执行内联
-          no-ho      (ho-elim/eliminate ir2-roots' (ho-elim/make-context ctx frontend backend))
-          no-closure (lambda-elim/eliminate no-ho lift-cfg)
-          no-recur   (recur/eliminate no-closure)
+          traited-roots (mark-trait/mark ir2-roots')   ;; 分析标记
+          ir2-roots' (inline/inline traited-roots (inline/make-env ctx))  ;; 执行内联
+          no-ho      (ho-elim/elim ir2-roots' (ho-elim/make-env ctx))
+          no-closure (lambda-elim/elim no-ho (lambda-elim/make-env))
+          no-recur   (recur-elim/elim no-closure)
           inferred   (infer/infer no-recur (infer/make-context ctx frontend backend))
           ;solved     (solve/process inferred (solve/make-context ctx frontend backend))
           solved     (solve-fold inferred ctx)

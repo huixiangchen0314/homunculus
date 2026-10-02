@@ -7,11 +7,30 @@
    - 不判断是否有非调用用法
    这些都是 pass 层的策略。
 
-   这里只做一件事：
-   给定 (call-node, lambda-node)，返回展开后的 body 节点。"
+   两个入口：
+   - inline-args  收 params / args / body，供已有拆分信息的调用方使用
+   - inline-call  收 call-node / lambda-node，是 inline-args 的便捷包装"
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.transform.replace :as replace]))
+
+(defn inline-args
+  "把 params 替换为 args，返回展开后的 body。
+
+   前置条件：
+     1. 实参数量与形参数量一致
+     2. 形参与实参无名字冲突（由 alpha 重命名保证）
+
+   返回：展开后的 body 节点。"
+  [params args body]
+  (when-not (= (count params) (count args))
+    (throw (ex-info "inline-args: arity mismatch"
+                    {:params (count params)
+                     :args   (count args)})))
+  (reduce (fn [body [param arg]]
+            (replace/replace-var body (n/var-name param) arg))
+          body
+          (map vector params args)))
 
 (defn inline-call
   "把 lambda-node 的形参替换为 call-node 的实参，返回展开后的 body。
@@ -23,14 +42,6 @@
 
    返回：展开后的 body 节点。"
   [call-node lambda-node]
-  (let [params (n/lambda-params lambda-node)
-        args   (n/call-args call-node)
-        body   (n/lambda-body lambda-node)]
-    (when-not (= (count params) (count args))
-      (throw (ex-info "inline-call: arity mismatch"
-                      {:params (count params)
-                       :args   (count args)})))
-    (reduce (fn [body [param arg]]
-              (replace/replace-var body (n/var-name param) arg))
-            body
-            (map vector params args))))
+  (inline-args (n/lambda-params lambda-node)
+               (n/call-args call-node)
+               (n/lambda-body lambda-node)))

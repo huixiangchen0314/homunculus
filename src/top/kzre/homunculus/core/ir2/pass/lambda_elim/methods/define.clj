@@ -2,13 +2,13 @@
   (:require [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.ir2.pass.lambda-elim.core :as elim]))
 
-(defmethod elim/eliminate :define [node config env]
+(defmethod elim/elim-node* :define [node env]
   (if (-> node n/attrs :ho?)
     ;; 高阶函数跳过，由 ho-elim 内联展开
     [node []]
     (let [[new-val val-defs] (if-let [val (n/define-val node)]
-                               (elim/eliminate val config env)
+                               (elim/elim-node* val env)
                                [nil []])]
       [(n/make-define (n/define-name node) new-val (n/define-docstring node)
-                      (n/attrs node) (n/node-meta node) )
+                      (n/attrs node) (n/node-meta node))
        val-defs])))

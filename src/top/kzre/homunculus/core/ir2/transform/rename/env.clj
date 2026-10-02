@@ -12,17 +12,17 @@
     "把 old-name 绑定到 new-name。返回新环境。")
   (bind-all [this pairs]
     "批量绑定。pairs 是 [old-name new-name] 的序列。返回新环境。")
-  (resolve [this old-name]
+  (resolve-subst-name [this old-name]
     "解析 old-name 到 new-name。找不到返回 nil。"))
 
-(defrecord Env [table]
+(defrecord Env [name-substs]
   IEnv
   (bind [_ old-name new-name]
-    (->Env (assoc table old-name new-name)))
+    (->Env (assoc name-substs old-name new-name)))
   (bind-all [_ pairs]
-    (->Env (into table pairs)))
-  (resolve [_ old-name]
-    (get table old-name)))
+    (->Env (into name-substs pairs)))
+  (resolve-subst-name [_ old-name]
+    (get name-substs old-name)))
 
 (defn make-env []
   (->Env {}))

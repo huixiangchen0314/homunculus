@@ -14,7 +14,7 @@
 
 (defstatic accumColor (float4 0.0 0.0 0.0 0.0))
 
-(defn remin-sum [a] (- a 1.0))
+(defn riemann-integral [a] (- a 1.0))
 
 (defrecord MyInout [^:target0 ^float a])
 
@@ -29,7 +29,7 @@
            (%%aset x 0 1)
            (%%aset x 1 1)
            (%%aset x 2 2)
-           (def svsv (remin-sum (%%aget x 1)))
+           (def svsv (riemann-integral (%%aget x 1)))
            (def sum-x (reduce + 0 x))
            (def sv (conj x 6))
            (%%aset sv 3 0)
@@ -37,7 +37,7 @@
            (set! vv 3)
            (def avv (%%new-array vv))
            ;; 使用 my-map 对 x 的每个元素加 1
-           (def y (map (fn [v] (+ v 1.0)) x))
+           (def y (map (fn [v] (+ v 1.0)) sv))
            (def io (->MyInout 1.0))
            (def local-a (:a io))
            (let [worldPos (mul worldViewProj pos)
