@@ -48,7 +48,7 @@
 (defn known-types [ctx] (:known-types ctx))
 
 
-;; ── 通用类型检查（修正版）──
+;; ── 通用类型检查──
 (defn check-type
   "检查节点实际类型是否与期望类型兼容。
    - 若 expected 为 nil，直接放行。
@@ -70,7 +70,7 @@
         (try-convert node actual* expected context)))))
 
 ;; ── 入口 ──
-(defn check-program
+(defn check
   "检查 IR2 根节点序列（顶层无期望类型）。"
   [ir2-roots context]
   (mapv #(check-node % nil context) ir2-roots))

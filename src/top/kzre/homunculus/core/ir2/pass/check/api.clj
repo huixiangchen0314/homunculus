@@ -24,4 +24,4 @@
 
 (def make-context core/make-context)
 
-(def check core/check-program)
+(def check core/check)

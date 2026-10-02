@@ -1,21 +1,16 @@
 (ns top.kzre.homunculus.core.ir2.pass.infer.methods.while
-  (:require [top.kzre.homunculus.core.ir2.pass.infer.core :as infer]
-            [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.pass.type :as type]))
+  (:require
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.ir2.pass.infer.core :as infer]
+    [top.kzre.homunculus.core.ir2.pass.type :as type]))
 
-(defmethod infer/local-infer :while [node context]
+(defmethod infer/infer-node* :while [node env]
   ;; 1. 推导条件表达式
-  (let [[_test-ty test-node test-ctx] (infer/local-infer (n/while-test node) context)
-        ;; 2. 推导循环体，使用条件推导后的上下文
-        [body-ty body-node body-ctx] (infer/local-infer (n/while-body node) test-ctx)]
-    ;; 3. 成功条件：循环体有推导出的类型
-    ;;    while 整体类型为 body 的类型
-    (if body-ty
-      ;; —— 成功路径 ——
-      (infer/success body-ty
-                     (-> node
-                         (n/while-with-children test-node body-node)
-                         (type/set-type! body-ty))
-                     body-ctx)
-      ;; —— 失败路径 ——
-      (infer/nothing (n/while-with-children node test-node body-node) body-ctx))))
+  (let [[_ test-node test-env]   (infer/infer-node* (n/while-test node) env)
+        ;; 2. 推导循环体，使用条件推导后的环境
+        [body-type body-node body-env] (infer/infer-node* (n/while-body node) test-env)
+        new-node (n/while-with-children node test-node body-node)]
+    ;; 3. while 整体类型为 body 的类型
+    (if body-type
+      (infer/success body-type (type/set-type! new-node body-type) body-env)
+      (infer/nothing new-node body-env))))

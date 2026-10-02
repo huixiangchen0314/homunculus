@@ -54,6 +54,9 @@
   ;; ── 后端能力 ──
   (use-hetero-vec? [this]
     "后端是否支持异构向量。")
+  (conversion-cost [this src-type dst-type]
+    "返回从 src-type 到 dst-type 的转换代价。
+     不支持转换返回 nil。")
 
   ;; ── 循环状态 ──
   (loop-vars [this]
@@ -126,7 +129,9 @@
   ;; ── 后端能力 ──
   (use-hetero-vec? [_]
     (when backend (tp/support-hetero-vec backend)))
-
+  (conversion-cost [_ src-type dst-type]
+    (when backend
+      (tp/type-conversion backend src-type dst-type)))
   ;; ── 循环状态 ──
   (loop-vars [_] loop-vars-list)
   (with-loop-vars [this vars]

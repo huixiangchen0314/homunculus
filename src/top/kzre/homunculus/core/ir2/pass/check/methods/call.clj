@@ -21,5 +21,5 @@
         (if expected
           (check/check-type ret-node expected context)
           ret-node))
-      ;; 若无函数类型，直接返回原节点（可能推导失败，由其他 Pass 报错）
+
       node)))

@@ -1,24 +1,26 @@
 (ns top.kzre.homunculus.core.ir2.pass.infer.methods.array
   "数组特殊节点的局部类型推导。"
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.pass.infer.core :as infer]
-            [top.kzre.homunculus.core.ir2.pass.type :as ty]
-            [top.kzre.homunculus.core.ir2.pass.protocol :as tp]))
+  (:require
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.ir2.pass.infer.core :as infer]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
-(defn fresh-tvar [] (ty/make-tvar (gensym "elem-")))
+(defmethod infer/infer-node* :new-array [node env]
+  (let [[_ size-node size-env] (infer/infer-node* (n/new-array-size node) env)
+        new-node (n/make-new-array size-node
+                                   (n/attrs node)
+                                   (n/node-meta node))]
+    (if (p/use-hetero-vec? env)
+      (infer/nothing new-node size-env)
+      (infer/nothing new-node size-env))))
 
-(defmethod infer/local-infer :new-array [node context]
-  (let [[size-ty size-node env1] (infer/local-infer (n/new-array-size node) context)
-        backend (infer/backend context)
-        hetero? (when backend (tp/support-hetero-vec backend))]
-    (if hetero?
-      (infer/nothing (n/make-new-array size-node (n/attrs node) (n/node-meta node) ) env1)
-      (infer/nothing (n/make-new-array size-node (n/attrs node) (n/node-meta node) ) env1))))
-
-(defmethod infer/local-infer :aget [node context]
-  (let [[target-ty target-node target-ctx] (infer/local-infer (n/aget-target node) context)
-        [idx-ty idx-node idx-ctx] (infer/local-infer (n/aget-idx node) target-ctx)
-        new-node (n/make-aget target-node idx-node (n/attrs node) (n/node-meta node) )]
+(defmethod infer/infer-node* :aget [node env]
+  (let [[target-ty target-node target-env] (infer/infer-node* (n/aget-target node) env)
+        [_ idx-node idx-env]                (infer/infer-node* (n/aget-idx node) target-env)
+        new-node (n/make-aget target-node idx-node
+                              (n/attrs node)
+                              (n/node-meta node))]
     (if-let [elem-ty (cond
                        (ty/vec-type? target-ty)
                        (ty/vec-element-type target-ty)
@@ -27,18 +29,22 @@
                          (when idx-val
                            (nth (ty/hetero-vec-types target-ty) idx-val nil)))
                        :else nil)]
-      (infer/success elem-ty (ty/set-type! new-node elem-ty) idx-ctx)
-      (infer/nothing new-node idx-ctx))))
+      (infer/success elem-ty (ty/set-type! new-node elem-ty) idx-env)
+      (infer/nothing new-node idx-env))))
 
-(defmethod infer/local-infer :aset [node context]
-  (let [[target-ty target-node target-ctx] (infer/local-infer (n/aset-target node) context)
-        [idx-ty idx-node idx-ctx] (infer/local-infer (n/aset-idx node) target-ctx)
-        [val-ty val-node val-ctx] (infer/local-infer (n/aset-val node) idx-ctx)
-        new-node (n/make-aset target-node idx-node val-node (n/attrs node) (n/node-meta node) )]
-    (infer/nothing new-node val-ctx)))
+(defmethod infer/infer-node* :aset [node env]
+  (let [[_ target-node target-env] (infer/infer-node* (n/aset-target node) env)
+        [_ idx-node idx-env]       (infer/infer-node* (n/aset-idx node) target-env)
+        [_ val-node val-env]       (infer/infer-node* (n/aset-val node) idx-env)
+        new-node (n/make-aset target-node idx-node val-node
+                              (n/attrs node)
+                              (n/node-meta node))]
+    (infer/nothing new-node val-env)))
 
-(defmethod infer/local-infer :alength [node context]
-  (let [[target-ty target-node target-ctx] (infer/local-infer (n/alength-target node) context)
-        int-ty (ty/make-tcon (tp/integer-type (infer/frontend context)))
-        new-node (n/make-alength target-node (n/attrs node) (n/node-meta node) )]
-    (infer/success int-ty (ty/set-type! new-node int-ty) target-ctx)))
+(defmethod infer/infer-node* :alength [node env]
+  (let [[_ target-node target-env] (infer/infer-node* (n/alength-target node) env)
+        int-ty   (ty/make-tcon (p/integer-type env))
+        new-node (n/make-alength target-node
+                                 (n/attrs node)
+                                 (n/node-meta node))]
+    (infer/success int-ty (ty/set-type! new-node int-ty) target-env)))
