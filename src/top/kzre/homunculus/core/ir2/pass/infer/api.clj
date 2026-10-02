@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.core.ir2.pass.infer.api
   "局部类型推断的公共入口。加载所有 defmethod 并重导出核心函数。"
   (:require
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env]
     [top.kzre.homunculus.core.ir2.pass.infer.core]
     [top.kzre.homunculus.core.ir2.pass.infer.methods.assign]
     [top.kzre.homunculus.core.ir2.pass.infer.methods.block]
@@ -25,6 +26,9 @@
     [top.kzre.homunculus.core.ir2.pass.infer.methods.while]
     [top.kzre.krro.core.util.re-export :refer [re-export]]))
 
+(re-export
+  [top.kzre.homunculus.core.ir2.pass.constraint.gen.env
+   :refer [make-env]])
 
 (re-export
   [top.kzre.homunculus.core.ir2.pass.infer.core

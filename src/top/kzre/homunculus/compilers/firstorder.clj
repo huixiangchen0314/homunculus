@@ -7,8 +7,7 @@
  [top.kzre.homunculus.core.ir2.node :as n]
  [top.kzre.homunculus.core.ir2.pass.alias :as alias]
  [top.kzre.homunculus.core.ir2.pass.check.api :as check]
- [top.kzre.homunculus.core.ir2.pass.constraint.core :as constraint]
- [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as gen.env]
+ [top.kzre.homunculus.core.ir2.pass.constraint.api :as constraint]
  [top.kzre.homunculus.core.ir2.pass.dc-elim.core :as dce]
  [top.kzre.homunculus.core.ir2.pass.fold.core :as fold]
  [top.kzre.homunculus.core.ir2.pass.ho-elim.api :as ho-elim]
@@ -49,8 +48,6 @@
   (compile [_ forms ctx]
     (let [frontend (p/frontend ctx)
           backend (p/backend ctx)
-          folder (tp/folder backend)
-
           ns-sym    (some-> (first forms) (nth 1))
           _         (when (nil? ns-sym)
                       (throw (ex-info "No ns form found" {:forms forms})))
@@ -68,7 +65,7 @@
           no-ho      (ho-elim/elim ir2-roots' (ho-elim/make-env ctx))
           no-closure (lambda-elim/elim no-ho (lambda-elim/make-env))
           no-recur   (recur-elim/elim no-closure)
-          inferred   (infer/infer no-recur (gen.env/make-env  ctx))
+          inferred   (infer/infer no-recur (infer/make-env  ctx))
           ;solved     (solve/process inferred (solve/make-context ctx frontend backend))
           solved     (solve-fold inferred ctx)
           ;mutable    (mut/analyze solved)
@@ -78,15 +75,13 @@
       unit3))
 
   (compile-module [_ unit context]
-    (let [frontend (p/frontend context)
-          backend (p/backend context)
-          roots   (mu/module-nodes unit)
+    (let [roots   (mu/module-nodes unit)
           dce-ctx (dce/make-context context)                ;; 这些是必须在HLSL 消除的代码
           roots (dce/eliminate-ho-defs roots dce-ctx)
           roots (dce/eliminate-inline-defs roots dce-ctx)
           roots (dce/eliminate-polymorphic-defs roots dce-ctx)
           emitter (p/emitter context)
-          checked   (check/check roots (gen.env/make-env context))
+          checked   (check/check roots (check/make-env context))
           result    (p/emit emitter checked context {:unit unit})]
       result))
 
@@ -102,9 +97,7 @@
           roots (dce/eliminate-inline-defs roots dce-ctx)
           roots (dce/eliminate-polymorphic-defs roots dce-ctx)
           ;; 最终类型检查
-          frontend  (p/frontend context)
-          backend   (p/backend context)
-          checked   (check/check roots (gen.env/make-env context))
+          checked   (check/check roots (check/make-env context))
           ;; 代码生成
           result    (p/emit emitter checked context {})]
       result)))
