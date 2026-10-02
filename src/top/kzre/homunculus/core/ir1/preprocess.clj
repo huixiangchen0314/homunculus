@@ -58,11 +58,20 @@
         x))
     form))
 
-(defn preprocess [forms]
+(defn preprocess
+  "预处理表单：
+   1. 解析 ns 形式得到 ns-info
+   2. 宏展开（op 位置符号限定）
+   3. 特殊形式规范化
+
+   返回 {:forms 处理后的表单列表
+        :ns-info ns 解析结果（供后续 pass 使用）}"
+  [forms]
   (let [ns-form (first (filter ns-form? forms))
         _ (when-not ns-form
             (throw (ex-info "ns form is required" {})))
-        ns-info (ex/resolve-ns ns-form)
+        ns-info  (ex/resolve-ns ns-form)
         expanded (mapv #(try-expand-macro % ns-info) forms)
         normalized (mapv normalize-special-forms expanded)]
-    (mapv fix-namespaced-special-forms normalized)))
+    {:forms   (mapv fix-namespaced-special-forms normalized)
+     :ns-info ns-info}))

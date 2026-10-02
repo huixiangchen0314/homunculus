@@ -30,6 +30,7 @@
   ([ns-sym]
    (make-module-unit ns-sym []))
   ([ns-sym nodes]
+   {:pre [(some? ns-sym)]}
    (->ModuleUnit ns-sym nodes {} #{})))
 
 (defn norm-sym

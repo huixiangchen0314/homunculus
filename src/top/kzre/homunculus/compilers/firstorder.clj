@@ -2,6 +2,8 @@
 (ns top.kzre.homunculus.compilers.firstorder
 (:require
  [top.kzre.homunculus.core.ir1.api :as ir1]
+ [top.kzre.homunculus.core.ir1.ns-info :as ns-info]
+ [top.kzre.homunculus.core.ir1.pass.expand-symbols :as expand-symbols]
  [top.kzre.homunculus.core.ir1.polyfill-meta :as pm]
  [top.kzre.homunculus.core.ir2.api :as ir2]
  [top.kzre.homunculus.core.ir2.node :as n]
@@ -45,17 +47,14 @@
 (defrecord TypedCompiler []
   p/ICompiler
   ;; 模块编译
-  (compile [_ forms ctx]
+  (compile [_ raw-forms ctx]
     (let [frontend (p/frontend ctx)
-          backend (p/backend ctx)
-          ns-sym    (some-> (first forms) (nth 1))
-          _         (when (nil? ns-sym)
-                      (throw (ex-info "No ns form found" {:forms forms})))
-          unit (mu/make-module-unit ns-sym)
-          processed (ir1/preprocess forms)
-          ir1-roots (mapv ir1/->ir1 processed)
-          ir1-roots1 (pm/polyfill-nodes ir1-roots)
-          ir2-roots (ir2/lower-nodes ir1-roots1 ctx)
+          {:keys [forms ns-info]} (ir1/preprocess raw-forms)
+          unit (mu/make-module-unit (ns-info/ns-name ns-info))
+          raw-ir1s (mapv ir1/->ir1 forms)
+          expanded-ir1s (expand-symbols/expand raw-ir1s ns-info)
+          polyfilled-ir1s (pm/polyfill-nodes raw-ir1s)
+          ir2-roots (ir2/lower-nodes polyfilled-ir1s ctx)
           ir2-roots' (rename/rename ir2-roots)
           ir2-roots' (alias/alias-nodes ir2-roots' ctx frontend)
           ir2-roots' (module/resolve-ns ir2-roots' ctx frontend)
