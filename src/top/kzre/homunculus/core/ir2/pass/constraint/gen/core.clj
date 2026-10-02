@@ -26,19 +26,19 @@
 (declare gen-node*)
 
 (defmulti gen-node*
-          (fn [node _context] (n/kind node)))
+          (fn [node _env] (n/kind node)))
 
-(defmethod gen-node* :default [node context]
+(defmethod gen-node* :default [node env]
   (let [tv (fresh-tvar)]
-    (result tv (ty/set-type! node tv) nil context)))
+    (result tv (ty/set-type! node tv) nil env)))
 
 ;; ── 对外单节点入口 ──────────────────────
 (defn gen-node
   "节点约束生成入口，返回 {:type :node :constraints :env}。
    若节点已有注解类型，附加一条 type ≡ annotated 约束。"
-  [current-node current-context]
+  [current-node current-env]
   (let [hinted-type (ty/get-type current-node)
-        {:keys [type] :as r} (gen-node* current-node current-context)]
+        {:keys [type] :as r} (gen-node* current-node current-env)]
     (if (and hinted-type
              (satisfies? tp/IType hinted-type)
              (not (ty/var-type? hinted-type)))
@@ -49,24 +49,24 @@
 (defn gen-nodes
   "顺序约束生成一组节点（走 gen-node，含注解处理）。
    返回 {:results [...] :env ...}。"
-  [nodes context]
+  [nodes env]
   (reduce (fn [acc node]
             (let [r (gen-node node (:env acc))]
               (-> acc
                   (update :results conj r)
                   (assoc :env (:env r)))))
-          {:results [] :env context}
+          {:results [] :env env}
           nodes))
 
 (defn gen-nodes*
   "同 gen-nodes，但走 gen-node*（跳过注解处理）。"
-  [nodes context]
+  [nodes env]
   (reduce (fn [acc node]
             (let [r (gen-node* node (:env acc))]
               (-> acc
                   (update :results conj r)
                   (assoc :env (:env r)))))
-          {:results [] :env context}
+          {:results [] :env env}
           nodes))
 
 ;; ── 全局入口 ────────────────────────────

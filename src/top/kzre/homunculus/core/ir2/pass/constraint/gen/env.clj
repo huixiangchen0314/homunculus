@@ -9,15 +9,18 @@
    - resolve-callees   函数名 → 候选函数类型列表
    pass 不需要知道结果来自本地还是全局。"
   (:require
-    [top.kzre.homunculus.core.ir2.pass.env :as e]
     [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.core.ir2.pass.constraint.scheme :as scheme]
     [top.kzre.homunculus.core.ir2.pass.type :as t]
     [top.kzre.homunculus.internal.protocol :as ip]
     [top.kzre.homunculus.core.symbol :as sym]))
 
+;; ═══════════════════════════════════════════════
+;; 协议
+;; ═══════════════════════════════════════════════
+
 (defprotocol IEnv
-  ;; ── 解析 ──
+  ;; ── 类型解析 ──
   (resolve-var-type [this name]
     "解析变量名对应的类型。
      本地绑定优先，全局符号表兜底。
@@ -34,29 +37,59 @@
   (bind-var [this name type]
     "在当前作用域绑定 name → type，返回新环境。")
 
+  (generalize [this type]
+    "对 type 做泛化。
+     具体类型返回原类型；
+     函数类型按当前作用域泛化；
+     其它类型原样返回。")
+
   ;; ── 前端能力 ──
-  (literal-type [this literal-value])
-  (truthy-type  [this])
-  (integer-type [this])
+  (literal-type [this literal-value]
+    "字面量值对应的类型，未知返回 nil。")
+  (truthy-type [this]
+    "真值上下文（if / while）所需的类型，不需要则返回 nil。")
+  (integer-type [this]
+    "整数类型。")
 
   ;; ── 后端能力 ──
-  (use-hetero-vec? [this])
+  (use-hetero-vec? [this]
+    "后端是否支持异构向量。")
 
   ;; ── 循环状态 ──
-  (loop-vars [this])
-  (with-loop-vars [this vars]))
+  (loop-vars [this]
+    "当前所在循环的变量名列表，非循环中返回 nil。")
+  (with-loop-vars [this vars]
+    "设置当前循环变量，返回新环境。"))
 
-(defn- lookup-local [type-scope name]
-  (or (e/lookup-env type-scope name)
-      (e/lookup-env type-scope (symbol name))))
+;; ═══════════════════════════════════════════════
+;; 内部辅助
+;; ═══════════════════════════════════════════════
 
-(defn- instantiate-if-scheme [binding]
+(defn- lookup-local
+  "在局部类型作用域中查找 name，兼容 symbol / keyword 两种键。"
+  [type-scope name]
+  (or (get type-scope name)
+      (get type-scope (symbol name))))
+
+(defn- instantiate-if-scheme
+  "若绑定为 scheme 则实例化，否则原样返回。"
+  [binding]
   (if (scheme/tscheme? binding)
     (scheme/instantiate binding)
     binding))
 
-(defrecord Env [type-scope symbols compile-ctx frontend backend loop-vars-list]
+;; ═══════════════════════════════════════════════
+;; Record
+;; ═══════════════════════════════════════════════
+
+(defrecord Env [type-scope
+                symbols
+                compile-ctx
+                frontend
+                backend
+                loop-vars-list]
   IEnv
+  ;; ── 类型解析 ──
   (resolve-var-type [_ name]
     (if-let [binding (lookup-local type-scope name)]
       (instantiate-if-scheme binding)
@@ -72,26 +105,48 @@
         (when-let [function-entry (sym/entry->func entry)]
           (mapv t/arity->tfun (sym/list-arities function-entry))))))
 
+  ;; ── 作用域扩展 ──
   (bind-var [this name type]
-    (assoc this :type-scope (e/extend-env type-scope name type)))
+    (assoc this :type-scope (assoc type-scope name type)))
 
+  (generalize [_ type]
+    (cond
+      (t/concrete? type) type
+      (t/fun-type? type) (scheme/generalize type type-scope)
+      :else              type))
+
+  ;; ── 前端能力 ──
   (literal-type [_ literal-value]
     (when frontend (tp/literal->type frontend literal-value)))
   (truthy-type [_]
     (when frontend (tp/truly-type frontend)))
   (integer-type [_]
-    (tp/integer-type frontend))
+    (when frontend (tp/integer-type frontend)))
 
+  ;; ── 后端能力 ──
   (use-hetero-vec? [_]
     (when backend (tp/support-hetero-vec backend)))
 
+  ;; ── 循环状态 ──
   (loop-vars [_] loop-vars-list)
   (with-loop-vars [this vars]
     (assoc this :loop-vars-list vars)))
 
-(defn make-env [compile-ctx]
+;; ═══════════════════════════════════════════════
+;; 构造
+;; ═══════════════════════════════════════════════
+
+(defn make-env
+  "从 compile-ctx 构造约束生成环境。
+   frontend / backend 由 compile-ctx 查询，调用方只提供上下文。"
+  [compile-ctx]
   (let [frontend (ip/frontend compile-ctx)
         backend  (ip/backend compile-ctx)
         symbols  (merge (tp/builtin-symbols frontend)
                         (ip/symbol-table compile-ctx))]
-    (->Env {} symbols compile-ctx frontend backend nil)))
+    (->Env {}
+           symbols
+           compile-ctx
+           frontend
+           backend
+           nil)))

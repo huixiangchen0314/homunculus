@@ -5,13 +5,13 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
     [top.kzre.homunculus.core.ir2.pass.type :as t]))
 
-(defmethod gen/gen-node* :assign [current-node context]
+(defmethod gen/gen-node* :assign [current-node env]
   ;; 1. 推导左侧变量
   (let [{var-type        :type
          var-node        :node
          var-constraints :constraints
          var-env         :env}
-        (gen/gen-node* (n/assign-var current-node) context)
+        (gen/gen-node* (n/assign-var current-node) env)
         ;; 2. 推导右侧值，使用变量推导后的环境
         {val-type        :type
          val-node        :node

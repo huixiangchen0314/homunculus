@@ -1,39 +1,23 @@
 (ns top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.call
-  "约束生成：:call 节点。查找顺序：局部环境 → 符号表。
+  "约束生成：:call 节点。
+   候选函数类型由 env 统一解析，pass 不区分本地 / 全局。
    当实参全部具体且候选匹配时，直接确定返回类型。"
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.ir2.pass.constraint.scheme :as scheme]
-    [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
-    [top.kzre.homunculus.core.ir2.pass.type :as t]
-    [top.kzre.homunculus.core.symbol :as sym]))
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
+    [top.kzre.homunculus.core.ir2.pass.type :as t]))
 
-(defmethod gen/gen-node* :call [current-node context]
+(defmethod gen/gen-node* :call [current-node env]
   (let [{fn-node        :node
          fn-constraints :constraints
          fn-env         :env}
-        (gen/gen-node* (n/call-fn current-node) context)
+        (gen/gen-node* (n/call-fn current-node) env)
         fn-name     (when (= (n/kind fn-node) :variable)
                       (n/var-name fn-node))
-        ;; 1. 尝试从环境获取函数类型
-        env-binding (when fn-name
-                      (or (u/lookup-env fn-env fn-name)
-                          (u/lookup-env fn-env (symbol fn-name))))
-        env-fn-type (when env-binding
-                      (if (scheme/tscheme? env-binding)
-                        (scheme/instantiate env-binding)
-                        env-binding))
-        ;; 2. 环境没有，则查符号表（支持重载）
-        func-entry  (when (and fn-name (not env-fn-type))
-                      (sym/entry->func
-                        (sym/lookup-in-tables fn-name (u/symbol-table fn-env))))
-        ;; 3. 构造候选函数类型序列
-        candidates  (cond
-                      env-fn-type (if (t/fun-type? env-fn-type) [env-fn-type] [])
-                      func-entry  (mapv t/arity->tfun (sym/list-arities func-entry))
-                      :else       [])
+        ;; 候选函数类型由 env 统一解析（本地优先，全局兜底）
+        candidates  (if fn-name (p/resolve-callees fn-env fn-name) [])
         [arg-results final-env]
         (reduce (fn [[results current-env] arg]
                   (let [{:keys [env] :as r} (gen/gen-node* arg current-env)]
@@ -61,7 +45,7 @@
          :node        (t/set-type! new-node ret-type)
          :constraints (concat fn-constraints arg-constrs)
          :env         final-env})
-      ;; 无法精确匹配
+      ;; 无法精确匹配：有候选则生成 COverload，否则只返回新类型变量
       (let [ret-tv   (gen/fresh-tvar)
             new-node (n/make-call fn-node (vec arg-nodes)
                                   (n/attrs current-node)

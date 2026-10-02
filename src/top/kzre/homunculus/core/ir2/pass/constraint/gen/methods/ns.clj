@@ -4,10 +4,10 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
-(defmethod gen/gen-node* :ns [current-node context]
+(defmethod gen/gen-node* :ns [current-node env]
   ;; 命名空间声明不参与类型推导，分配一个类型变量
   (let [tv (gen/fresh-tvar)]
     {:type        tv
      :node        (ty/set-type! current-node tv)
      :constraints nil
-     :env         context}))
+     :env         env}))

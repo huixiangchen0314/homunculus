@@ -3,12 +3,10 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
-(defmethod gen/gen-node* :record [current-node context]
-  (let [fields      (n/record-fields current-node)
-        record-name (n/record-name current-node)
+(defmethod gen/gen-node* :record [current-node env]
+  (let [fields (n/record-fields current-node)
         ;; 顺序处理字段，累积环境
         [new-fields constraints final-env]
         (reduce
@@ -34,15 +32,13 @@
               [(conj fields new-field)
                (into constraints (concat init-constraints eq-constr))
                init-env]))
-          [[] [] context]
+          [[] [] env]
           fields)
         record-tv (gen/fresh-tvar)
         new-node  (-> current-node
                       (assoc :fields new-fields)
-                      (ty/set-type! record-tv))
-        ;; 记录类型加入已知类型，非环境
-        new-env   (u/add-known-type final-env record-name)]
+                      (ty/set-type! record-tv))]
     {:type        record-tv
      :node        new-node
      :constraints (vec constraints)
-     :env         new-env}))
+     :env         final-env}))

@@ -35,15 +35,15 @@
 
 ;; ── 泛型化 ──
 (defn generalize
-  "将类型 ty 在环境 env 下泛型化为 TScheme。
-   env 是绑定映射（变量名 → IType 或 TScheme）。"
-  [ty env]
+  "将类型 ty 在环境 type-bindings 下泛型化为 TScheme。
+   type-bindings 是绑定映射（变量名 → IType 或 TScheme）。"
+  [ty type-bindings]
   (let [env-ftv (set (mapcat (fn [[_ v]]
                                (when (satisfies? p/IType v)
                                  (if (= :scheme (p/type-kind v))
                                    (ftv (:type v))
                                    (ftv v))))
-                             env))
+                             type-bindings))
         free-vars (set/difference (ftv ty) env-ftv)
         sorted-vars (sort free-vars)]
     (->TScheme (mapv (fn [id] (t/->TVar id)) sorted-vars) ty)))

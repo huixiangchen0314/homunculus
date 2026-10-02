@@ -4,15 +4,15 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
     [top.kzre.homunculus.core.ir2.pass.type :as t]))
 
-(defmethod gen/gen-node* :map [current-node context]
+(defmethod gen/gen-node* :map [current-node env]
   (let [pairs (:pairs current-node)      ;; Pair 向量
-        [results final-ctx]
+        [results final-env]
         (reduce
-          (fn [[results ctx] pair-node]
+          (fn [[results current-env] pair-node]
             (let [k-node (:key pair-node)
                   v-node (:val pair-node)
                   {:keys [type node constraints env]}
-                  (gen/gen-node* k-node ctx)
+                  (gen/gen-node* k-node current-env)
                   k-type        type
                   k-node'       node
                   k-constraints constraints
@@ -27,7 +27,7 @@
                               :constraints (concat k-constraints constraints)
                               :pair-node   new-pair})
                env]))
-          [[] context]
+          [[] env]
           pairs)
         entries    (mapv (fn [{:keys [key-type val-type]}] [key-type val-type]) results)
         map-type   (t/make-hetero-map entries)
@@ -37,4 +37,4 @@
     {:type        map-type
      :node        (t/set-type! new-node map-type)
      :constraints all-constr
-     :env         final-ctx}))
+     :env         final-env}))

@@ -2,39 +2,33 @@
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.ir2.pass.constraint.scheme :as scheme]
-    [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
-    [top.kzre.homunculus.core.ir2.pass.env :as e]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
     [top.kzre.homunculus.core.ir2.pass.type :as t]))
 
-(defmethod gen/gen-node* :let [current-node context]
+(defmethod gen/gen-node* :let [current-node env]
   (let [bindings (n/let-bindings current-node)   ;; Binding 向量
         [bind-nodes final-env bind-constraints]
         (reduce
-          (fn [[bnds env constrs] b]
+          (fn [[bnds current-env collected] b]
             (let [var-node (:var b)
                   val-node (:val b)
                   {:keys [type node constraints]}
-                  (gen/gen-node* val-node (assoc context :env env))
+                  (gen/gen-node* val-node current-env)
                   var-name     (:name var-node)
-                  binding-type (if (t/concrete? type)
-                                 type
-                                 (if (t/fun-type? type)
-                                   (scheme/generalize type env)
-                                   type))
+                  binding-type (p/generalize current-env type)
                   typed-var    (t/set-type! var-node binding-type)
                   new-binding  (assoc b :var typed-var :val node)]
               [(conj bnds new-binding)
-               (e/extend-env env var-name binding-type)
-               (concat constrs constraints)]))
-          [[] (u/env context) []]
+               (p/bind-var current-env var-name binding-type)
+               (concat collected constraints)]))
+          [[] env []]
           bindings)
         {:keys [type node constraints]}
-        (gen/gen-node* (n/let-body current-node) (assoc context :env final-env))
+        (gen/gen-node* (n/let-body current-node) final-env)
         new-node (n/make-let (vec bind-nodes) node
                              (n/attrs current-node)
                              (n/node-meta current-node))]
     {:type        type
      :node        (t/set-type! new-node type)
      :constraints (concat bind-constraints constraints)
-     :env         context}))
+     :env         env}))

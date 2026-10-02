@@ -3,10 +3,10 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
     [top.kzre.homunculus.core.ir2.pass.type :as t]))
 
-(defmethod gen/gen-node* :define [current-node context]
+(defmethod gen/gen-node* :define [current-node env]
   (if (true? (:ho? (n/attrs current-node)))
     ;; 高阶函数：不处理值节点，分配自由类型变量，不生成约束，不写入环境
     (let [tv       (gen/fresh-tvar)
@@ -18,10 +18,10 @@
       {:type        tv
        :node        (t/set-type! new-node tv)
        :constraints nil
-       :env         context})
+       :env         env})
 
     (let [{:keys [type node constraints env]}
-          (gen/gen-node* (n/define-val current-node) context)
+          (gen/gen-node* (n/define-val current-node) env)
           annotated-type (t/get-type current-node)
           final-type     (or annotated-type type)
           extra-constr   (when annotated-type
@@ -32,7 +32,7 @@
                                         (n/attrs current-node)
                                         (n/node-meta current-node))
           ;; 将定义名与最终类型写入环境
-          new-env        (u/extend-env env (n/define-name current-node) final-type)]
+          new-env        (p/bind-var env (n/define-name current-node) final-type)]
       {:type        final-type
        :node        (t/set-type! new-node final-type)
        :constraints (concat constraints extra-constr)

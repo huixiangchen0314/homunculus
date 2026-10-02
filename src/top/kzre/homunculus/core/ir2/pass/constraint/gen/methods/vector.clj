@@ -3,11 +3,10 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
-    [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
-(defmethod gen/gen-node* :vector [current-node context]
+(defmethod gen/gen-node* :vector [current-node env]
   (let [items (n/vector-items current-node)
         ;; 顺序处理每个元素，累积节点、类型、约束、环境
         [item-nodes item-types collected-constraints final-env]
@@ -18,13 +17,10 @@
                (conj types type)
                (into collected constraints)
                env]))
-          [[] [] [] context]
+          [[] [] [] env]
           items)
-        ;; 根据后端配置决定向量类型
-        backend        (u/backend context)
-        support-hetero (when backend (tp/support-hetero-vec backend))
         [vec-type extra-constraints]
-        (if support-hetero
+        (if (p/use-hetero-vec? env)
           ;; 异构向量：保留所有元素类型
           [(ty/make-hetero-vec item-types) []]
           ;; 同构向量：所有元素类型必须一致，引入公共元素类型变量

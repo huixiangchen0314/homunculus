@@ -5,22 +5,19 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
-    [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 ;; ── new-array ──────────────────────────────
-(defmethod gen/gen-node* :new-array [current-node context]
+(defmethod gen/gen-node* :new-array [current-node env]
   (let [{size-type        :type
          size-node        :node
          size-constraints :constraints
          size-env         :env}
-        (gen/gen-node* (n/new-array-size current-node) context)
-        int-ty   (ty/make-tcon (tp/integer-type (u/frontend context)))
-        size-eq  (cons/make-cequal size-type int-ty)
-        backend  (u/backend context)
-        hetero?  (when backend (tp/support-hetero-vec backend))]
-    (if hetero?
+        (gen/gen-node* (n/new-array-size current-node) env)
+        int-type (ty/make-tcon (p/integer-type env))
+        size-eq  (cons/make-cequal size-type int-type)]
+    (if (p/use-hetero-vec? env)
       (let [tv       (ty/make-hetero-vec [])
             new-node (n/make-new-array size-node (n/node-meta current-node))]
         {:type        tv
@@ -42,12 +39,12 @@
          :env         size-env}))))
 
 ;; ── aget ───────────────────────────────────
-(defmethod gen/gen-node* :aget [current-node context]
+(defmethod gen/gen-node* :aget [current-node env]
   (let [{target-type        :type
          target-node        :node
          target-constraints :constraints
          target-env         :env}
-        (gen/gen-node* (n/aget-target current-node) context)
+        (gen/gen-node* (n/aget-target current-node) env)
         {idx-type        :type
          idx-node        :node
          idx-constraints :constraints
@@ -75,12 +72,12 @@
      :env         idx-env}))
 
 ;; ── aset ───────────────────────────────────
-(defmethod gen/gen-node* :aset [current-node context]
+(defmethod gen/gen-node* :aset [current-node env]
   (let [{target-type        :type
          target-node        :node
          target-constraints :constraints
          target-env         :env}
-        (gen/gen-node* (n/aset-target current-node) context)
+        (gen/gen-node* (n/aset-target current-node) env)
         {idx-type        :type
          idx-node        :node
          idx-constraints :constraints
@@ -117,25 +114,25 @@
      :env         val-env}))
 
 ;; ── alength ────────────────────────────────
-(defmethod gen/gen-node* :alength [current-node context]
+(defmethod gen/gen-node* :alength [current-node env]
   (let [{target-type        :type
          target-node        :node
          target-constraints :constraints
          target-env         :env}
-        (gen/gen-node* (n/alength-target current-node) context)
-        int-ty (ty/make-tcon (tp/integer-type (u/frontend context)))]
+        (gen/gen-node* (n/alength-target current-node) env)
+        int-type (ty/make-tcon (p/integer-type env))]
     (if (and (ty/vec-type? target-type)
              (integer? (ty/type-value? (ty/vec-size target-type))))
       (let [len-val  (ty/value-val (ty/vec-size target-type))
             lit-node (n/make-literal len-val
                                      (ir2/attrs current-node)
                                      (ir2/node-meta current-node))]
-        {:type        int-ty
-         :node        (ty/set-type! lit-node int-ty)
+        {:type        int-type
+         :node        (ty/set-type! lit-node int-type)
          :constraints target-constraints
          :env         target-env})
       (let [new-node (n/make-alength target-node (n/node-meta current-node))]
-        {:type        int-ty
-         :node        (ty/set-type! new-node int-ty)
+        {:type        int-type
+         :node        (ty/set-type! new-node int-type)
          :constraints target-constraints
          :env         target-env}))))

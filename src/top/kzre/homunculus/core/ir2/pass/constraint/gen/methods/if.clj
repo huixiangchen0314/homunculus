@@ -3,15 +3,15 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.ir2.pass.constraint.utils :as u]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
     [top.kzre.homunculus.core.ir2.pass.type :as t]))
 
-(defmethod gen/gen-node* :if [current-node context]
+(defmethod gen/gen-node* :if [current-node env]
   (let [{test-type        :type
          test-node        :node
          test-constraints :constraints
          test-env         :env}
-        (gen/gen-node* (n/if-test current-node) context)
+        (gen/gen-node* (n/if-test current-node) env)
         {then-type        :type
          then-node        :node
          then-constraints :constraints
@@ -29,7 +29,7 @@
            :env         then-env})
         tv        (gen/fresh-tvar)
         ;; 如果有明确的真值类型，添加约束
-        test-eq   (when-let [required-type (u/truthy-type-requirement context)]
+        test-eq   (when-let [required-type (p/truthy-type env)]
                     (when test-type
                       [(cons/make-cequal test-type (t/make-tcon required-type))]))
         ;; 分支类型必须一致（静态语言标准行为）

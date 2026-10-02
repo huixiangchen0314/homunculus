@@ -3,6 +3,7 @@
    修复：对 :refer :all 的命名空间，通过 require + resolve 进行逐个尝试，
    避免依赖 find-ns 导致的加载失败。")
 
+;; TODO 用户类型标记也要展开
 (defn- parse-ns [ns-form]
   (let [rest-args (drop 2 ns-form)
         require-clause (some #(when (and (sequential? %) (= :require (first %))) %)
