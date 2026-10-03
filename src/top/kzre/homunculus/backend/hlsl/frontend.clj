@@ -11,31 +11,115 @@
 (defonce ^:private symbol-tables
          (sym/build-symbol-table
 
-           ;; 原始类型
+           ;;; ========= 类型注册 ===========================================
+           ;;; 标量 / 向量 / 矩阵：全小写（与 HLSL 原始拼写一致）
+           ;;; 纹理 / 采样器 / 缓冲：PascalCase（与 HLSL 原始拼写一致）
 
-           [:primitive 'float]
-           [:primitive 'int]
+           ;; ═══════════════════════════════════════════
+           ;; 原始类型（无字段，不参与 swizzle）
+           ;; ═══════════════════════════════════════════
            [:primitive 'bool]
-           [:primitive 'texture2D]
-           [:primitive 'sampler]
+           [:primitive 'int]
+           [:primitive 'uint]
+           [:primitive 'float]
+
+           ;; 纹理
+           [:primitive 'Texture1D]
+           [:primitive 'Texture1DArray]
+           [:primitive 'Texture2D]
+           [:primitive 'Texture2DArray]
+           [:primitive 'Texture3D]
+           [:primitive 'TextureCube]
+           [:primitive 'TextureCubeArray]
+           [:primitive 'Texture2DMS]
+           [:primitive 'Texture2DMSArray]
+
+           ;; 采样器
+           [:primitive 'SamplerState]
+           [:primitive 'SamplerComparisonState]
+
+           ;; 缓冲
            [:primitive 'cbuffer]
+           [:primitive 'Buffer]
+           [:primitive 'StructuredBuffer]
+           [:primitive 'ByteAddressBuffer]
+
+           ;; ═══════════════════════════════════════════
+           ;; 类型记录（支持 swizzle）
+           ;; ═══════════════════════════════════════════
+
+           ;; ── 布尔向量 ────────────────────────────────
+           [:record 'bool2 ['x 'bool] ['y 'bool]]
+           [:record 'bool3 ['x 'bool] ['y 'bool] ['z 'bool]]
+           [:record 'bool4 ['x 'bool] ['y 'bool] ['z 'bool] ['w 'bool]]
+
+           ;; ── 整数向量 ────────────────────────────────
+           [:record 'int2 ['x 'int] ['y 'int]]
+           [:record 'int3 ['x 'int] ['y 'int] ['z 'int]]
+           [:record 'int4 ['x 'int] ['y 'int] ['z 'int] ['w 'int]]
+
+           ;; ── 无符号整数向量 ──────────────────────────
+           [:record 'uint2 ['x 'uint] ['y 'uint]]
+           [:record 'uint3 ['x 'uint] ['y 'uint] ['z 'uint]]
+           [:record 'uint4 ['x 'uint] ['y 'uint] ['z 'uint] ['w 'uint]]
+
+           ;; ── 浮点向量 ────────────────────────────────
+           [:record 'float2 ['x 'float] ['y 'float]]
+           [:record 'float3 ['x 'float] ['y 'float] ['z 'float]]
+           [:record 'float4 ['x 'float] ['y 'float] ['z 'float] ['w 'float]]
+
+           ;; ── 矩阵 ────────────────────────────────────
+           [:record 'float2x2
+            ['_m00 'float] ['_m01 'float]
+            ['_m10 'float] ['_m11 'float]]
+
+           [:record 'float2x3
+            ['_m00 'float] ['_m01 'float] ['_m02 'float]
+            ['_m10 'float] ['_m11 'float] ['_m12 'float]]
+
+           [:record 'float2x4
+            ['_m00 'float] ['_m01 'float] ['_m02 'float] ['_m03 'float]
+            ['_m10 'float] ['_m11 'float] ['_m12 'float] ['_m13 'float]]
+
+           [:record 'float3x2
+            ['_m00 'float] ['_m01 'float]
+            ['_m10 'float] ['_m11 'float]
+            ['_m20 'float] ['_m21 'float]]
+
+           [:record 'float3x3
+            ['_m00 'float] ['_m01 'float] ['_m02 'float]
+            ['_m10 'float] ['_m11 'float] ['_m12 'float]
+            ['_m20 'float] ['_m21 'float] ['_m22 'float]]
+
+           [:record 'float3x4
+            ['_m00 'float] ['_m01 'float] ['_m02 'float] ['_m03 'float]
+            ['_m10 'float] ['_m11 'float] ['_m12 'float] ['_m13 'float]
+            ['_m20 'float] ['_m21 'float] ['_m22 'float] ['_m23 'float]]
+
+           [:record 'float4x2
+            ['_m00 'float] ['_m01 'float]
+            ['_m10 'float] ['_m11 'float]
+            ['_m20 'float] ['_m21 'float]
+            ['_m30 'float] ['_m31 'float]]
+
+           [:record 'float4x3
+            ['_m00 'float] ['_m01 'float] ['_m02 'float]
+            ['_m10 'float] ['_m11 'float] ['_m12 'float]
+            ['_m20 'float] ['_m21 'float] ['_m22 'float]
+            ['_m30 'float] ['_m31 'float] ['_m32 'float]]
+
+           [:record 'float4x4
+            ['_m00 'float] ['_m01 'float] ['_m02 'float] ['_m03 'float]
+            ['_m10 'float] ['_m11 'float] ['_m12 'float] ['_m13 'float]
+            ['_m20 'float] ['_m21 'float] ['_m22 'float] ['_m23 'float]
+            ['_m30 'float] ['_m31 'float] ['_m32 'float] ['_m33 'float]]
+
            [:alias '%%+ '+]
            [:alias '%%- '-]
            [:alias '%%< '<]
            [:alias '%%= '=]
            [:alias '%%not= 'not=]
 
-           ;; 类型记录（字段类型用符号）
-           [:record 'float4   ['x 'float] ['y 'float] ['z 'float] ['w 'float]]
-           [:record 'float3   ['x 'float] ['y 'float] ['z 'float]]
-           [:record 'float2   ['x 'float] ['y 'float]]
-
-           ;; 手动枚举 float4x4 的所有 16 个分量
-           [:record 'float4x4
-            ['_m00 'float] ['_m01 'float] ['_m02 'float] ['_m03 'float]
-            ['_m10 'float] ['_m11 'float] ['_m12 'float] ['_m13 'float]
-            ['_m20 'float] ['_m21 'float] ['_m22 'float] ['_m23 'float]
-            ['_m30 'float] ['_m31 'float] ['_m32 'float] ['_m33 'float]]
 
            ;; 算术四则（float + int 重载）
            [:func '+ {:pure? true}
@@ -73,8 +157,7 @@
             [['a 'float2 'b 'float2] 'bool]
             [['a 'float3 'b 'float3] 'bool]
             [['a 'float4 'b 'float4] 'bool]
-            [['a 'int    'b 'int]    'bool]
-            ]
+            [['a 'int    'b 'int]    'bool]]
            [:func '<= {:pure? true}
             [['a 'float  'b 'float]  'bool]
             [['a 'float2 'b 'float2] 'bool]
@@ -112,10 +195,12 @@
             [['a 'float2 'b 'float 'c 'float] 'float4]
             [['a 'float3 'b 'float] 'float4]
             [['a 'float 'b 'float3] 'float4]]
-           [:func 'float3 [['a 'float 'b 'float 'c 'float] 'float3]
+           [:func 'float3
+            [['a 'float 'b 'float 'c 'float] 'float3]
             [['a 'float2 'b 'float] 'float3]
             [['a 'float 'b 'float2] 'float3]]
-           [:func 'float2 [['a 'float 'b 'float] 'float2]]
+           [:func 'float2
+            [['a 'float 'b 'float] 'float2]]
 
            ;; 单重载函数
            [:func 'normalize {:pure? true}
@@ -128,8 +213,6 @@
             ['v 'float3] 'float]
            [:func 'mul    {:pure? true}
             ['a 'float4x4 'b 'float4] 'float4]
-           [:func 'sample {:io? true}
-            ['tex 'texture2D 'samp 'sampler 'uv 'float2] 'float4]
            [:func 'max     {:pure? true}
             ['a 'float 'b 'float] 'float]
            [:func 'min      {:pure? true}
@@ -165,14 +248,25 @@
            [:func 'frac   {:pure? true}
             ['x 'float] 'float]
 
+           ;; ── 采样函数 ────────────────────────────────
+           ;; Texture2D / SamplerState 统一命名（HLSL 原始拼写）
+           [:func 'sample {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv  'float2] 'float4]
+            [['tex 'Texture3D      'samp 'SamplerState 'uv  'float3] 'float4]
+            [['tex 'TextureCube    'samp 'SamplerState 'dir 'float3] 'float4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uvw 'float3] 'float4]]
+           [:func 'sampleCmp {:io? true}
+            [['tex 'Texture2D 'samp 'SamplerComparisonState
+              'uv 'float2 'compareValue 'float] 'float]]
+
            ;; HLSL 特有函数
-           [:func 'tex2D  {:io? true}
-            ['s 'sampler 'uv 'float2] 'float4]
+           [:func 'tex2D {:io? true}
+            ['s 'SamplerState 'uv 'float2] 'float4]
            [:func 'tex2Dlod {:io? true}
-            ['s 'sampler 'uv 'float4] 'float4]
-           [:func 'texCUBE  {:io? true}
-            ['s 'sampler 'dir 'float3] 'float4]
-           [:func 'clip  {:io? true}
+            ['s 'SamplerState 'uv 'float4] 'float4]
+           [:func 'texCUBE {:io? true}
+            ['s 'SamplerState 'dir 'float3] 'float4]
+           [:func 'clip {:io? true}
             ['x 'float] nil]
            [:func 'discard {:io? true}
             [] nil]
@@ -180,16 +274,58 @@
            [:func 'ddy      ['x 'float] 'float]
            [:func 'fwidth   ['x 'float] 'float]
 
-           ;; 构造函数别名（返回类型也用符号）带命名空间，避免和默认 float 混淆
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float    [] 'float]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float2   [] 'float2]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float3   [] 'float3]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float4   [] 'float4]
+           ;; ── 类型构造器（零参） ──────────────────────
+           ;; 标量
+           [:func 'top.kzre.homunculus.backend.shader.dsl/bool  [] 'bool]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/int   [] 'int]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/uint  [] 'uint]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float [] 'float]
+
+           ;; 向量
+           [:func 'top.kzre.homunculus.backend.shader.dsl/bool2  [] 'bool2]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/bool3  [] 'bool3]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/bool4  [] 'bool4]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/int2   [] 'int2]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/int3   [] 'int3]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/int4   [] 'int4]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/uint2  [] 'uint2]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/uint3  [] 'uint3]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/uint4  [] 'uint4]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float2 [] 'float2]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float3 [] 'float3]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float4 [] 'float4]
+
+           ;; 矩阵
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float2x2 [] 'float2x2]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float2x3 [] 'float2x3]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float2x4 [] 'float2x4]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float3x2 [] 'float3x2]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float3x3 [] 'float3x3]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float3x4 [] 'float3x4]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float4x2 [] 'float4x2]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/float4x3 [] 'float4x3]
            [:func 'top.kzre.homunculus.backend.shader.dsl/float4x4 [] 'float4x4]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/texture2D     [] 'texture2D]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/sampler-state [] 'sampler]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/cbuffer       [] 'cbuffer]
-           [:func `top.kzre.homunculus.backend.shader.dsl/int           [] 'int]
+
+           ;; 纹理
+           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture1D        [] 'Texture1D]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture1DArray   [] 'Texture1DArray]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture2D        [] 'Texture2D]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture2DArray   [] 'Texture2DArray]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture3D        [] 'Texture3D]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/TextureCube      [] 'TextureCube]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/TextureCubeArray [] 'TextureCubeArray]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture2DMS      [] 'Texture2DMS]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture2DMSArray [] 'Texture2DMSArray]
+
+           ;; 采样器
+           [:func 'top.kzre.homunculus.backend.shader.dsl/SamplerState           [] 'SamplerState]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/SamplerComparisonState [] 'SamplerComparisonState]
+
+           ;; 缓冲
+           [:func 'top.kzre.homunculus.backend.shader.dsl/cbuffer           [] 'cbuffer]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/Buffer            [] 'Buffer]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/StructuredBuffer  [] 'StructuredBuffer]
+           [:func 'top.kzre.homunculus.backend.shader.dsl/ByteAddressBuffer [] 'ByteAddressBuffer]
            ))
 
 
