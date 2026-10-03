@@ -183,7 +183,7 @@
         res-slot (name (:slot node))
         kind (:resource-kind node)]
     (case kind
-      :texture2D (T "Texture2D ${res-name} : register(${res-slot});")
+      :texture   (T "Texture2D ${res-name} : register(${res-slot});")
       :sampler   (T "SamplerState ${res-name} : register(${res-slot});")
       :cbuffer   (let [members (:members node)
                        member-str (when (seq members)
@@ -225,7 +225,7 @@
     :cast
     (let [type (lang/type->str (:type node))
           expr (emit-node* (:expr node) env)]
-      (T "(${type})${expr}"))
+      (T "${type}(${expr})"))
     :array-index
     (let [target (emit-node* (:target node) env)
           index (emit-node* (:index node) env)]

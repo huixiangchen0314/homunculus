@@ -85,9 +85,11 @@
    'ByteAddressBuffer `ByteAddressBuffer})
 
 (defn- fully-qualified-ctor [ctor-sym]
-  (or (get type-ctor-name->sym ctor-sym)
-      (throw (ex-info (str "Unknown type constructor: " ctor-sym)
-                      {:ctor ctor-sym}))))
+  (let [short (symbol (name ctor-sym))]        ; 剥离 namespace，只留短名
+    (or (get type-ctor-name->sym short)
+        (throw (ex-info (str "Unknown type constructor: " ctor-sym)
+                        {:ctor ctor-sym
+                         :short short})))))
 
 
 
@@ -113,23 +115,51 @@
   `(def ~(vary-meta name assoc
                     :shader/static-var? true) ~type-ctor))
 
+(def ^:private texture-dimension->ctor
+  {:1d           'Texture1D
+   :1d-array     'Texture1DArray
+   :2d           'Texture2D
+   :2d-array     'Texture2DArray
+   :3d           'Texture3D
+   :cube         'TextureCube
+   :cube-array   'TextureCubeArray
+   :2d-ms        'Texture2DMS
+   :2d-ms-array  'Texture2DMSArray
+   :buffer       'Buffer})
+
+(defn- texture-ctor [dimension]
+  (or (get texture-dimension->ctor dimension)
+      (throw (ex-info (str "Unknown texture dimension: " dimension)
+                      {:dimension dimension
+                       :known     (keys texture-dimension->ctor)}))))
 (defmacro deftexture
-  "定义纹理资源。"
-  [name register-kw]
-  `(def ~(vary-meta name assoc
-                    :shader/resource? true
-                    :shader/resource-kind :texture2D
-                    :shader/texture-register register-kw)
-     (Texture2D)))
+  ([name register]
+   `(deftexture ~name ~register :2d float))
+  ([name register dimension]
+   `(deftexture ~name ~register ~dimension float))
+  ([name register dimension element-ctor]
+   (let [ctor (texture-ctor dimension)
+         element-type (name element-ctor)]
+     `(def ~(vary-meta name assoc
+                       :shader/resource? true
+                       :shader/resource-kind :texture
+                       :shader/texture-register register
+                       :shader/dimension dimension
+                       :shader/element-type element-type)
+        (~(fully-qualified-ctor ctor))))))
 
 (defmacro defsampler
   "定义采样器资源。"
-  [name register-kw]
-  `(def ~(vary-meta name assoc
-                    :shader/resource? true
-                    :shader/resource-kind :sampler
-                    :shader/sampler-register register-kw)
-     (SamplerState)))
+  ([name register]
+   `(defsampler ~name ~register false))
+  ([name register-kw compare]
+   (let [ctor (if compare 'SamplerComparisonState 'SamplerState)]
+     `(def ~(vary-meta name assoc
+                       :shader/resource? true
+                       :shader/resource-kind :sampler
+                       :shader/sampler-compare? (boolean compare)
+                       :shader/sampler-register register-kw)
+        (~(fully-qualified-ctor ctor))))))
 
 (defmacro defcbuffer
   "定义 cbuffer 资源。成员以交替的符号+类型构造器给出，如 lightDir float3。

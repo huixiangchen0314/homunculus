@@ -149,7 +149,7 @@
         resource-kind (semantic/shader-resource-kind node)]
     (if resource-kind
       (let [slot (case resource-kind
-                   :texture2D (semantic/shader-texture-register node)
+                   :texture  (semantic/shader-texture-register node)
                    :sampler   (semantic/shader-sampler-register node)
                    :cbuffer   (semantic/shader-cbuffer-register node)
                    nil)
