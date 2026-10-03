@@ -1,21 +1,16 @@
 (ns top.kzre.homunculus.backend.shader.lower
   "IR2 → ShaderAST 降级器。统一按表达式降级，依赖死代码消除清理冗余。"
   (:require
-    [clojure.string :as str]
-    [top.kzre.homunculus.backend.shader.ast :as ast]
-    [top.kzre.homunculus.backend.shader.metadata :as md]
-    [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.irstmt.ast :as irstmt]
-    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
+   [clojure.string :as str]
+   [top.kzre.homunculus.backend.shader.ast :as ast]
+   [top.kzre.homunculus.backend.shader.env :as shader.env]
+   [top.kzre.homunculus.backend.shader.semantic :as semantic]
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.ir2.pass.type :as ty]
+   [top.kzre.homunculus.core.irstmt.ast :as irstmt]))
 
 (def ^:private unary-ops #{'! '- '++ '--})
 (def ^:private infix-ops #{'+ '- '* '/ '% '== '!= '< '> '<= '>= '&& '||})
-
-(defrecord Env [locals])
-(defn make-env [] (->Env #{}))
-(defn env-add-local [env var-name] (update env :locals conj var-name))
-(defn env-contains? [env var-name] (contains? (:locals env) var-name))
-(defonce empty-env (make-env))
 
 (defn- ir-meta [node] (irstmt/node-meta node))
 (declare lower-node*)
@@ -151,27 +146,28 @@
   (let [var-name (:name node)
         init-expr (:val node)
         [init env'] (if init-expr (lower-node* init-expr env) [nil env])
-        resource-kind (md/shader-resource-kind node)]
+        resource-kind (semantic/shader-resource-kind node)]
     (if resource-kind
       (let [slot (case resource-kind
-                   :texture2D (md/shader-texture-register node)
-                   :sampler   (md/shader-sampler-register node)
-                   :cbuffer   (md/shader-cbuffer-register node)
+                   :texture2D (semantic/shader-texture-register node)
+                   :sampler   (semantic/shader-sampler-register node)
+                   :cbuffer   (semantic/shader-cbuffer-register node)
                    nil)
             members (when (= resource-kind :cbuffer)
                       (mapv (fn [[sym type-sym]]
                               (ast/->StructMember sym (ty/make-tcon type-sym) nil))
-                            (md/shader-cbuffer-members node)))]
+                            (semantic/shader-cbuffer-members node)))]
         [(ast/->ResourceDecl var-name resource-kind slot members (irstmt/node-meta node)) env'])
       (let [var-ty (ty/get-type node)
-            uniform? (md/shader-uniform? node)
-            static-var? (md/shader-static-var? node)]
+            uniform? (semantic/shader-uniform? node)
+            static-var? (semantic/shader-static-var? node)]
         (cond
           uniform?    [(ast/->Uniform  var-name var-ty (irstmt/node-meta node)) env']
           static-var? [(ast/->StaticVar var-name var-ty init (irstmt/node-meta node)) env']
-          :else       (if (env-contains? env' var-name)
+          :else       (if (shader.env/local-var? env' var-name)
                         [(ast/->Assign (ast/->Variable var-name nil) init (irstmt/node-meta node)) env']
-                        [(ast/->VarDecl var-name var-ty init (irstmt/node-meta node)) (env-add-local env' var-name)]))))))
+                        [(ast/->VarDecl var-name var-ty init (irstmt/node-meta node))
+                         (shader.env/bind-var env' var-name)]))))))
 
 (defmethod lower-node* :function [node env]
   (let [name (:name node)
@@ -179,7 +175,7 @@
         body (:body node)
         [body-node env'] (lower-node* body env)
         ret-ty (ty/fun-return-type (ty/get-type node))
-        stage (md/shader-stage node)
+        stage (semantic/shader-stage node)
         param-nodes (mapv (fn [p] (ast/->Param (:name p) (ty/get-type p) (irstmt/node-meta p))) params)]
     (if stage
       [(ast/->EntryPoint name stage ret-ty param-nodes body-node (irstmt/node-meta node)) env']
@@ -194,5 +190,5 @@
   (let [[stmts _] (reduce (fn [[stmts env] n]
                             (let [[node new-env] (lower-node* n env)]
                               [(conj stmts node) new-env]))
-                          [[] empty-env] nodes)]
+                          [[] (shader.env/make-env)] nodes)]
     stmts))

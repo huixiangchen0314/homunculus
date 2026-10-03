@@ -32,5 +32,5 @@
     (first
       (ast/reduce-children node (fn [child _] [(expand-node child) nil]) nil))))
 
-(defn expand-vec-assigns [nodes]
+(defn expand [nodes]
   (mapv expand-node nodes))

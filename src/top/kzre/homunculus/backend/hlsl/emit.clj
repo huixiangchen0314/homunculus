@@ -1,16 +1,14 @@
 (ns top.kzre.homunculus.backend.hlsl.emit
   "ShaderAST → HLSL 源代码发射器。完全使用 T 宏模板化，缩进由 indent 函数统一处理。"
   (:require
-    [clojure.string :as str]
-    [top.kzre.homunculus.backend.shader.ast :as ast]
-    [top.kzre.homunculus.backend.util.naming :refer [cname]]
-    [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.backend.util.format :refer [T]]
-    [top.kzre.homunculus.backend.shader.metadata :as md]))
-
-;; ── 空环境记录 ──
-(defrecord Env [])
-(defn make-env [] (->Env))
+   [clojure.string :as str]
+   [top.kzre.homunculus.backend.hlsl.env :as env]
+   [top.kzre.homunculus.backend.hlsl.lang :as lang]
+   [top.kzre.homunculus.backend.shader.ast :as ast]
+   [top.kzre.homunculus.backend.shader.semantic :as semantic]
+   [top.kzre.homunculus.backend.util.format :refer [T]]
+   [top.kzre.homunculus.backend.util.naming :refer [cname]]
+   [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 ;; ── 缩进 ──
 (def ^:private indent-size 4)
@@ -23,35 +21,9 @@
          (map #(str prefix %))
          (str/join "\n"))))
 
-;; ── 类型渲染 ──
-(defn- render-type [ir-type]
-  (cond
-    (ty/vec-type? ir-type)
-    (let [elem-type (render-type (ty/vec-element-type ir-type))
-          size (ty/value-val (ty/vec-size ir-type))]
-      (T "${elem-type}[${size}]"))
-    (ty/type-sym ir-type) (name (ty/type-sym ir-type))
-    ;:else (throw (ex-info (str "Unknown type: " ir-type) {}))
-    :else (pr-str ir-type)
-    ))
 
 ;; ── 多方法 ──
 (defmulti emit-node* (fn [node _env] (ast/kind node)))
-
-;; ── 字面量 ──
-(defmethod emit-node* :literal [node _]
-  (let [val (:val node)]
-    (cond
-      (nil? val)   nil
-      (integer? val) (str val)
-      (float? val)   (str val)
-      (true? val)    "true"
-      (false? val)   "false"
-      :else (pr-str val))))
-
-;; ── 变量引用 ──
-(defmethod emit-node* :variable [node _]
-  (cname (name (:name node))))
 
 ;; ── 函数调用 ──
 (defmethod emit-node* :call [node env]
@@ -68,55 +40,24 @@
             args-str (str/join ", " (map #(emit-node* % env) args))]
         (T "${fn-name}(${args-str})")))))
 
-;; ── 二元运算 ──
-(defmethod emit-node* :binary-op [node env]
-  (let [left (emit-node* (:left node) env)
-        op (name (:op node))
-        right (emit-node* (:right node) env)]
-    (T "${left} ${op} ${right}")))
-
-;; ── 一元运算 ──
-(defmethod emit-node* :unary-op [node env]
-  (let [op (name (:op node))
-        expr (emit-node* (:expr node) env)]
-    (T "${op}${expr}")))
-
-;; ── 成员访问 ──
-(defmethod emit-node* :member-access [node env]
-  (let [target (emit-node* (:target node) env)
-        member (name (:member node))]
-    (T "${target}.${member}")))
-
-;; ── 数组索引 ──
-(defmethod emit-node* :array-index [node env]
-  (let [target (emit-node* (:target node) env)
-        index (emit-node* (:index node) env)]
-    (T "${target}[${index}]")))
-
 ;; ── 构造器 ──
 (defmethod emit-node* :constructor [node env]
   (let [ty (:type node)
         vec? (ty/vec-type? ty)
         struct? (:struct? (:meta node))
-        type-str (when-not (or vec? struct?) (render-type ty))
+        type-str (when-not (or vec? struct?) (lang/type->str ty))
         args (str/join ", " (map #(emit-node* % env) (:args node)))]
     (cond
       (or vec? struct?) (T "{${args}}")
       :else             (T "${type-str}(${args})"))))
 
 
-;; ── 类型转换 ──
-(defmethod emit-node* :cast [node env]
-  (let [type (render-type (:type node))
-        expr (emit-node* (:expr node) env)]
-    (T "(${type})${expr}")))
-
 (defn- render-var-decl [ir-type var-name]
   (if (ty/vec-type? ir-type)
-    (let [elem (render-type (ty/vec-element-type ir-type))
+    (let [elem (lang/type->str (ty/vec-element-type ir-type))
           size (ty/value-val (ty/vec-size ir-type))]
       (str elem " " var-name "[" size "]"))
-    (str (render-type ir-type) " " var-name)))
+    (str (lang/type->str ir-type) " " var-name)))
 
 ;; ── 变量声明 ──
 (defmethod emit-node* :var-decl [node env]
@@ -129,10 +70,6 @@
       (let [init-str (emit-node* init env)]
         (str (render-var-decl ty name) " = " init-str)))))
 
-(defmethod emit-node* :uniform [node env]
-  (let [ty (:type node)
-        name (cname (name (:name node)))]
-    (str "uniform " (render-var-decl ty name) ";")))
 
 (defmethod emit-node* :static-var [node env]
   (let [ty (:type node)
@@ -143,11 +80,6 @@
       (str "static " (render-var-decl ty name) ";")
       (str "static " (render-var-decl ty name) " = " (emit-node* init env) ";"))))
 
-;; ── 赋值 ──
-(defmethod emit-node* :assign [node env]
-  (let [lhs (emit-node* (:lhs node) env)
-        rhs (emit-node* (:rhs node) env)]
-    (T "${lhs} = ${rhs}")))
 
 ;; ── 语句结尾分号 ──
 (defn- stmt-needs-semicolon? [node]
@@ -189,23 +121,14 @@
       (T "if (${test-str})\n{\n${then-str}\n}\nelse\n{\n${else-str}\n}")
       (T "if (${test-str})\n{\n${then-str}\n}"))))
 
-;; ── while 语句 ──
-(defmethod emit-node* :while [node env]
-  (let [test-str (emit-node* (:test node) env)
-        body-str (indent (emit-block-body (:body node) env false))]
-    (T "while (${test-str})\n{\n${body-str}\n}")))
-
-;; ── block ──
-(defmethod emit-node* :block [node env]
-  (emit-block-body node env false))
 
 ;; ── 普通函数 ──
 (defmethod emit-node* :function [node env]
   (let [name-str (cname (name (:name node)))
-        ret-type (render-type (:return-type node))
+        ret-type (lang/type->str (:return-type node))
         params (:params node)
         param-str (if (seq params)                          ;; 函数参数可能为空
-                    (str/join ", " (map #(let [type (render-type (:type %))
+                    (str/join ", " (map #(let [type (lang/type->str (:type %))
                                                name (cname (name (:name %)))]
                                            (T "${type} ${name}"))
                                         params))
@@ -213,52 +136,27 @@
         body-str (indent (emit-block-body (:body node) env true))]
     (T "${ret-type} ${name-str}(${param-str})\n{\n${body-str}\n}")))
 
-(defn hlsl-sematic-str [kw stage]
-  (case kw
-    :position (if (= stage :vertex) "POSITION" "SV_POSITION")
-    :normal       "NORMAL"
-    :tangent      "TANGENT"
-    :texcoord0    "TEXCOORD0"
-    :texcoord1    "TEXCOORD1"
-    :texcoord2    "TEXCOORD2"
-    :texcoord3    "TEXCOORD3"
-    :texcoord4    "TEXCOORD4"
-    :texcoord5    "TEXCOORD5"
-    :texcoord6    "TEXCOORD6"
-    :texcoord7    "TEXCOORD7"
-    :color0       "COLOR0"
-    :color1       "COLOR1"
-    :target0      "SV_TARGET"
-    :target1      "SV_TARGET1"
-    :depth        "SV_DEPTH"
-    :instance-id  "SV_INSTANCEID"
-    :vertex-id    "SV_VERTEXID"
-    :primitive-id "SV_PRIMITIVEID"
-    :user0        "USER0"
-    :user1        "USER1"
-    :user2        "USER2"
-    :user3        "USER3"
-    nil))
 
 ;; ── 入口点 ──
 (defmethod emit-node* :entry-point [node env]
   (let [name-str (cname (name (:name node)))
-        ret-type (render-type (:return-type node))
+        ret-type (lang/type->str (:return-type node))
         params (:params node)
         stage (:stage node)
-        sematic (md/shader-semantic node)
-        param-str (str/join ", " (map #(let [type (render-type (:type %))
+        sematic (semantic/shader-semantic node)
+        param-str (str/join ", " (map #(let [type (lang/type->str (:type %))
                                              name (cname (name (:name %)))
-                                             sematic (md/shader-semantic %)]
+                                             sematic (semantic/shader-semantic %)]
                                          (if sematic
-                                           (let [s (hlsl-sematic-str sematic stage)]
+                                           (let [s (lang/sematic->str sematic stage)]
                                              (T "${type} ${name} : ${s}"))
                                            (T "${type} ${name}")))
                                       params))
 
         body-str (indent (emit-block-body (:body node) env true))]
     (if sematic
-      (let [s (hlsl-sematic-str sematic stage)]
+      ;; 输出用于片元阶段
+      (let [s (lang/sematic->str sematic :fragment)]
         (T "${ret-type} ${name-str}(${param-str}) : ${s}\n{\n${body-str}\n}"))
       (T "${ret-type} ${name-str}(${param-str})\n{\n${body-str}\n}"))))
 
@@ -267,14 +165,16 @@
   (let [name-str (name (:name node))
         members (:members node)
         member-str (when (seq members)
-                     (indent (str/join "\n" (map #(let [type (render-type (:type %))
-                                                        name (name (:name %))
-                                                        sematic (md/shader-semantic %)]
-                                                    (if sematic
-                                                      (let [s (hlsl-sematic-str sematic :vertex)]
-                                                        (T "${type} ${name} : ${s};"))
-                                                      (T "${type} ${name};")))
-                                                 members))))]
+                     (indent (str/join
+                               "\n"
+                               (map #(let [type (lang/type->str (:type %))
+                                           name (name (:name %))
+                                           sematic (semantic/shader-semantic %)]
+                                       (if sematic
+                                         (let [s (lang/sematic->str sematic :vertex)]
+                                           (T "${type} ${name} : ${s};"))
+                                         (T "${type} ${name};")))
+                                    members))))]
     (T "struct ${name-str}\n{\n${member-str}\n};")))
 
 ;; ── 资源声明 ──
@@ -287,24 +187,62 @@
       :sampler   (T "SamplerState ${res-name} : register(${res-slot});")
       :cbuffer   (let [members (:members node)
                        member-str (when (seq members)
-                                    (indent (str/join "\n" (map #(let [type (render-type (:type %))
+                                    (indent (str/join "\n" (map #(let [type (lang/type->str (:type %))
                                                                        mem-name (name (:name %))]
                                                                    (T "${type} ${mem-name};"))
                                                                 members))))]
                    (T "cbuffer ${res-name} : register(${res-slot})\n{\n${member-str}\n}")))))
 
-;; ── import ──
-(defmethod emit-node* :import [node _]
-  (let [path (str (:path node))]
-    (T "#include \"${path}.hlsl\"")))
-
-;; ── 默认报错 ──
-(defmethod emit-node* :default [node _]
-  (throw (ex-info (str "Unknown ShaderAST node: " (ast/kind node)) {:node node})))
+(defmethod emit-node* :default [node env]
+  (case (ast/kind node)
+    :literal
+    (let [val (:val node)]
+      (lang/literal->str val))
+    :import
+    (let [path (str (:path node))]
+      (T "#include \"${path}.hlsl\""))
+    :variable
+    (cname (name (:name node)))
+    :binary-op
+    (let [left (emit-node* (:left node) env)
+          op (name (:op node))
+          right (emit-node* (:right node) env)]
+      (T "${left} ${op} ${right}"))
+    :unary-op
+    (let [op (name (:op node))
+          expr (emit-node* (:expr node) env)]
+      (T "${op}${expr}"))
+    :block
+    (emit-block-body node env false)
+    :while
+    (let [test-str (emit-node* (:test node) env)
+          body-str (indent (emit-block-body (:body node) env false))]
+      (T "while (${test-str})\n{\n${body-str}\n}"))
+    :assign
+    (let [lhs (emit-node* (:lhs node) env)
+          rhs (emit-node* (:rhs node) env)]
+      (T "${lhs} = ${rhs}"))
+    :cast
+    (let [type (lang/type->str (:type node))
+          expr (emit-node* (:expr node) env)]
+      (T "(${type})${expr}"))
+    :array-index
+    (let [target (emit-node* (:target node) env)
+          index (emit-node* (:index node) env)]
+      (T "${target}[${index}]"))
+    :uniform
+    (let [ty (:type node)
+          name (cname (name (:name node)))]
+      (str "uniform " (render-var-decl ty name) ";"))
+    :member-access
+    (let [target (emit-node* (:target node) env)
+          member (name (:member node))]
+      (T "${target}.${member}"))
+    (throw (ex-info (str "Unknown ShaderAST node: " (ast/kind node)) {:node node}))))
 
 ;; ── 入口 ──
 (defn emit [nodes]
-  (let [env (make-env)
+  (let [env (env/make-env)
         filtered (remove #(and (= :var-decl (ast/kind %))
                                (-> % :meta :shader/ignore-emit?))
                          nodes)]

@@ -28,7 +28,7 @@
           ped (irstmt.assign-propagate/propagate-nodes sted)
           dced (irstmt.dce/elim-nodes ped ctx)
           shader-asts (lower/lower dced)
-          vec-copied (vec-assign/expand-vec-assigns shader-asts)
+          vec-copied (vec-assign/expand shader-asts)
           emitted (emit/emit vec-copied)]
       (println "ir-stmts " irstmts)
       (println "stmted" sted)

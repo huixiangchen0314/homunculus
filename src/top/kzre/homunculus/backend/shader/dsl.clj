@@ -9,7 +9,7 @@
         fn-form (list* 'fn param-vec body)]
     `(def ~(vary-meta name merge meta-map) ~fn-form)))
 
-;; 类型构造器（运行时无操作，仅用于类型标记）
+;; 类型构造器（运行时无操作，仅用于类型推导辅助）
 (defn- texture2D     [] nil)
 (defn- sampler-state [] nil)
 (defn- cbuffer       [] nil)

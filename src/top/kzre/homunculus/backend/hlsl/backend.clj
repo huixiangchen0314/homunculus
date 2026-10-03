@@ -3,7 +3,7 @@
   (:require
     [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.backend.hlsl.folder :as folder]))
+    [top.kzre.homunculus.backend.shader.folder :as folder]))
 
 (defrecord HLSLBackend []
   tp/IBackendInfo

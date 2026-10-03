@@ -20,6 +20,7 @@
 
 ;; ── 顶点着色器 (包含高阶调用测试) ────────
 (defshader :vertex vsMain
+           ^:position
            [^:position ^float4 pos
             ^:normal ^float3 nrm
             ^:texcoord0 ^float2 uv
@@ -43,7 +44,7 @@
            (let [worldPos (mul worldViewProj pos)
                  ll (if true 1 2)
                  xxxxx [1 2 3]]
-             (float4 (float3 (%%aget y 0) 1.0 1.0) 1.0)))
+             (float4 (float3 (%%aget y 0) vv 1.0) (%%aget xxxxx 0))))
 
 ;; ── 片段着色器 ────────────────────────────
 (defshader :fragment psMain

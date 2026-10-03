@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.backend.shader.metadata
+(ns top.kzre.homunculus.backend.shader.semantic
   "着色器元数据访问辅助")
 
 (defn shader-stage [node]
