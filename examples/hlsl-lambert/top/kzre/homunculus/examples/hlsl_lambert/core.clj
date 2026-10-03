@@ -1,5 +1,7 @@
 (ns top.kzre.homunculus.examples.hlsl-lambert.core
-  (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]))
+  (:require
+    [top.kzre.homunculus.examples.hlsl-lambert.lib :as lib]
+    [top.kzre.homunculus.backend.shader.dsl :refer :all]))
 
 ;; ── 资源声明 ──────────────────────────────
 (deftexture myTexture :t0)

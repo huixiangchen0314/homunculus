@@ -9,8 +9,15 @@
    [top.kzre.homunculus.core.ir2.pass.type :as ty]
    [top.kzre.homunculus.core.irstmt.ast :as irstmt]))
 
-(def ^:private unary-ops #{'! '- '++ '--})
-(def ^:private infix-ops #{'+ '- '* '/ '% '== '!= '< '> '<= '>= '&& '||})
+(def ^:private unary-ops
+  #{'not 'bit-not '-})
+
+(def ^:private infix-ops
+  #{'+ '- '* '/ 'mod
+    '= 'not= '< '> '<= '>=
+    'and 'or
+    'bit-and 'bit-or 'bit-xor
+    'bit-shift-left 'bit-shift-right})
 
 (defn- ir-meta [node] (irstmt/node-meta node))
 (declare lower-node*)

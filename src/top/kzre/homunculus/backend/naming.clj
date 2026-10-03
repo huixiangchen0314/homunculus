@@ -1,7 +1,7 @@
-(ns top.kzre.homunculus.backend.util.naming
-  "通用名称处理：字符转义。保留字处理由各后端自行负责。"
-  (:require
-    [clojure.string :as str]))
+(ns top.kzre.homunculus.backend.naming
+  (:require [clojure.string :as str]))
+
+
 
 (def ^:private char-replacements
   "将 Clojure 特殊字符映射为安全的 C 标识符片段。"
@@ -35,3 +35,35 @@
                      (fn [ch] (get char-replacements (first ch) "_")))
         ;; 再将其它非法字符替换为下划线
         (str/replace #"[^a-zA-Z0-9_]" "_"))))
+
+(def ^:private clojure-op->c-op
+  "Clojure 风格运算符 → C 风格运算符字符串。"
+  {'+              "+"
+   '-              "-"
+   '*              "*"
+   '/              "/"
+   'mod            "%"
+
+   '=              "=="
+   'not=           "!="
+   '<              "<"
+   '>              ">"
+   '<=             "<="
+   '>=             ">="
+
+   'and            "&&"
+   'or             "||"
+   'not            "!"
+
+   'bit-and        "&"
+   'bit-or         "|"
+   'bit-xor        "^"
+   'bit-not        "~"
+   'bit-shift-left  "<<"
+   'bit-shift-right ">>"})
+
+(defn cop-name
+  "把 Clojure 风格的操作符符号换成 C 风格的运算符字符串。
+   未知运算符返回 nil。"
+  [op-sym]
+  (get clojure-op->c-op op-sym))

@@ -70,49 +70,49 @@
 
            ;; ── 矩阵 ────────────────────────────────────
            [:record 'float2x2
-            ['_m00 'float] ['_m01 'float]
-            ['_m10 'float] ['_m11 'float]]
+            ['_00 'float] ['_01 'float]
+            ['_10 'float] ['_11 'float]]
 
            [:record 'float2x3
-            ['_m00 'float] ['_m01 'float] ['_m02 'float]
-            ['_m10 'float] ['_m11 'float] ['_m12 'float]]
+            ['_00 'float] ['_01 'float] ['_02 'float]
+            ['_10 'float] ['_11 'float] ['_12 'float]]
 
            [:record 'float2x4
-            ['_m00 'float] ['_m01 'float] ['_m02 'float] ['_m03 'float]
-            ['_m10 'float] ['_m11 'float] ['_m12 'float] ['_m13 'float]]
+            ['_00 'float] ['_01 'float] ['_02 'float] ['_03 'float]
+            ['_10 'float] ['_11 'float] ['_12 'float] ['_13 'float]]
 
            [:record 'float3x2
-            ['_m00 'float] ['_m01 'float]
-            ['_m10 'float] ['_m11 'float]
-            ['_m20 'float] ['_m21 'float]]
+            ['_00 'float] ['_01 'float]
+            ['_10 'float] ['_11 'float]
+            ['_20 'float] ['_21 'float]]
 
            [:record 'float3x3
-            ['_m00 'float] ['_m01 'float] ['_m02 'float]
-            ['_m10 'float] ['_m11 'float] ['_m12 'float]
-            ['_m20 'float] ['_m21 'float] ['_m22 'float]]
+            ['_00 'float] ['_01 'float] ['_02 'float]
+            ['_10 'float] ['_11 'float] ['_12 'float]
+            ['_20 'float] ['_21 'float] ['_22 'float]]
 
            [:record 'float3x4
-            ['_m00 'float] ['_m01 'float] ['_m02 'float] ['_m03 'float]
-            ['_m10 'float] ['_m11 'float] ['_m12 'float] ['_m13 'float]
-            ['_m20 'float] ['_m21 'float] ['_m22 'float] ['_m23 'float]]
+            ['_00 'float] ['_01 'float] ['_02 'float] ['_03 'float]
+            ['_10 'float] ['_11 'float] ['_12 'float] ['_13 'float]
+            ['_20 'float] ['_21 'float] ['_22 'float] ['_23 'float]]
 
            [:record 'float4x2
-            ['_m00 'float] ['_m01 'float]
-            ['_m10 'float] ['_m11 'float]
-            ['_m20 'float] ['_m21 'float]
-            ['_m30 'float] ['_m31 'float]]
+            ['_00 'float] ['_01 'float]
+            ['_10 'float] ['_11 'float]
+            ['_20 'float] ['_21 'float]
+            ['_30 'float] ['_31 'float]]
 
            [:record 'float4x3
-            ['_m00 'float] ['_m01 'float] ['_m02 'float]
-            ['_m10 'float] ['_m11 'float] ['_m12 'float]
-            ['_m20 'float] ['_m21 'float] ['_m22 'float]
-            ['_m30 'float] ['_m31 'float] ['_m32 'float]]
+            ['_00 'float] ['_01 'float] ['_02 'float]
+            ['_10 'float] ['_11 'float] ['_12 'float]
+            ['_20 'float] ['_21 'float] ['_22 'float]
+            ['_30 'float] ['_31 'float] ['_32 'float]]
 
            [:record 'float4x4
-            ['_m00 'float] ['_m01 'float] ['_m02 'float] ['_m03 'float]
-            ['_m10 'float] ['_m11 'float] ['_m12 'float] ['_m13 'float]
-            ['_m20 'float] ['_m21 'float] ['_m22 'float] ['_m23 'float]
-            ['_m30 'float] ['_m31 'float] ['_m32 'float] ['_m33 'float]]
+            ['_00 'float] ['_01 'float] ['_02 'float] ['_03 'float]
+            ['_10 'float] ['_11 'float] ['_12 'float] ['_13 'float]
+            ['_20 'float] ['_21 'float] ['_22 'float] ['_23 'float]
+            ['_30 'float] ['_31 'float] ['_32 'float] ['_33 'float]]
 
            [:alias '%%+ '+]
            [:alias '%%- '-]
@@ -159,77 +159,113 @@
             [['a 'int   'b 'int]   'int]
             [['a 'uint  'b 'uint]  'uint]]
 
-           ;; ── 位运算 ──────────────────────────────────
-           [:func '& {:pure? true}
+           ;; ── 位运算（Clojure 风格） ──────────────────
+           [:func 'bit-and {:pure? true}
             [['a 'int 'b 'int] 'int]
             [['a 'uint 'b 'uint] 'uint]]
-           [:func '| {:pure? true}
+           [:func 'bit-or {:pure? true}
             [['a 'int 'b 'int] 'int]
             [['a 'uint 'b 'uint] 'uint]]
-           [:func '^ {:pure? true}
+           [:func 'bit-xor {:pure? true}
             [['a 'int 'b 'int] 'int]
             [['a 'uint 'b 'uint] 'uint]]
-           [:func '~ {:pure? true}
+           [:func 'bit-not {:pure? true}
             [['a 'int] 'int]
             [['a 'uint] 'uint]]
-           [:func '<< {:pure? true}
+           [:func 'bit-shift-left {:pure? true}
             [['a 'int 'b 'int] 'int]
             [['a 'uint 'b 'uint] 'uint]]
-           [:func '>> {:pure? true}
+           [:func 'bit-shift-right {:pure? true}
             [['a 'int 'b 'int] 'int]
             [['a 'uint 'b 'uint] 'uint]]
 
            ;; ── 逻辑运算 ────────────────────────────────
-           [:func '&& {:pure? true}
+           [:func 'and {:pure? true}
             [['a 'bool 'b 'bool] 'bool]]
-           [:func '|| {:pure? true}
+           [:func 'or {:pure? true}
             [['a 'bool 'b 'bool] 'bool]]
-           [:func '! {:pure? true}
+           [:func 'not {:pure? true}
             [['a 'bool] 'bool]]
 
            ;; ── 比较运算 ────────────────────────────────
            [:func '<  {:pure? true}
-            [['a 'float 'b 'float] 'bool]
-            [['a 'float2 'b 'float2] 'bool]
-            [['a 'float3 'b 'float3] 'bool]
-            [['a 'float4 'b 'float4] 'bool]
-            [['a 'int 'b 'int] 'bool]
-            [['a 'uint 'b 'uint] 'bool]]
+            [['a 'float  'b 'float]  'bool]
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int    'b 'int]    'bool]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint   'b 'uint]   'bool]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
            [:func '<= {:pure? true}
-            [['a 'float 'b 'float] 'bool]
-            [['a 'float2 'b 'float2] 'bool]
-            [['a 'float3 'b 'float3] 'bool]
-            [['a 'float4 'b 'float4] 'bool]
-            [['a 'int 'b 'int] 'bool]
-            [['a 'uint 'b 'uint] 'bool]]
+            [['a 'float  'b 'float]  'bool]
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int    'b 'int]    'bool]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint   'b 'uint]   'bool]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
            [:func '> {:pure? true}
-            [['a 'float 'b 'float] 'bool]
-            [['a 'float2 'b 'float2] 'bool]
-            [['a 'float3 'b 'float3] 'bool]
-            [['a 'float4 'b 'float4] 'bool]
-            [['a 'int 'b 'int] 'bool]
-            [['a 'uint 'b 'uint] 'bool]]
+            [['a 'float  'b 'float]  'bool]
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int    'b 'int]    'bool]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint   'b 'uint]   'bool]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
            [:func '>= {:pure? true}
-            [['a 'float 'b 'float] 'bool]
-            [['a 'float2 'b 'float2] 'bool]
-            [['a 'float3 'b 'float3] 'bool]
-            [['a 'float4 'b 'float4] 'bool]
-            [['a 'int 'b 'int] 'bool]
-            [['a 'uint 'b 'uint] 'bool]]
+            [['a 'float  'b 'float]  'bool]
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int    'b 'int]    'bool]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint   'b 'uint]   'bool]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
            [:func '= {:pure? true}
-            [['a 'float 'b 'float] 'bool]
-            [['a 'float2 'b 'float2] 'bool]
-            [['a 'float3 'b 'float3] 'bool]
-            [['a 'float4 'b 'float4] 'bool]
-            [['a 'int 'b 'int] 'bool]
-            [['a 'uint 'b 'uint] 'bool]]
+            [['a 'float  'b 'float]  'bool]
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int    'b 'int]    'bool]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint   'b 'uint]   'bool]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
            [:func 'not= {:pure? true}
-            [['a 'float 'b 'float] 'bool]
-            [['a 'float2 'b 'float2] 'bool]
-            [['a 'float3 'b 'float3] 'bool]
-            [['a 'float4 'b 'float4] 'bool]
-            [['a 'int 'b 'int] 'bool]
-            [['a 'uint 'b 'uint] 'bool]]
+            [['a 'float  'b 'float]  'bool]
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int    'b 'int]    'bool]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint   'b 'uint]   'bool]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
 
            ;; ═══════════════════════════════════════════
            ;; 向量构造
@@ -534,18 +570,91 @@
             [['tex 'Texture1DArray   'samp 'SamplerState 'uv  'float2] 'float4]
             [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3] 'float4]
             [['tex 'TextureCubeArray 'samp 'SamplerState 'uvw 'float4] 'float4]]
+
            [:func 'sampleLod {:io? true}
-            [['tex 'Texture1D      'samp 'SamplerState 'uv  'float  'lod 'float] 'float4]
-            [['tex 'Texture2D      'samp 'SamplerState 'uv  'float2 'lod 'float] 'float4]
-            [['tex 'Texture3D      'samp 'SamplerState 'uv  'float3 'lod 'float] 'float4]
-            [['tex 'TextureCube    'samp 'SamplerState 'dir 'float3 'lod 'float] 'float4]
-            [['tex 'Texture2DArray 'samp 'SamplerState 'uvw 'float3 'lod 'float] 'float4]]
+            [['tex 'Texture1D        'samp 'SamplerState 'uv  'float  'lod 'float] 'float4]
+            [['tex 'Texture2D        'samp 'SamplerState 'uv  'float2 'lod 'float] 'float4]
+            [['tex 'Texture3D        'samp 'SamplerState 'uv  'float3 'lod 'float] 'float4]
+            [['tex 'TextureCube      'samp 'SamplerState 'dir 'float3 'lod 'float] 'float4]
+            [['tex 'Texture1DArray   'samp 'SamplerState 'uv  'float2 'lod 'float] 'float4]
+            [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3 'lod 'float] 'float4]
+            [['tex 'TextureCubeArray 'samp 'SamplerState 'uvw 'float4 'lod 'float] 'float4]]
+
+           [:func 'sampleBias {:io? true}
+            [['tex 'Texture2D        'samp 'SamplerState 'uv  'float2 'bias 'float] 'float4]
+            [['tex 'Texture3D        'samp 'SamplerState 'uv  'float3 'bias 'float] 'float4]
+            [['tex 'TextureCube      'samp 'SamplerState 'dir 'float3 'bias 'float] 'float4]
+            [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3 'bias 'float] 'float4]]
+
            [:func 'sampleCmp {:io? true}
             [['tex 'Texture2D 'samp 'SamplerComparisonState
-              'uv 'float2 'compareValue 'float] 'float]]
-           [:func 'sampleCmpLod {:io? true}
-            [['tex 'Texture2D 'samp 'SamplerComparisonState
-              'uv 'float2 'compareValue 'float 'lod 'float] 'float]]
+              'uv 'float2 'compareValue 'float] 'float]
+            [['tex 'TextureCube 'samp 'SamplerComparisonState
+              'dir 'float3 'compareValue 'float] 'float]]
+
+
+           ;; ── 纹理读取 ────────────────────────────────
+           ;; load → GLSL texelFetch
+           [:func 'load {:io? true}
+            [['tex 'Texture1D        'loc 'int]                 'float4]
+            [['tex 'Texture1D        'loc 'int 'lod 'int]       'float4]
+            [['tex 'Texture2D        'loc 'int2]                'float4]
+            [['tex 'Texture2D        'loc 'int2 'lod 'int]      'float4]
+            [['tex 'Texture3D        'loc 'int3]                'float4]
+            [['tex 'Texture3D        'loc 'int3 'lod 'int]      'float4]
+            [['tex 'Texture2DArray   'loc 'int3]                'float4]
+            [['tex 'Texture2DArray   'loc 'int3 'lod 'int]      'float4]
+            [['tex 'Texture2DMS      'loc 'int2 'sample 'int]   'float4]
+            [['tex 'Texture2DMSArray 'loc 'int3 'sample 'int]   'float4]]
+
+           ;; ── 纹理聚集 ────────────────────────────────
+           ;; gather → GLSL textureGather
+           [:func 'gather {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'float4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'float4]
+            [['tex 'TextureCube    'samp 'SamplerState 'dir 'float3] 'float4]]
+           [:func 'gatherRed {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'float4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'float4]]
+           [:func 'gatherGreen {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'float4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'float4]]
+           [:func 'gatherBlue {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'float4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'float4]]
+           [:func 'gatherAlpha {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'float4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'float4]]
+
+           ;; ── 采样变体 ────────────────────────────────
+           ;; sampleGrad → GLSL textureGrad
+           [:func 'sampleGrad {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv  'float2
+              'ddx 'float2 'ddy 'float2] 'float4]
+            [['tex 'Texture3D      'samp 'SamplerState 'uv  'float3
+              'ddx 'float3 'ddy 'float3] 'float4]
+            [['tex 'TextureCube    'samp 'SamplerState 'dir 'float3
+              'ddx 'float3 'ddy 'float3] 'float4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uvw 'float3
+              'ddx 'float3 'ddy 'float3] 'float4]]
+
+           ;; sampleCmpLevelZero → GLSL textureLod(sampler2DShadow, ...)
+           [:func 'sampleCmpLevelZero {:io? true}
+            [['tex 'Texture2D   'samp 'SamplerComparisonState
+              'uv 'float2 'compareValue 'float] 'float]
+            [['tex 'TextureCube 'samp 'SamplerComparisonState
+              'dir 'float3 'compareValue 'float] 'float]]
+
+           ;; ── 纹理查询 ────────────────────────────────
+           ;; textureSize → GLSL textureSize
+           [:func 'textureSize {:io? true}
+            [['tex 'Texture1D        'lod 'int] 'int]
+            [['tex 'Texture2D        'lod 'int] 'int2]
+            [['tex 'Texture3D        'lod 'int] 'int3]
+            [['tex 'TextureCube      'lod 'int] 'int2]
+            [['tex 'Texture1DArray   'lod 'int] 'int2]
+            [['tex 'Texture2DArray   'lod 'int] 'int3]
+            [['tex 'TextureCubeArray 'lod 'int] 'int3]]
 
            ;; ═══════════════════════════════════════════
            ;; HLSL 特有函数

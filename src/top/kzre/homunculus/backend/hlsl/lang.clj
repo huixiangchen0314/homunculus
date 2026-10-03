@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.backend.hlsl.lang
   (:require
-   [top.kzre.homunculus.backend.util.format :refer [T]]
+   [top.kzre.homunculus.backend.format :refer [T]]
    [top.kzre.homunculus.core.error :as err]
    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 

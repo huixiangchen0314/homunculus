@@ -137,14 +137,16 @@
    `(deftexture ~name ~register :2d float))
   ([name register dimension]
    `(deftexture ~name ~register ~dimension float))
-  ([name register dimension element-ctor]
+  ([sym register dimension element-ctor]
    (let [ctor (texture-ctor dimension)
+         texture-type (name ctor)
          element-type (name element-ctor)]
-     `(def ~(vary-meta name assoc
+     `(def ~(vary-meta sym assoc
                        :shader/resource? true
                        :shader/resource-kind :texture
                        :shader/texture-register register
                        :shader/dimension dimension
+                       :shader/texture-type texture-type
                        :shader/element-type element-type)
         (~(fully-qualified-ctor ctor))))))
 
@@ -152,11 +154,13 @@
   "定义采样器资源。"
   ([name register]
    `(defsampler ~name ~register false))
-  ([name register-kw compare]
-   (let [ctor (if compare 'SamplerComparisonState 'SamplerState)]
-     `(def ~(vary-meta name assoc
+  ([sym register-kw compare]
+   (let [ctor (if compare 'SamplerComparisonState 'SamplerState)
+         sampler-type (name ctor)]
+     `(def ~(vary-meta sym assoc
                        :shader/resource? true
                        :shader/resource-kind :sampler
+                       :shader/sampler-type sampler-type
                        :shader/sampler-compare? (boolean compare)
                        :shader/sampler-register register-kw)
         (~(fully-qualified-ctor ctor))))))

@@ -6,8 +6,8 @@
    [top.kzre.homunculus.backend.hlsl.lang :as lang]
    [top.kzre.homunculus.backend.shader.ast :as ast]
    [top.kzre.homunculus.backend.shader.semantic :as semantic]
-   [top.kzre.homunculus.backend.util.format :refer [T]]
-   [top.kzre.homunculus.backend.util.naming :refer [cname]]
+   [top.kzre.homunculus.backend.format :refer [T]]
+   [top.kzre.homunculus.backend.naming :as naming]
    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 ;; ── 缩进 ──
@@ -25,20 +25,39 @@
 ;; ── 多方法 ──
 (defmulti emit-node* (fn [node _env] (ast/kind node)))
 
+
+
+(def ^:private texture-method-names
+  "纹理函数：DSL 函数名 → HLSL 成员方法名"
+  {'sample              "Sample"
+   'sampleLod           "SampleLevel"
+   'sampleBias          "SampleBias"
+   'sampleCmp           "SampleCmp"
+   'sampleCmpLevelZero  "SampleCmpLevelZero"
+   'sampleGrad          "SampleGrad"
+   'load                "Load"
+   'gather              "Gather"
+   'gatherRed           "GatherRed"
+   'gatherGreen         "GatherGreen"
+   'gatherBlue          "GatherBlue"
+   'gatherAlpha         "GatherAlpha"
+   'textureSize         "GetDimensions"})
+
 ;; ── 函数调用 ──
 (defmethod emit-node* :call [node env]
-  (let [fn-sym (:fn node)
-        args (:args node)]
-    (if (= fn-sym 'sample)
-      ;; 特判 sample 函数：转换为 texture.Sample(sampler, uv, ...)
-      (let [texture (emit-node* (first args) env)
-            sampler (emit-node* (second args) env)
-            rest-args (str/join ", " (map #(emit-node* % env) (drop 2 args)))]
-        (str texture ".Sample(" sampler ", " rest-args ")"))
-      ;; 普通函数调用
-      (let [fn-name (name fn-sym)
-            args-str (str/join ", " (map #(emit-node* % env) args))]
-        (T "${fn-name}(${args-str})")))))
+  (let [fn-sym   (:fn node)
+        args     (:args node)
+        arg-strs (mapv #(emit-node* % env) args)]
+    (cond
+      ;; 纹理成员方法：tex.Method(rest-args...)
+      (contains? texture-method-names fn-sym)
+      (let [tex      (first arg-strs)
+            rest-str (str/join ", " (rest arg-strs))]
+        (str tex "." (texture-method-names fn-sym) "(" rest-str ")"))
+
+      ;; 普通函数
+      :else
+      (str (name fn-sym) "(" (str/join ", " arg-strs) ")"))))
 
 ;; ── 构造器 ──
 (defmethod emit-node* :constructor [node env]
@@ -62,7 +81,7 @@
 ;; ── 变量声明 ──
 (defmethod emit-node* :var-decl [node env]
   (let [ty (:type node)
-        name (cname (name (:name node)))
+        name (naming/cname (name (:name node)))
         init (:init node)
         init-str (when init (emit-node* init env))]
     (if (str/blank? init-str)
@@ -73,7 +92,7 @@
 
 (defmethod emit-node* :static-var [node env]
   (let [ty (:type node)
-        name (cname (name (:name node)))
+        name (naming/cname (name (:name node)))
         init (:init node)
         init-str (when init (emit-node* init env))]
     (if (str/blank? init-str)
@@ -124,12 +143,12 @@
 
 ;; ── 普通函数 ──
 (defmethod emit-node* :function [node env]
-  (let [name-str (cname (name (:name node)))
+  (let [name-str (naming/cname (name (:name node)))
         ret-type (lang/type->str (:return-type node))
         params (:params node)
         param-str (if (seq params)                          ;; 函数参数可能为空
                     (str/join ", " (map #(let [type (lang/type->str (:type %))
-                                               name (cname (name (:name %)))]
+                                               name (naming/cname (name (:name %)))]
                                            (T "${type} ${name}"))
                                         params))
                     "")
@@ -139,13 +158,13 @@
 
 ;; ── 入口点 ──
 (defmethod emit-node* :entry-point [node env]
-  (let [name-str (cname (name (:name node)))
+  (let [name-str (naming/cname (name (:name node)))
         ret-type (lang/type->str (:return-type node))
         params (:params node)
         stage (:stage node)
         sematic (semantic/shader-semantic node)
         param-str (str/join ", " (map #(let [type (lang/type->str (:type %))
-                                             name (cname (name (:name %)))
+                                             name (naming/cname (name (:name %)))
                                              sematic (semantic/shader-semantic %)]
                                          (if sematic
                                            (let [s (lang/sematic->str sematic stage)]
@@ -181,10 +200,15 @@
 (defmethod emit-node* :resource-decl [node env]
   (let [res-name (name (:name node))
         res-slot (name (:slot node))
-        kind (:resource-kind node)]
+        kind (:resource-kind node)
+        ]
     (case kind
-      :texture   (T "Texture2D ${res-name} : register(${res-slot});")
-      :sampler   (T "SamplerState ${res-name} : register(${res-slot});")
+      :texture
+      (let [texture-type (semantic/shader-texture-type node)]
+        (T "${texture-type} ${res-name} : register(${res-slot});"))
+      :sampler
+      (let [sampler-type (semantic/shader-sampler-type node)]
+        (T "${sampler-type} ${res-name} : register(${res-slot});"))
       :cbuffer   (let [members (:members node)
                        member-str (when (seq members)
                                     (indent (str/join "\n" (map #(let [type (lang/type->str (:type %))
@@ -202,14 +226,14 @@
     (let [path (str (:path node))]
       (T "#include \"${path}.hlsl\""))
     :variable
-    (cname (name (:name node)))
+    (naming/cname (name (:name node)))
     :binary-op
-    (let [left (emit-node* (:left node) env)
-          op (name (:op node))
+    (let [left  (emit-node* (:left node) env)
+          op    (naming/cop-name (:op node))
           right (emit-node* (:right node) env)]
       (T "${left} ${op} ${right}"))
     :unary-op
-    (let [op (name (:op node))
+    (let [op   (naming/cop-name (:op node))
           expr (emit-node* (:expr node) env)]
       (T "${op}${expr}"))
     :block
@@ -232,7 +256,7 @@
       (T "${target}[${index}]"))
     :uniform
     (let [ty (:type node)
-          name (cname (name (:name node)))]
+          name (naming/cname (name (:name node)))]
       (str "uniform " (render-var-decl ty name) ";"))
     :member-access
     (let [target (emit-node* (:target node) env)

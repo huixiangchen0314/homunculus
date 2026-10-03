@@ -13,11 +13,21 @@
 (defn shader-texture-register [node]
   (:shader/texture-register (:meta node)))
 
+(defn shader-texture-dimension [node]
+  (:shader/dimension (:meta node)))
+
+(defn shader-texture-type [node]
+  (:shader/texture-type (:meta node)))
+
 (defn shader-sampler-register [node]
   (:shader/sampler-register (:meta node)))
 
+(defn shader-sampler-type [node]
+  (:shader/sampler-type (:meta node)))
+
 (defn shader-cbuffer-register [node]
   (:shader/cbuffer-register (:meta node)))
+
 
 (defn shader-cbuffer-members [node]
   (:shader/cbuffer-members (:meta node)))
