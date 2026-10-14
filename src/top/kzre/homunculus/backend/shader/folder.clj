@@ -43,4 +43,6 @@
         (when (n/variable-node? fn-node)
           (fold-call (n/var-name fn-node) (n/call-args node) context))))))
 
-(defonce folder (->HLSLFolder))
+(defonce ^:private folder* (->HLSLFolder))
+
+(defn folder [] folder*)

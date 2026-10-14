@@ -19,11 +19,17 @@
 (defn shader-texture-type [node]
   (:shader/texture-type (:meta node)))
 
+(defn shader-texture-element-type [node]
+   (:shader/element-type (:meta node)))
+
 (defn shader-sampler-register [node]
   (:shader/sampler-register (:meta node)))
 
 (defn shader-sampler-type [node]
   (:shader/sampler-type (:meta node)))
+
+(defn shader-sampler-compare? [node]
+  (:shader/sampler-compare? (:meta node)))
 
 (defn shader-cbuffer-register [node]
   (:shader/cbuffer-register (:meta node)))
@@ -81,3 +87,7 @@
       (:user3 md) :user3
 
       :else nil)))
+
+
+
+

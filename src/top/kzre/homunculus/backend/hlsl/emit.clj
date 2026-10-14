@@ -1,14 +1,15 @@
 (ns top.kzre.homunculus.backend.hlsl.emit
   "ShaderAST → HLSL 源代码发射器。完全使用 T 宏模板化，缩进由 indent 函数统一处理。"
   (:require
-   [clojure.string :as str]
-   [top.kzre.homunculus.backend.hlsl.env :as env]
-   [top.kzre.homunculus.backend.hlsl.lang :as lang]
-   [top.kzre.homunculus.backend.shader.ast :as ast]
-   [top.kzre.homunculus.backend.shader.semantic :as semantic]
-   [top.kzre.homunculus.backend.format :refer [T]]
-   [top.kzre.homunculus.backend.naming :as naming]
-   [top.kzre.homunculus.core.ir2.pass.type :as ty]))
+    [clojure.string :as str]
+    [top.kzre.homunculus.backend.hlsl.env :as env]
+    [top.kzre.homunculus.backend.hlsl.lang :as lang]
+    [top.kzre.homunculus.backend.shader.ast :as ast]
+    [top.kzre.homunculus.backend.shader.semantic :as semantic]
+    [top.kzre.homunculus.backend.format :refer [T]]
+    [top.kzre.homunculus.backend.naming :as naming]
+    [top.kzre.homunculus.core.error :as err]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 ;; ── 缩进 ──
 (def ^:private indent-size 4)
@@ -103,7 +104,7 @@
 ;; ── 语句结尾分号 ──
 (defn- stmt-needs-semicolon? [node]
   (not (contains? #{:if :while :block :function :entry-point
-                    :struct :resource-decl :import}
+                    :struct :import}
                   (ast/kind node))))
 
 (defn- pure-value-node?
@@ -197,25 +198,39 @@
     (T "struct ${name-str}\n{\n${member-str}\n};")))
 
 ;; ── 资源声明 ──
-(defmethod emit-node* :resource-decl [node env]
+
+(defmethod emit-node* :texture-decl [node env]
   (let [res-name (name (:name node))
-        res-slot (name (:slot node))
-        kind (:resource-kind node)
-        ]
-    (case kind
-      :texture
-      (let [texture-type (semantic/shader-texture-type node)]
-        (T "${texture-type} ${res-name} : register(${res-slot});"))
-      :sampler
-      (let [sampler-type (semantic/shader-sampler-type node)]
-        (T "${sampler-type} ${res-name} : register(${res-slot});"))
-      :cbuffer   (let [members (:members node)
-                       member-str (when (seq members)
-                                    (indent (str/join "\n" (map #(let [type (lang/type->str (:type %))
-                                                                       mem-name (name (:name %))]
-                                                                   (T "${type} ${mem-name};"))
-                                                                members))))]
-                   (T "cbuffer ${res-name} : register(${res-slot})\n{\n${member-str}\n}")))))
+        res-reg   (name (:register node))
+        dim      (:dimension node)
+        tex-type   (or (lang/texture-dimension->type-str (:dimension node))
+                       (throw (err/compile-error
+                                :unknown-texture-dimension
+                                (str "Unknown texture dimension: " dim))))
+        elem-type (lang/type->str (:element-type node))]
+    (T "${tex-type}<${elem-type}> ${res-name} : register(${res-reg});")))
+
+(defmethod emit-node* :sampler-decl [node env]
+  (let [res-name (name (:name node))
+        res-reg  (name (:register node))
+        cmp?     (:compare? node)
+        type-str (or (lang/sampler-type-str cmp?)
+                     (throw (err/compile-error
+                              :unknown-sampler-compare
+                              (str "Unknown sampler compare?: " cmp?))))]
+    (T "${type-str} ${res-name} : register(${res-reg});")))
+
+(defmethod emit-node* :cbuffer-decl [node env]
+  (let [res-name (name (:name node))
+        res-reg (name (:register node))
+        members (:members node)
+        member-str (when (seq members)
+                     (indent (str/join "\n"
+                                       (map #(let [t (lang/type->str (:type %))
+                                                   n (name (:name %))]
+                                               (T "${t} ${n};"))
+                                            members))))]
+    (T "cbuffer ${res-name} : register(${res-reg})\n{\n${member-str}\n}")))
 
 (defmethod emit-node* :default [node env]
   (case (ast/kind node)

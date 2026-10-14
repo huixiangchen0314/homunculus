@@ -3,18 +3,20 @@
 
 (declare ShaderAST kind children reduce-children node-meta
         ->Literal ->Variable ->BinaryOp ->UnaryOp ->Call ->MemberAccess
-        ->ArrayIndex ->Constructor ->Cast ->Swizzle
+        ->ArrayIndex ->Constructor ->Cast
         ->Assign ->VarDecl ->If ->While ->Block
-        ->Function ->EntryPoint ->Struct ->ResourceDecl ->Import
+        ->Function ->EntryPoint ->Struct ->Import
+        ->CbufferDecl ->TextureDecl ->SamplerDecl
         ->Param ->StructMember
         ->Uniform ->StaticVar)
 
 (defast ShaderAST
-        {:expr            [:literal / :variable / :binary-op / :unary-op / :call
+        {:expr            [:literal / :variable / :binary-op / :unary-op / :call /
                            :member-access / :array-index / :constructor / :cast]
          :exprs           [:expr {:many true}]
          :stmt            [:assign / :var-decl / :if / :while / :block / :expr /
-                           :uniform / :static-var]
+                           :uniform / :static-var /
+                           :texture-decl / :sampler-decl / :cbuffer-decl]
          :stmts           [:stmt {:many true}]
          :params          [:param {:many true}]
          :struct-members  [:struct-member {:many true}]}
@@ -30,7 +32,6 @@
         :constructor     ['type :exprs 'args]
         :cast            ['type :expr 'expr]
 
-
         ;; 语句
         :var-decl        ['name 'type :expr 'init {:optional true}]
         :uniform         ['name 'type ]
@@ -41,10 +42,17 @@
         :block           [:stmts 'stmts :expr 'ret  {:optional true} ]
 
         ;; 声明
-        :function        ['name  'return-type :params 'params :block 'body]
-        :entry-point     ['name 'stage 'return-type :params 'params :block 'body]
+        :function        ['name 'return-type
+                          :params 'params
+                          :block 'body]
+        :entry-point     ['name 'stage 'return-type
+                          :params 'params
+                          :block 'body]
         :struct          ['name :struct-members 'members]
-        :resource-decl   ['name 'resource-kind 'slot 'members ]
+
+        :texture-decl    ['name 'register 'dimension 'element-type]
+        :sampler-decl    ['name 'register 'compare?]
+        :cbuffer-decl    ['name 'register 'members]
         :import          ['path]
 
         ;; 辅助

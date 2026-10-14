@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.backend.shader.vec-assign
+(ns top.kzre.homunculus.backend.shader.pass.array-assign
   "Statementize 后展开数组整体赋值为临时变量 + 逐元素赋值。"
   (:require
    [top.kzre.homunculus.backend.shader.ast :as ast]

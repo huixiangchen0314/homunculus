@@ -2,7 +2,7 @@
   (:require
     [top.kzre.homunculus.backend.hlsl.emit :as emit]
     [top.kzre.homunculus.backend.shader.lower :as lower]
-    [top.kzre.homunculus.backend.shader.vec-assign :as vec-assign]
+    [top.kzre.homunculus.backend.shader.pass.array-assign :as  array-assign]
     [top.kzre.homunculus.core.irstmt.pass.assign-propagate :as irstmt.assign-propagate]
     [top.kzre.homunculus.core.irstmt.pass.dce :as irstmt.dce]
     [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
@@ -28,7 +28,7 @@
           ped (irstmt.assign-propagate/propagate-nodes sted)
           dced (irstmt.dce/elim-nodes ped ctx)
           shader-asts (lower/lower dced)
-          vec-copied (vec-assign/expand shader-asts)
+          vec-copied (array-assign/expand shader-asts)
           emitted (emit/emit vec-copied)]
       (println "ir-stmts " irstmts)
       (println "stmted" sted)
@@ -37,4 +37,6 @@
       (m/make-module-result path emitted))
     ))
 
-(defonce emitter (->HLSLEmitter))
+(defonce ^:private emitter* (->HLSLEmitter))
+
+(defn emitter [] emitter*)

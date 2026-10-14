@@ -98,4 +98,7 @@
           result    (p/emit emitter checked context {})]
       result)))
 
-(defonce compiler (->TypedCompiler))
+(defonce ^:private compiler* (->TypedCompiler))
+
+
+(defn compiler [] compiler*)

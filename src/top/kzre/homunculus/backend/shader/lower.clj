@@ -153,28 +153,44 @@
   (let [var-name (:name node)
         init-expr (:val node)
         [init env'] (if init-expr (lower-node* init-expr env) [nil env])
-        resource-kind (semantic/shader-resource-kind node)]
-    (if resource-kind
-      (let [slot (case resource-kind
-                   :texture  (semantic/shader-texture-register node)
-                   :sampler   (semantic/shader-sampler-register node)
-                   :cbuffer   (semantic/shader-cbuffer-register node)
-                   nil)
+        resource-kind (semantic/shader-resource-kind node)
+        meta (irstmt/node-meta node)]
+    (cond
+      (= resource-kind :texture)
+      [(ast/->TextureDecl var-name
+                          (semantic/shader-texture-register node)
+                          (semantic/shader-texture-dimension node)
+                          (ty/make-tcon
+                            (semantic/shader-texture-element-type node))
+                          meta)
+       env']
+
+      (= resource-kind :sampler)
+      [(ast/->SamplerDecl var-name
+                          (semantic/shader-sampler-register node)
+                          (semantic/shader-sampler-compare? node)
+                          meta)
+       env']
+
+      (= resource-kind :cbuffer)
+      (let [register (semantic/shader-cbuffer-register node)
             members (when (= resource-kind :cbuffer)
                       (mapv (fn [[sym type-sym]]
                               (ast/->StructMember sym (ty/make-tcon type-sym) nil))
                             (semantic/shader-cbuffer-members node)))]
-        [(ast/->ResourceDecl var-name resource-kind slot members (irstmt/node-meta node)) env'])
-      (let [var-ty (ty/get-type node)
-            uniform? (semantic/shader-uniform? node)
-            static-var? (semantic/shader-static-var? node)]
+        [(ast/->CbufferDecl var-name register members meta) env'])
+
+      :else
+      (let [var-ty     (ty/get-type node)
+            uniform?   (semantic/shader-uniform? node)
+            static?    (semantic/shader-static-var? node)]
         (cond
-          uniform?    [(ast/->Uniform  var-name var-ty (irstmt/node-meta node)) env']
-          static-var? [(ast/->StaticVar var-name var-ty init (irstmt/node-meta node)) env']
-          :else       (if (shader.env/local-var? env' var-name)
-                        [(ast/->Assign (ast/->Variable var-name nil) init (irstmt/node-meta node)) env']
-                        [(ast/->VarDecl var-name var-ty init (irstmt/node-meta node))
-                         (shader.env/bind-var env' var-name)]))))))
+          uniform? [(ast/->Uniform   var-name var-ty meta) env']
+          static?  [(ast/->StaticVar var-name var-ty init meta) env']
+          :else    (if (shader.env/local-var? env' var-name)
+                     [(ast/->Assign (ast/->Variable var-name nil) init meta) env']
+                     [(ast/->VarDecl var-name var-ty init meta)
+                      (shader.env/bind-var env' var-name)]))))))
 
 (defmethod lower-node* :function [node env]
   (let [name (:name node)

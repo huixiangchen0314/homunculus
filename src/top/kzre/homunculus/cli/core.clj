@@ -12,7 +12,7 @@
 
 (defn- lookup-compile-target [target]
   (case target
-    :hlsl hlsl/hlsl-target
+    :hlsl (hlsl/target)
     ;; 未来可添加其他后端
     (throw (ex-info (str "Unsupported target: " target) {:target target}))))
 

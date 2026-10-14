@@ -810,4 +810,6 @@
   (entry-point? [_ node]
     (boolean (:shader/stage (ir2/node-meta node)))))
 
-(defonce frontend (->HLSLFrontend))
+(defonce ^:private frontend* (->HLSLFrontend))
+
+(defn frontend [] frontend*)

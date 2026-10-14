@@ -56,3 +56,22 @@
              :unknown-hlsl-sematic
              (str "Unknow HLSL sematic: " kw)
              ))))
+
+(def ^:private texture-dimension-str-map*
+  {:1d          "Texture1D"
+   :2d          "Texture2D"
+   :3d          "Texture3D"
+   :cube        "TextureCube"
+   :1d-array    "Texture1DArray"
+   :2d-array    "Texture2DArray"
+   :cube-array  "TextureCubeArray"
+   :2d-ms       "Texture2DMS"
+   :2d-ms-array "Texture2DMSArray"})
+
+(defn texture-dimension->type-str [dim]
+  (get texture-dimension-str-map* dim))
+
+(defn sampler-type-str [compare?]
+  (if compare?
+    "SamplerComparisonState"
+    "SamplerState"))

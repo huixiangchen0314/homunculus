@@ -7,8 +7,11 @@
     [top.kzre.homunculus.compilers.firstorder :as firstorder]
     [top.kzre.homunculus.internal.model :as model]))
 
+(defonce ^:private target*
+         (model/make-compile-target
+           (frontend/frontend)
+           (backend/backend)
+           (firstorder/compiler)
+           (emitter/emitter)))
 
-(defonce hlsl-target (model/make-compile-target
-                      frontend/frontend backend/backend
-                      firstorder/compiler
-                      emitter/emitter))
+(defn target [] target*)
