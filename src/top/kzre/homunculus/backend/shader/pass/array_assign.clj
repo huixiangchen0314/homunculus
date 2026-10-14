@@ -11,10 +11,10 @@
         lhs      (:lhs assign)
         rhs      (:rhs assign)]
     (mapv (fn [i]
-            (let [idx-lit (ast/->Literal i nil)
-                  lhs-idx (ast/->ArrayIndex lhs idx-lit nil)
-                  rhs-idx (ast/->ArrayIndex rhs idx-lit nil)]
-              (ast/->Assign lhs-idx rhs-idx nil)))
+            (let [idx-lit (ast/->Literal i  {} nil)
+                  lhs-idx (ast/->ArrayIndex lhs idx-lit  {} nil)
+                  rhs-idx (ast/->ArrayIndex rhs idx-lit  {} nil)]
+              (ast/->Assign lhs-idx rhs-idx {} nil)))
           (range size))))
 
 (defn- expand-node [node]
@@ -27,7 +27,7 @@
                                 [(expand-node stmt)]))
                             (:stmts node))
           new-ret   (when-let [ret (:ret node)] (expand-node ret))]
-      (ast/->Block (vec new-stmts) new-ret (ast/node-meta node)))
+      (ast/->Block (vec new-stmts) new-ret (:attrs node) (ast/node-meta node)))
     ;; 其他节点递归子节点
     (first
       (ast/reduce-children node (fn [child _] [(expand-node child) nil]) nil))))

@@ -22,39 +22,41 @@
          :struct-members  [:struct-member {:many true}]}
 
         ;; 表达式
-        :literal         ['val]
-        :variable        ['name]
-        :binary-op       ['op :expr 'left :expr 'right]
-        :unary-op        ['op :expr 'expr]
-        :call            ['fn :exprs 'args]
-        :member-access   [:expr 'target 'member]
-        :array-index     [:expr 'target :expr 'index]
-        :constructor     ['type :exprs 'args]
-        :cast            ['type :expr 'expr]
+        :literal         ['val  'attrs]
+        :variable        ['name  'attrs]
+        :binary-op       ['op :expr 'left :expr 'right 'attrs]
+        :unary-op        ['op :expr 'expr 'attrs]
+        :call            ['fn :exprs 'args 'attrs]
+        :member-access   [:expr 'target 'member 'attrs]
+        :array-index     [:expr 'target :expr 'index 'attrs]
+        :constructor     ['type :exprs 'args 'attrs]
+        :cast            ['type :expr 'expr 'attrs]
 
         ;; 语句
-        :var-decl        ['name 'type :expr 'init {:optional true}]
-        :uniform         ['name 'type ]
-        :static-var      ['name 'type :expr 'init {:optional true}]
-        :assign          [:expr 'lhs :expr 'rhs]
-        :if              [:expr 'test :block 'then :block 'else {:optional true}]
-        :while           [:expr 'test :block 'body]
-        :block           [:stmts 'stmts :expr 'ret  {:optional true} ]
+        :var-decl        ['name 'type :expr 'init {:optional true} 'attrs]
+        :uniform         ['name 'type 'attrs]
+        :static-var      ['name 'type :expr 'init {:optional true} 'attrs]
+        :assign          [:expr 'lhs :expr 'rhs 'attrs]
+        :if              [:expr 'test :block 'then :block 'else {:optional true} 'attrs]
+        :while           [:expr 'test :block 'body 'attrs]
+        :block           [:stmts 'stmts :expr 'ret  {:optional true} 'attrs]
 
         ;; 声明
         :function        ['name 'return-type
                           :params 'params
-                          :block 'body]
+                          :block 'body
+                          'attrs]
         :entry-point     ['name 'stage 'return-type
                           :params 'params
-                          :block 'body]
-        :struct          ['name :struct-members 'members]
+                          :block 'body
+                          'attrs]
+        :struct          ['name :struct-members 'members 'attrs]
 
-        :texture-decl    ['name 'register 'dimension 'element-type]
-        :sampler-decl    ['name 'register 'compare?]
-        :cbuffer-decl    ['name 'register 'members]
-        :import          ['path]
+        :texture-decl    ['name 'register 'dimension 'element-type 'attrs]
+        :sampler-decl    ['name 'register 'compare? 'attrs]
+        :cbuffer-decl    ['name 'register 'members 'attrs]
+        :import          ['path 'attrs]
 
         ;; 辅助
-        :param           ['name 'type]
-        :struct-member   ['name 'type])
+        :param           ['name 'type 'attrs]
+        :struct-member   ['name 'type 'attrs])
