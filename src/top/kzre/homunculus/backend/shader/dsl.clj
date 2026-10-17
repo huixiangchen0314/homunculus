@@ -1,6 +1,8 @@
 (ns top.kzre.homunculus.backend.shader.dsl
   "着色器 DSL 语法糖。提供统一的资源/入口声明，通过元数据传递给后端。"
-  (:refer-clojure :exclude [float int]))
+  (:refer-clojure :exclude [float int])
+  (:require
+    [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]))
 
 ;;; ========= 类型构造器 =========================================
 ;;; 命名与 HLSL 原始拼写一致：
@@ -115,30 +117,13 @@
   `(def ~(vary-meta name assoc
                     :shader/static-var? true) ~type-ctor))
 
-(def ^:private texture-dimension->ctor
-  {:1d           'Texture1D
-   :1d-array     'Texture1DArray
-   :2d           'Texture2D
-   :2d-array     'Texture2DArray
-   :3d           'Texture3D
-   :cube         'TextureCube
-   :cube-array   'TextureCubeArray
-   :2d-ms        'Texture2DMS
-   :2d-ms-array  'Texture2DMSArray
-   :buffer       'Buffer})
-
-(defn- texture-ctor [dimension]
-  (or (get texture-dimension->ctor dimension)
-      (throw (ex-info (str "Unknown texture dimension: " dimension)
-                      {:dimension dimension
-                       :known     (keys texture-dimension->ctor)}))))
 (defmacro deftexture
   ([name register]
    `(deftexture ~name ~register :2d float))
   ([name register dimension]
    `(deftexture ~name ~register ~dimension float))
   ([sym register dimension element-ctor]
-   (let [ctor (texture-ctor dimension)
+   (let [ctor (hlsl.lang/texture-dimension->type-sym dimension)
          texture-type (name ctor)
          element-type (name element-ctor)]
      `(def ~(vary-meta sym assoc
