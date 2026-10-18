@@ -97,14 +97,24 @@
   [entry unit]
   (let [^SLTexture tex (:texture entry)
         ^SLSampler smp (:sampler entry)]
-    (->SamplerUniform
-      (lang/sampler-glsl-name (:name tex) (:name smp))
-      (:name tex)
-      (:name smp)
-      (lang/sampler-type-name (:dimension tex)
-                              (:element-type tex)
-                              (:compare? smp))
-      unit)))
+    (if smp
+      (->SamplerUniform
+        (lang/sampler-glsl-name (:name tex) (:name smp))
+        (:name tex) (:name smp)
+        (:dimension tex)
+        (lang/sampler-type-name (:dimension tex)
+                                (:element-type tex)
+                                (:compare? smp))
+        unit)
+      ;; load-only——独立 uniform，无 compare?
+      (->SamplerUniform
+        (str (:name tex) "_raw")
+        (:name tex) nil
+        (:dimension tex)
+        (lang/sampler-type-name (:dimension tex)
+                                (:element-type tex)
+                                false)
+        unit))))
 
 (defn- plan-samplers
   "遍历 sample-calls，为每个 (texture, sampler) 组合生成 SamplerUniform。

@@ -56,6 +56,32 @@
           (matrix-map s)
           s))))
 
+(def ^:private sample-fn-map
+  {"sample "            "texture"
+   "sampleLod"          "textureLod"
+   "sampleBias"         "texture"
+   "sampleCmp"          "texture"
+   "sampleCmpLevelZero" "textureLod"
+   "sampleGrad "        "textureGrad"
+   "gather"             "textureGather"
+   "gatherRed"          "textureGather"
+   "gatherGreen"        "textureGather"
+   "gatherBlue"         "textureGather"
+   "gatherAlpha"        "textureGather"})
+
+(defn sample-fn-str [fn-name]
+  (get sample-fn-map (name fn-name)))
+
+(def ^:private sample-grater-comp-map
+  {"gather"      nil
+   "gatherRed"   0
+   "gatherGreen" 1
+   "gatherBlue"  2
+   "gatherAlpha" 3})
+
+(defn sample-grater-component [fn-name]
+  (get sample-grater-comp-map (name fn-name)))
+
 ;; ═══════════════════════════════════════════
 ;; sampler 类型推导
 ;; ═══════════════════════════════════════════

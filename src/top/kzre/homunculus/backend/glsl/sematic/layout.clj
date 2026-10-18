@@ -28,6 +28,7 @@
   [var-name            ;; GLSL 变量名，如 "tex0_samp0"
    texture             ;; 原始 texture 名
    sampler             ;; 原始 sampler 名
+   dimension
    sampler-type-str    ;; GLSL sampler 类型名字符串，如 "sampler2D" / "sampler2DShadow"
    texture-unit])      ;; 纹理单元编号，用于 glUniform1i 绑定
 
@@ -79,3 +80,30 @@
 (defrecord Layout
   [samplers        ;; [SamplerUniform ...]  全局共享
    entry])         ;; EntryLayout          当前 stage 的入口点
+
+
+(defn find-sampler
+  [^Layout layout tex-name smp-name]
+  (or (some (fn [^SamplerUniform s]
+              (when (and (= (:texture s) tex-name)
+                         (= (:sampler s) smp-name))
+                s))
+            (:samplers layout))
+      (throw (ex-info "no sampler uniform for (texture, sampler)"
+                      {:texture tex-name :sampler smp-name}))))
+
+(defn find-load-sampler
+  "查找 load 用的 sampler uniform。
+   load-only 用 <tex>_raw；有 sample 配对的用第一个配对 uniform
+   （texelFetch 不需要采样器状态，任意一个都行）。"
+  [^Layout layout tex-name]
+  (or (some (fn [^SamplerUniform s]
+              (when (and (= (:texture s) tex-name)
+                         (nil? (:sampler s)))
+                s))
+            (:samplers layout))
+      (some (fn [^SamplerUniform s]
+              (when (= (:texture s) tex-name) s))
+            (:samplers layout))
+      (throw (ex-info "no sampler uniform for texture in load"
+                      {:texture tex-name}))))

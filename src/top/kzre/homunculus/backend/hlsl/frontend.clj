@@ -594,7 +594,7 @@
 
 
            ;; ── 纹理读取 ────────────────────────────────
-           ;; load → GLSL texelFetch
+           ;; load → GLSL texelFetch, 不做应用类型, 类型特化依靠推断
            [:func 'load {:io? true}
             [['tex 'Texture1D        'loc 'int]                 'float4]
             [['tex 'Texture1D        'loc 'int 'lod 'int]       'float4]
@@ -605,7 +605,18 @@
             [['tex 'Texture2DArray   'loc 'int3]                'float4]
             [['tex 'Texture2DArray   'loc 'int3 'lod 'int]      'float4]
             [['tex 'Texture2DMS      'loc 'int2 'sample 'int]   'float4]
-            [['tex 'Texture2DMSArray 'loc 'int3 'sample 'int]   'float4]]
+            [['tex 'Texture2DMSArray 'loc 'int3 'sample 'int]   'float4]
+
+            ;; Buffer —— 元素索引，无 mip
+            [['buf 'Buffer           'loc 'int]                 'float4]
+            [['buf 'Buffer           'loc 'int 'offset 'int]    'float4]
+
+            ;; StructuredBuffer —— 同 Buffer，元素类型由 struct 决定
+            [['buf 'StructuredBuffer 'loc 'int]                 'float4]
+
+            ;; ByteAddressBuffer —— 按字节偏移读取，元素类型由模板参数决定
+            ;; 其他重载会直接炸掉，不支持，后续依靠别名来完成
+            [['buf 'ByteAddressBuffer 'loc 'int]                'uint4]]
 
            ;; ── 纹理聚集 ────────────────────────────────
            ;; gather → GLSL textureGather
@@ -654,10 +665,15 @@
             [['tex 'TextureCube      'lod 'int] 'int2]
             [['tex 'Texture1DArray   'lod 'int] 'int2]
             [['tex 'Texture2DArray   'lod 'int] 'int3]
-            [['tex 'TextureCubeArray 'lod 'int] 'int3]]
+            [['tex 'TextureCubeArray 'lod 'int] 'int3]
+
+            ;; Buffer —— 返回元素数量
+            [['buf 'Buffer           ] 'int]
+            [['buf 'StructuredBuffer ] 'int]
+            [['buf 'ByteAddressBuffer] 'int]]
 
            ;; ═══════════════════════════════════════════
-           ;; HLSL 特有函数
+           ;; HLSL 特有函数(如果使用了，编译成其他语言就可能不支持了)
            ;; ═══════════════════════════════════════════
            [:func 'tex1D {:io? true}
             [['s 'SamplerState 'uv 'float] 'float4]]

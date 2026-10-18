@@ -72,17 +72,27 @@
 ;; ── 采样调用 ────────────────────────────────
 
 (defmethod analyze-node* :call [node env]
-  (if (lang/sample-fn? (:fn node))
-    (let [args     (:args node)
-          tex-name (var-name (first args))
-          smp-name (var-name (second args))]
-      [node
-       (if (and tex-name smp-name)
-         (env/add-sample-call env tex-name smp-name)
-         env)])
-    (ast/reduce-children node
-                         (fn [child env] (analyze-node* child env))
-                         env)))
+  (let [fn-name (:fn node)]
+
+    (cond
+      (lang/sample-fn? (:fn node))
+      (let [args     (:args node)
+            tex-name (var-name (first args))
+            smp-name (var-name (second args))]
+        [node
+         (if (and tex-name smp-name)
+           (env/add-sample-call env tex-name smp-name)
+           env)])
+
+      ;; 等价与 texelFetch
+      (= (name fn-name) 'load)
+      (let [tex-name (var-name (first (:args node)))]
+        [node (env/add-sample-call env tex-name nil)])
+
+      :else
+      (ast/reduce-children node
+                           (fn [child env] (analyze-node* child env))
+                           env))))
 
 ;; ── 入口点 ──────────────────────────────────
 

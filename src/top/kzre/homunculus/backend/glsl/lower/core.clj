@@ -9,16 +9,20 @@
    :wrap    —— 原 entry 改名 __entry_<name>，生成 wrapper main
    :inplace —— 原地改造 entry 为 main（暂未实现）"
   (:require
-    [top.kzre.homunculus.backend.glsl.ast :as glsl]
-    [top.kzre.homunculus.backend.glsl.lang :as lang]
-    [top.kzre.homunculus.backend.glsl.lower.env :as env]
-    [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
-    [top.kzre.homunculus.backend.shader.ast :as ast]
-    [top.kzre.homunculus.backend.glsl.sematic.layout]
-    [top.kzre.homunculus.core.ir2.pass.type :as ty])
+   [top.kzre.homunculus.backend.glsl.ast :as glsl]
+   [top.kzre.homunculus.backend.glsl.lang :as lang]
+   [top.kzre.homunculus.backend.glsl.lower.env :as env]
+   [top.kzre.homunculus.backend.glsl.sematic.layout]
+   [top.kzre.homunculus.backend.glsl.sematic.layout :as layout]
+   [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
+   [top.kzre.homunculus.backend.shader.ast :as ast]
+   [top.kzre.homunculus.core.ir2.pass.type :as ty])
   (:import
     (top.kzre.homunculus.backend.glsl.sematic.layout
-      Layout SamplerUniform IODecl EntryLayout)))
+    EntryLayout
+    IODecl
+    Layout
+    SamplerUniform)))
 
 ;; ═══════════════════════════════════════════
 ;; AST 辅助
@@ -38,39 +42,6 @@
   [children layout]
   (mapv #(lower-node % layout) children))
 
-;; ═══════════════════════════════════════════
-;; 采样调用改写
-;; ═══════════════════════════════════════════
-
-(defn- find-sampler
-  [^Layout layout tex-name smp-name]
-  (or (some (fn [^SamplerUniform s]
-              (when (and (= (:texture s) tex-name)
-                         (= (:sampler s) smp-name))
-                s))
-            (:samplers layout))
-      (throw (ex-info "no sampler uniform for (texture, sampler)"
-                      {:texture tex-name :sampler smp-name}))))
-
-(def ^:private sample-fn->glsl
-  {'sample             "texture"
-   'sampleLod          "textureLod"
-   'sampleBias         "texture"
-   'sampleCmp          "texture"
-   'sampleCmpLevelZero "textureLod"
-   'sampleGrad         "textureGrad"
-   'gather             "textureGather"
-   'gatherRed          "textureGather"
-   'gatherGreen        "textureGather"
-   'gatherBlue         "textureGather"
-   'gatherAlpha        "textureGather"})
-
-(def ^:private gather-component
-  {'gather      nil
-   'gatherRed   0
-   'gatherGreen 1
-   'gatherBlue  2
-   'gatherAlpha 3})
 
 ;; ═══════════════════════════════════════════
 ;; 节点降级
@@ -123,16 +94,20 @@
         (update :type lang/type->str)
         (update :expr lower-node layout))))
 
+
+
+
 (defmethod lower-node* :call [node layout]
   (let [fn-name (:fn node)
         args    (:args node)]
-    (if (hlsl.lang/sample-fn? fn-name)
+    (cond
+      (hlsl.lang/sample-fn? fn-name)
       (let [[tex-node smp-node & rest-args] args
             tex-name (:name tex-node)
             smp-name (:name smp-node)
-            sampler  (find-sampler layout tex-name smp-name)
-            glsl-fn  (get sample-fn->glsl fn-name)
-            component (get gather-component fn-name)
+            sampler  (layout/find-sampler layout tex-name smp-name)
+            glsl-fn  (lang/sample-fn-str fn-name)
+            component (lang/sample-grater-component fn-name)
             lowered-args (lower-children rest-args layout)
             lowered-args (if (some? component)
                            (conj lowered-args
@@ -144,6 +119,26 @@
           (-> node
               (assoc :fn glsl-fn)
               (assoc :args new-args))))
+
+
+      (= (name fn-name) 'load)
+      (let [[tex-node & coords] args
+            tex-name (:name tex-node)
+            sampler  (layout/find-load-sampler layout tex-name)
+            lowered-coords (lower-children coords layout)
+            dimension (:dimension sampler)
+            ;; Buffer 没有 lod 参数——其他维度补 0
+            final-coords (if (= :buffer dimension)
+                           lowered-coords
+                           (if (= 1 (count lowered-coords))
+                             (conj lowered-coords (glsl/->Literal 0 nil nil))
+                             lowered-coords))]
+        (glsl/map->Call
+          (-> node
+              (assoc :fn (symbol "texelFetch"))
+              (assoc :args (into [(glsl/->Variable (:var-name sampler) nil nil)]
+                                 final-coords)))))
+      :else
       (glsl/map->Call
         (update node :args lower-children layout)))))
 
@@ -269,53 +264,64 @@
 (defn- rename-entry [name]
   (str "__entry_" name))
 
-(defn- build-wrapper-call
-  [original-name ^EntryLayout entry]
-  (glsl/->Call original-name
-               (mapv (fn [^IODecl in]
-                       (glsl/->Variable (:var-name in) nil nil))
-                     (:inputs entry))
-               nil
-               nil))
+(defn- wrapper-call
+  "构造 wrapper 对原 entry 函数的调用。
 
-(defn- build-wrapper-body
-  [call-expr node ^EntryLayout layout-entry struct-def]
-  (let [outputs (:outputs layout-entry)]
-    (if (= 1 (count outputs))
-      (let [^IODecl out (first outputs)]
-        [(glsl/->Assign (glsl/->Variable (:var-name out) nil nil)
-                        call-expr
-                        nil
-                        nil)])
-      (let [tmp-name    "__entry_result"
-            tmp-type    (lang/type->str (:return-type node))
-            tmp-decl    (glsl/->VarDecl tmp-name tmp-type call-expr nil nil)
-            field-names (mapv :name (:members struct-def))]
-        (into [tmp-decl]
-              (mapv (fn [^IODecl out field-name]
-                      (glsl/->Assign
-                        (glsl/->Variable (:var-name out) nil nil)
-                        (glsl/->MemberAccess
-                          (glsl/->Variable tmp-name nil nil)
-                          field-name
-                          nil
-                          nil)
-                        nil
-                        nil))
-                    outputs field-names))))))
+   inputs 按位置映射为实参——builtin 输入（如 gl_FragCoord）
+   也传。原 entry 函数的形参保留了这些位置——函数体里可能引用。"
+  [original-name ^EntryLayout entry]
+  (let [args (mapv (fn [^IODecl in]
+                     ;; TODO InterfaceBlock 支持
+                     (glsl/->Variable (:var-name in) nil nil))
+                   (:inputs entry))]
+    (glsl/->Call (symbol original-name) args nil nil)))
+
+(defn- wrapper-single-body
+  "单 out——直接赋值。builtin out（gl_Position / gl_FragDepth）
+   照常赋值。"
+  [call-expr ^IODecl out]
+  [(glsl/->Assign (glsl/->Variable (:var-name out) nil nil)
+                  call-expr nil nil)])
+
+(defn- wrapper-struct-body
+  "多 out——struct 返回值赋给临时变量，再逐字段赋给对应 out。
+
+   field-names 与 outputs 按位置对应——都由 plan-struct-fields
+   按 struct 成员顺序产出。"
+  [call-expr return-type ^EntryLayout entry struct-def]
+  (let [tmp-name    "__entry_result"
+        tmp-type    (lang/type->str return-type)
+        tmp-decl    (glsl/->VarDecl tmp-name tmp-type call-expr nil nil)
+        field-names (mapv :name (:members struct-def))]
+    (into [tmp-decl]
+          (map (fn [^IODecl out field-name]
+                 (glsl/->Assign
+                   (glsl/->Variable (:var-name out) nil nil)
+                   (glsl/->MemberAccess (glsl/->Variable tmp-name nil nil)
+                                        field-name nil nil)
+                   nil nil))
+               (:outputs entry) field-names))))
+
+(defn- wrapper-body
+  [call-expr node ^EntryLayout entry struct-def]
+  (if (= 1 (count (:outputs entry)))
+    (wrapper-single-body call-expr (first (:outputs entry)))
+    (if struct-def
+      (wrapper-struct-body call-expr (:return-type node) entry struct-def)
+      (throw (ex-info "struct return type definition required for multiple outputs"
+                      {:return-type (:return-type node)})))))
 
 (defn- build-wrapper
-  [node ^EntryLayout layout-entry asts]
+  [node ^EntryLayout entry asts]
   (let [return-type (:return-type node)
         struct-sym  (ty/type-sym return-type)
         struct-def  (when struct-sym
                       (find-struct-def asts struct-sym))
-        call-expr   (build-wrapper-call (rename-entry (:name node)) layout-entry)
-        body-stmts  (build-wrapper-body call-expr node layout-entry struct-def)]
+        call-expr   (wrapper-call (rename-entry (:name node)) entry)
+        body-stmts  (wrapper-body call-expr node entry struct-def)]
     (glsl/->Function "main" "void" []
                      (glsl/->Block body-stmts nil nil nil)
-                     nil
-                     nil)))
+                     nil nil)))
 
 (defn- lower-entry-wrap
   [node layout asts]
