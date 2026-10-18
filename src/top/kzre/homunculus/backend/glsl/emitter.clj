@@ -9,8 +9,9 @@
    [top.kzre.homunculus.backend.shader.pass.analyze.env :as env]
    [top.kzre.homunculus.backend.shader.pass.analyze.env-impl :as env-impl]
    [top.kzre.homunculus.backend.shader.pass.array-assign :as array-assign]
+   [top.kzre.homunculus.backend.shader.pass.liveness :as liveness]
    [top.kzre.homunculus.backend.shader.pass.ns-strategy :as ns-strategy]
-   [top.kzre.homunculus.backend.shader.pass.split-entries.core :as split-entries]
+   [top.kzre.homunculus.backend.shader.pass.split-entries :as split-entries]
    [top.kzre.homunculus.backend.shader.semantic :as semantic]
    [top.kzre.homunculus.core.error :as err]
    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
@@ -60,9 +61,12 @@
   (let [stage (semantic/shader-stage entry)
         path (str path
                   (stage->extension stage))
-        layout (sematic/plan asts analysis stage
+        lived (-> asts
+                 (liveness/analyze)
+                 (liveness/elim))
+        layout (sematic/plan lived analysis stage
                              (sematic/make-config ctx))
-        lowered (glsl.lower/lower asts (glsl.lower/make-env ctx) layout)
+        lowered (glsl.lower/lower lived (glsl.lower/make-env ctx) layout)
         code  (emit/emit lowered (emit/make-env ctx) analysis)]
     (m/make-module-result path code)))
 

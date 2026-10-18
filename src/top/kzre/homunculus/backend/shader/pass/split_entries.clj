@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.backend.shader.pass.split-entries.core
+(ns top.kzre.homunculus.backend.shader.pass.split-entries
   "按入口点分流 shader AST。
 
    一个 shader 源可能包含多个入口点（如 VS + FS 共存）。每个入口点
