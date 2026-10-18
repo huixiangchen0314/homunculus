@@ -121,7 +121,7 @@
               (assoc :args new-args))))
 
 
-      (= (name fn-name) 'load)
+      (= (name fn-name) "load")
       (let [[tex-node & coords] args
             tex-name (:name tex-node)
             sampler  (layout/find-load-sampler layout tex-name)

@@ -85,7 +85,7 @@
            env)])
 
       ;; 等价与 texelFetch
-      (= (name fn-name) 'load)
+      (= (name fn-name) "load")
       (let [tex-name (var-name (first (:args node)))]
         [node (env/add-sample-call env tex-name nil)])
 

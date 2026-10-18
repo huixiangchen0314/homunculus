@@ -6,6 +6,7 @@
 ;; ── 资源声明 ──────────────────────────────
 (deftexture myTexture :t0)
 (defsampler mySampler :s0)
+(deftexture uIndexTable :t0 :buffer uint)
 
 (defcbuffer LightParams :b0
             lightDir float3
@@ -54,7 +55,8 @@
            [^:position ^float4 pos
             ^:normal ^float3 nrm
             ^:texcoord0 ^float2 uv]
-           (let [diffuse (sample myTexture mySampler uv)
+           (let [lv (load uIndexTable 1)
+                 diffuse (sample myTexture mySampler uv)
                  N (normalize nrm)
                  L (normalize lightDir)
                  diff (max 0 (dot N L))
@@ -63,4 +65,4 @@
                 (def ^{:aaa MyInout} f (range 10))
                 (def g (drop 3 f))
                 (def z (butlast g))
-                finalColor))
+                lv))

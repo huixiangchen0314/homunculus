@@ -64,21 +64,28 @@
 
 (defn- resolve-sample-entries
   "把 sample-calls 关联到 texture / sampler 记录。
-   引用未声明的 resource 时抛异常。"
+   引用未声明的 resource 时抛异常。
+
+   load 的 sample-call 的 :sampler 为 nil——它只引用 texture，
+   不引用 sampler（HLSL 的 tex.Load 不经过 sampler）。此类记录
+   只校验 texture，sampler 留 nil 传递给 plan-samplers 的
+   _raw 分支。"
   [^SLAnalysis analysis]
   (let [textures (into {} (map (fn [^SLTexture t] [(:name t) t])
                                (:textures analysis)))
         samplers (into {} (map (fn [^SLSampler s] [(:name s) s])
                                (:samplers analysis)))]
     (mapv (fn [^SLSampleCall sc]
-            (let [tex (get textures (:texture sc))
-                  smp (get samplers (:sampler sc))]
+            (let [tex      (get textures (:texture sc))
+                  smp-name (:sampler sc)
+                  smp      (when smp-name
+                             (get samplers smp-name))]
               (when-not tex
                 (throw (ex-info "sample-call references undeclared texture"
                                 {:texture (:texture sc)})))
-              (when-not smp
+              (when (and smp-name (not smp))
                 (throw (ex-info "sample-call references undeclared sampler"
-                                {:sampler (:sampler sc)})))
+                                {:sampler smp-name})))
               {:texture tex :sampler smp}))
           (:sample-calls analysis))))
 
@@ -94,12 +101,14 @@
   [(if (nil? reg) 1 0) (or (reg-num reg) 0)])
 
 (defn- make-sampler-uniform
-  [entry unit]
+  [entry unit naming-strategy multi?]
   (let [^SLTexture tex (:texture entry)
         ^SLSampler smp (:sampler entry)]
     (if smp
       (->SamplerUniform
-        (lang/sampler-glsl-name (:name tex) (:name smp))
+        (lang/sampler-glsl-name
+          naming-strategy
+          (:name tex) (:name smp) multi?)
         (:name tex) (:name smp)
         (:dimension tex)
         (lang/sampler-type-name (:dimension tex)
@@ -108,7 +117,9 @@
         unit)
       ;; load-only——独立 uniform，无 compare?
       (->SamplerUniform
-        (str (:name tex) "_raw")
+        (lang/sampler-glsl-name
+          naming-strategy
+          (:name tex) nil false)
         (:name tex) nil
         (:dimension tex)
         (lang/sampler-type-name (:dimension tex)
@@ -121,28 +132,45 @@
    按 config 策略分配 texture unit。"
   [^SLAnalysis analysis cfg]
   (let [entries  (resolve-sample-entries analysis)
-        strategy (config/texture-sampler-binding-strategy cfg)]
-    (case strategy
+        binding-strategy (config/texture-sampler-binding-strategy cfg)
+        naming-strategy  (config/sampler-naming-strategy cfg)
+        ;; simple 策略的冲突统计——load-only（sampler 为 nil）不参与
+        tex->smps (reduce (fn [m {:keys [texture sampler]}]
+                            (if sampler
+                              (update m (:name texture) (fnil conj #{}) (:name sampler))
+                              m))
+                          {} entries)
+        smp->texs (reduce (fn [m {:keys [texture sampler]}]
+                            (if sampler
+                              (update m (:name sampler) (fnil conj #{}) (:name texture))
+                              m))
+                          {} entries)
+        multi?    (fn [{:keys [texture sampler]}]
+                    (case naming-strategy
+                      :texture-sampler-simple
+                      (> (count (get tex->smps (:name texture) #{})) 1)
+                      :sampler-texture-simple
+                      (and sampler
+                           (> (count (get smp->texs (:name sampler) #{})) 1))
+                      false))
+        make      (fn [entry unit]
+                    (make-sampler-uniform entry unit naming-strategy (multi? entry)))]
+    (case binding-strategy
 
-      ;; 按 sampler 寄存器分组排序，组内按 texture 寄存器排
       :sampler-first
       (let [sorted (sort-by (fn [{:keys [texture sampler]}]
                               [(sort-key (:register sampler))
                                (sort-key (:register texture))])
                             entries)]
-        (mapv (fn [i e] (make-sampler-uniform e i))
-              (range) sorted))
+        (mapv (fn [i e] (make e i)) (range) sorted))
 
-      ;; 按 texture 寄存器分组排序，组内按 sampler 寄存器排
       :texture-first
       (let [sorted (sort-by (fn [{:keys [texture sampler]}]
                               [(sort-key (:register texture))
                                (sort-key (:register sampler))])
                             entries)]
-        (mapv (fn [i e] (make-sampler-uniform e i))
-              (range) sorted))
+        (mapv (fn [i e] (make e i)) (range) sorted))
 
-      ;; 用户逐对映射
       :mapping
       (let [used (volatile! #{})]
         (mapv (fn [{:keys [texture sampler] :as entry}]
@@ -154,11 +182,11 @@
                                      :sampler (:name sampler)
                                      :binding unit})))
                   (vswap! used conj unit)
-                  (make-sampler-uniform entry unit)))
+                  (make entry unit)))
               entries))
 
       (throw (ex-info "unknown texture-sampler binding strategy"
-                      {:strategy strategy})))))
+                      {:strategy binding-strategy})))))
 
 ;; ═══════════════════════════════════════════
 ;; 入口点规划

@@ -57,7 +57,7 @@
           s))))
 
 (def ^:private sample-fn-map
-  {"sample "            "texture"
+  {"sample"            "texture"
    "sampleLod"          "textureLod"
    "sampleBias"         "texture"
    "sampleCmp"          "texture"
@@ -127,11 +127,33 @@
   (str (element-prefix element-type)
        (dimension-suffix dimension compare?)))
 
+
 (defn sampler-glsl-name
-  "生成 sampler uniform 的 GLSL 变量名。
-   规则：<texture-name>_<sampler-name>。"
-  [texture-name sampler-name]
-  (str texture-name "_" sampler-name))
+  "生成 sampler uniform 的 GLSL 名。
+
+   strategy  —— 命名策略：
+     :texture-sampler        tex_smp
+     :sampler-texture        smp_tex
+     :texture-sampler-simple 单 sampler 用 tex；同 tex 多 sampler 用 tex_smp
+     :sampler-texture-simple 单 texture 用 smp；同 smp 多 texture 用 smp_tex
+   tex-name  —— texture 名（符号或字符串）
+   smp-name  —— sampler 名；load-only 时为 nil
+   multi?    —— simple 策略的冲突标志
+
+   sampler 不存在（load-only）时一律用纹理名——不追加后缀。"
+  ([tex-name smp-name]
+   (sampler-glsl-name :texture-sampler tex-name smp-name false))
+  ([strategy tex-name smp-name multi?]
+   (let [t (name tex-name)]
+     (if (nil? smp-name)
+       t
+       (let [s (name smp-name)]
+         (case strategy
+           :texture-sampler        (str t "_" s)
+           :sampler-texture        (str s "_" t)
+           :texture-sampler-simple (if multi? (str t "_" s) t)
+           :sampler-texture-simple (if multi? (str s "_" t) s)
+           (str t "_" s)))))))
 
 ;; ═══════════════════════════════════════════
 ;; 语言规则

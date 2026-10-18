@@ -48,3 +48,12 @@
 (defn interface-block-instance-naming
   [options]
   (:gl-interface-block-instance-naming options))
+
+(defn sampler-naming-strategy
+  "采样器命名策略。特别的，采样器不存在时候，只使用纹理命名
+  :texture-sampler 纹理_采样器
+  :sampler-texture
+  :texture-sampler-simple 纹理_采样器，特别的，当不冲突时候，只使用 纹理命名，
+  :sampler-texture-simple"
+  [options]
+  (:gl-sampler-naming-strategy options :texture-sampler-simple))

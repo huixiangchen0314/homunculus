@@ -11,6 +11,7 @@
   (vertex-semantic-location [_ semantic])
   (fragment-semantic-location [_ semantic])
   (texture-sampler-binding-strategy [_])
+  (sampler-naming-strategy [_])
   (map-texture-sampler-binding [_ tex-reg sampler-reg])
   (interface-block-naming [_ struct-name])
   (interface-block-instance-naming [_ struct-name stage direction]))
@@ -35,7 +36,8 @@
 
   (texture-sampler-binding-strategy [_]
     (opt/texture-sampler-binding-strategy options))
-
+  (sampler-naming-strategy [_]
+    (opt/sampler-naming-strategy options))
   (map-texture-sampler-binding [_ tex-reg sampler-reg]
     (let [v (opt/texture-sampler-binding options)]
       (cond
