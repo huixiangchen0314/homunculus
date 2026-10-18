@@ -33,7 +33,7 @@
   (source-paths [_] (or (:include options) []))
   (lib-paths [_] (or (not-empty (:lib options)) ["."]))
   (output-dir [_] (:output options "out"))
-  (target [_] (or target :hlsl))
+  (target [_] target)
   (module-naming-style [_] (or (:style options) :default)))
 
 (defrecord CompileTarget [frontend backend compiler emitter])
@@ -42,9 +42,17 @@
   [frontend backend compiler emitter]
   (->CompileTarget frontend backend compiler emitter))
 
+(defn- uniform-keyword
+  [kw]
+  (cond
+    (keyword? kw) kw
+    (string? kw) (keyword kw)))
+
 (defn make-compile-config
   [options]
-  (let [target        (keyword (get options :target "hlsl"))]
+  (let [target (uniform-keyword
+                 (or (:target options)
+                   (throw (ex-info "target must be no nil." {})))) ]
     (->CompileConfig options target)))
 
 

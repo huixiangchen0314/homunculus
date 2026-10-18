@@ -54,7 +54,7 @@
 
         :texture-decl    ['name 'register 'dimension 'element-type 'attrs]
         :sampler-decl    ['name 'register 'compare? 'attrs]
-        :cbuffer-decl    ['name 'register 'members 'attrs]
+        :cbuffer-decl    ['name 'register :struct-members 'members 'attrs]
         :import          ['path 'attrs]
 
         ;; 辅助

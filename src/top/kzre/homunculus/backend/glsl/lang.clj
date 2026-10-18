@@ -1,52 +1,60 @@
 (ns top.kzre.homunculus.backend.glsl.lang
   (:require
-    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]
+    [top.kzre.homunculus.backend.clang.lang :as clang.lang]))
+
 
 ;; ═══════════════════════════════════════════
 ;; 类型映射
 ;; ═══════════════════════════════════════════
 
 (def ^:private scalar-map
-  {'bool "bool" 'int "int" 'uint "uint" 'float "float"})
+  {"bool" "bool" "int" "int" "uint" "uint" "float" "float"})
 
 (def ^:private vector-map
-  {'bool2 "bvec2" 'bool3 "bvec3" 'bool4 "bvec4"
-   'int2  "ivec2" 'int3  "ivec3" 'int4  "ivec4"
-   'uint2 "uvec2" 'uint3 "uvec3" 'uint4 "uvec4"
-   'float2 "vec2" 'float3 "vec3" 'float4 "vec4"})
+  {"bool2" "bvec2" "bool3" "bvec3" "bool4" "bvec4"
+   "int2"  "ivec2" "int3"  "ivec3" "int4"  "ivec4"
+   "uint2" "uvec2" "uint3" "uvec3" "uint4" "uvec4"
+   "float2" "vec2" "float3" "vec3" "float4" "vec4"})
 
 (def ^:private matrix-map
-  {'float2x2 "mat2"   'float2x3 "mat2x3" 'float2x4 "mat2x4"
-   'float3x2 "mat3x2" 'float3x3 "mat3"   'float3x4 "mat3x4"
-   'float4x2 "mat4x2" 'float4x3 "mat4x3" 'float4x4 "mat4"})
+  {"float2x2" "mat2"   "float2x3" "mat2x3" "float2x4" "mat2x4"
+   "float3x2" "mat3x2" "float3x3" "mat3"   "float3x4" "mat3x4"
+   "float4x2" "mat4x2" "float4x3" "mat4x3" "float4x4" "mat4"})
 
 (defn type->str
-  "IR 类型 → GLSL 类型字符串。仅处理 TCon。"
-  [ir-type]
-  (if-let [sym (ty/type-sym ir-type)]
-    (or (scalar-map sym)
-        (vector-map sym)
-        (matrix-map sym)
-        (name sym))
-    (throw
-      (ex-info "unexpected non-TCon type at GLSL emit"
-               {:type ir-type}))))
+  "IR 类型 → GLSL 类型字符串。
 
-(defn literal->str
-  "字面量值 → GLSL 字面量字符串。float 常量无需 f 后缀。"
-  [val]
-  (cond
-    (nil? val)     "void"
-    (integer? val) (str val)
-    (float? val)   (let [s (str val)]
-                     (if (or (re-find #"\." s) (re-find #"[eE]" s))
-                       s
-                       (str s ".0")))
-    (true? val)    "true"
-    (false? val)   "false"
-    :else
-    (throw
-      (ex-info "unsupported literal at GLSL emit" {:val val}))))
+   TVec —— 由 clang.lang/type->str 翻译为 element[size] 形式。
+   TCon —— 先转字符串，再查 GLSL 映射表；未命中时原样返回
+           （用户 struct 名、sampler2D 等）。
+   其他 —— clang.lang/type->str 的 strict 模式抛异常。"
+  [ir-type]
+  (let [type-str (clang.lang/type->str ir-type)]
+    (or (scalar-map type-str)
+        (vector-map type-str)
+        (matrix-map type-str)
+        type-str)))
+
+(defn naming-fn
+  "GLSL 的函数名/操作符映射。返回符号。
+
+   接受符号或字符串——先统一为字符串再查表：
+     ▸ 操作符（+ - * / 等）→ C 风格操作符符号
+     ▸ HLSL 类型构造（float4 / float3 等）→ GLSL 类型符号
+     ▸ 其他内置函数（dot / normalize / texture 等）→ 原样符号
+
+   非符号、非字符串 —— 返回 nil。"
+  [op]
+  (let [s (cond
+            (symbol? op) (name op)
+            (string? op) op
+            :else        nil)]
+    (when s
+      (or (scalar-map s)
+          (vector-map s)
+          (matrix-map s)
+          s))))
 
 ;; ═══════════════════════════════════════════
 ;; sampler 类型推导
@@ -117,27 +125,23 @@
 ;; 语义 → GLSL 内置变量
 ;; ═══════════════════════════════════════════
 
-(defn builtin-semantic?
-  "判断 (stage, semantic) 是否对应 GLSL 内置变量。
 
-   vertex   :position → gl_Position
-   fragment :depth    → gl_FragDepth"
+(defn builtin-semantic?
   [stage semantic]
   (boolean
     (or (and (= stage :vertex)   (= semantic :position))
+        (and (= stage :fragment) (= semantic :position))
         (and (= stage :fragment) (= semantic :depth)))))
 
 (defn builtin-var-name
-  "返回 (stage, semantic) 对应的 GLSL 内置变量名。
-   非内置语义抛异常。"
   [stage semantic]
   (cond
     (and (= stage :vertex)   (= semantic :position))
     "gl_Position"
-
+    (and (= stage :fragment) (= semantic :position))
+    "gl_FragCoord"
     (and (= stage :fragment) (= semantic :depth))
     "gl_FragDepth"
-
     :else
     (throw (ex-info "not a GLSL builtin semantic"
                     {:stage stage :semantic semantic}))))

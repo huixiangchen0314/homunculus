@@ -15,7 +15,7 @@
    [top.kzre.homunculus.backend.hlsl.lang :as lang]
    [top.kzre.homunculus.backend.shader.pass.analyze.env :as env]
    [top.kzre.homunculus.backend.shader.semantic :as semantic]
-   [top.kzre.homunculus.core.irstmt.ast :as ast]))
+   [top.kzre.homunculus.backend.shader.ast :as ast]))
 
 
 ;; ═══════════════════════════════════════════

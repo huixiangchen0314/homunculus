@@ -158,7 +158,7 @@
   "顶点输入——按语义查 location。无法查到时抛异常。"
   [params cfg]
   (mapv (fn [^SLParam p]
-          (let [sem      (semantic/shader-semantic p)
+          (let [sem      (:semantic p)
                 location (config/vertex-semantic-location cfg sem)]
             (when (nil? location)
               (throw (ex-info "no location configured for vertex input"
@@ -171,14 +171,20 @@
         params))
 
 (defn- plan-fragment-inputs
-  "fragment 输入是 varying——按名字匹配，没有 location。"
   [params]
-  (mapv (fn [^SLParam p]
-          (->IODecl (:name p)
-                    (:type p)
-                    nil
-                    (lang/flat-required? (:type p))
-                    false))
+  (into []
+        (keep (fn [^SLParam p]
+                (let [sem (:semantic p)]
+                  (cond
+                    (lang/builtin-semantic? :fragment sem)
+                    (->IODecl (lang/builtin-var-name :fragment sem)
+                              (:type p) nil
+                              (lang/flat-required? (:type p))
+                              true)
+                    :else
+                    (->IODecl (:name p) (:type p) nil
+                              (lang/flat-required? (:type p))
+                              false)))))
         params))
 
 (defn- plan-struct-fields

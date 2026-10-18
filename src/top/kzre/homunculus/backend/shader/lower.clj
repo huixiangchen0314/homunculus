@@ -165,6 +165,7 @@
 
 (defmethod lower-node* :var-decl [node env]
   (let [var-name (:name node)
+
         init-expr (:val node)
         [init env'] (if init-expr (lower-node* init-expr env) [nil env])
         resource-kind (semantic/shader-resource-kind node)
@@ -191,10 +192,14 @@
 
       (= resource-kind :cbuffer)
       (let [register (semantic/shader-cbuffer-register node)
+            var-ns (namespace var-name)
             members (when (= resource-kind :cbuffer)
                       (mapv (fn [[sym type-sym]]
-                              (ast/->StructMember sym (ty/make-tcon type-sym)
-                                                  {} {}))
+                              (ast/->StructMember
+                                ;; 由于是从数据构造出来的， ns 要自己重新设置
+                                (symbol var-ns (name sym))
+                                (ty/make-tcon type-sym)
+                                {} {}))
                             (semantic/shader-cbuffer-members node)))]
         [(ast/->CbufferDecl var-name register members attrs meta) env'])
 

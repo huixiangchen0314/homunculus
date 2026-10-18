@@ -1,20 +1,30 @@
 (ns top.kzre.homunculus.cli.core
   (:gen-class)
   (:require
-    [clojure.java.io :as io]
-    [top.kzre.homunculus.backend.hlsl.core :as hlsl]
-    [top.kzre.homunculus.cli.options :as opts]
-    [top.kzre.homunculus.internal.model :as model]
-    [top.kzre.homunculus.internal.module-unit :as mu]
-    [top.kzre.homunculus.internal.protocol :as p]
-    [top.kzre.homunculus.internal.utils :as u]
-    [top.kzre.homunculus.version :as version]))
+   [top.kzre.homunculus.backend.hlsl.core :as hlsl]
+   [top.kzre.homunculus.backend.glsl.core :as glsl]
+   [top.kzre.homunculus.cli.options :as opts]
+   [top.kzre.homunculus.internal.model :as model]
+   [top.kzre.homunculus.internal.module-unit]
+   [top.kzre.homunculus.internal.protocol :as p]
+   [top.kzre.homunculus.internal.utils :as u]
+   [top.kzre.homunculus.version :as version]))
 
 (defn- lookup-compile-target [target]
   (case target
     :hlsl (hlsl/target)
+    :glsl (glsl/target)
     ;; 未来可添加其他后端
     (throw (ex-info (str "Unsupported target: " target) {:target target}))))
+
+
+(defn- write-result [result]
+  (if (sequential? result)
+    (doseq [res result]
+      (p/write-result res))
+    (if (some? result)
+      (p/write-result result)
+      (println "no module result emitted"))))
 
 (defn -main [& args]
   (let [parsed (opts/parse-opts args)
@@ -49,8 +59,8 @@
         ;; 分割输出：每个模块单独生成文件，使用配置的命名风格
         (let [all-units (p/all-module-units context)]   ;; 从配置获取风格
           (doseq [unit all-units]
-            (when-let [result     (p/compile-module compiler unit context)]
-              (p/write-result result))))
+            (when-let [result (p/compile-module compiler unit context)]
+              (write-result result))))
         ;; 合并输出（单文件链接）
-        (let [code (p/link compiler context)]
-          (println code))))))
+        (let [result (p/link compiler context)]
+          (write-result result))))))

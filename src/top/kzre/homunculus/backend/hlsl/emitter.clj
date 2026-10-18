@@ -1,15 +1,16 @@
 (ns top.kzre.homunculus.backend.hlsl.emitter
   (:require
+    [top.kzre.homunculus.backend.format :as format]
     [top.kzre.homunculus.backend.hlsl.emit :as emit]
     [top.kzre.homunculus.backend.shader.lower :as lower]
     [top.kzre.homunculus.backend.shader.pass.array-assign :as  array-assign]
+    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
     [top.kzre.homunculus.core.irstmt.pass.assign-propagate :as irstmt.assign-propagate]
     [top.kzre.homunculus.core.irstmt.pass.dce :as irstmt.dce]
-    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
     [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
+    [top.kzre.homunculus.internal.model :as m]
     [top.kzre.homunculus.internal.module-unit :as mu]
     [top.kzre.homunculus.internal.protocol :as p]
-    [top.kzre.homunculus.internal.model :as m]
     [top.kzre.homunculus.internal.utils :as iu]))
 
 
@@ -19,10 +20,13 @@
     (println "ir2: " nodes)
     (let [config (p/config ctx)
           out-dir (p/output-dir (p/config ctx))
-          path (if unit (str out-dir "/" (iu/ns->module-path (mu/module-ns unit)
-                                                             (p/module-naming-style config)
-                                                             ".hlsl"))
-                        out-dir)
+          path (format/ensure-suffix
+                 (if unit
+                   (str out-dir "/"
+                        (iu/ns->module-path (mu/module-ns unit)
+                                            (p/module-naming-style config)))
+                          out-dir)
+                 ".hlsl")
           irstmts (irstmt.lower/lower nodes)
           sted (statementize/statementize-nodes irstmts)
           ped (irstmt.assign-propagate/propagate-nodes sted)

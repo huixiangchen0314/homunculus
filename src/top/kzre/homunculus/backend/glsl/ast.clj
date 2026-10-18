@@ -37,14 +37,21 @@
          'lhs/'rhs      赋值左右值"
         (:require [top.kzre.homunculus.core.ast :refer [defast]]))
 
-(declare GlslAST
+(declare GlslAST kind reduce-children
         ->Literal ->Variable ->BinaryOp ->UnaryOp ->Call
         ->MemberAccess ->ArrayIndex ->Constructor ->Cast
         ->Assign ->VarDecl ->If ->While ->Block
         ->Uniform ->GlobalVar
         ->InputDecl ->OutputDecl ->UniformBlock ->InterfaceBlock
         ->Function ->Struct
-        ->Param ->StructMember ->InterfaceBlockMember)
+        ->Param ->StructMember ->InterfaceBlockMember
+        map->Literal map->Variable map->BinaryOp map->UnaryOp map->Call
+        map->MemberAccess map->ArrayIndex map->Constructor map->Cast
+        map->Assign map->VarDecl map->If map->While map->Block
+        map->Uniform map->GlobalVar
+        map->InputDecl map->OutputDecl map->UniformBlock map->InterfaceBlock
+        map->Function map->Struct
+        map->Param map->StructMember map->InterfaceBlockMember)
 
 (defast GlslAST
         {:expr                  [:literal / :variable / :binary-op / :unary-op / :call /

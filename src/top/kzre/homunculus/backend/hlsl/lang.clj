@@ -1,31 +1,7 @@
 (ns top.kzre.homunculus.backend.hlsl.lang
   (:require
-   [top.kzre.homunculus.backend.format :refer [T]]
-   [top.kzre.homunculus.core.error :as err]
+    [top.kzre.homunculus.core.error :as err]
    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
-
-(defn type->str [ir-type]
-  (cond
-    (ty/vec-type? ir-type)
-    (let [elem-type (type->str (ty/vec-element-type ir-type))
-          size (ty/value-val (ty/vec-size ir-type))]
-      (T "${elem-type}[${size}]"))
-    (ty/type-sym ir-type) (name (ty/type-sym ir-type))
-    ;:else (throw (ex-info (str "Unknown type: " ir-type) {}))
-    :else (pr-str ir-type)
-    ))
-
-(defn literal->str [val]
-  (cond
-    (nil? val)   nil
-    (integer? val) (str val)
-    (float? val)   (str val)
-    (true? val)    "true"
-    (false? val)   "false"
-    :else (throw
-            (err/compile-error
-              :unsupported-literal-type
-              (str "Unsupported literal type for value: " (pr-str val))))))
 
 (defn sematic->str [kw stage]
   (case kw

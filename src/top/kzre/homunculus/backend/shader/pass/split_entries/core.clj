@@ -10,7 +10,7 @@
    ▸ 不做函数可达性过滤——GLSL 编译器会剔除未使用的函数
    ▸ 组内不含其他入口点——避免生成多个 main"
   (:require
-    [top.kzre.homunculus.core.irstmt.ast :as ast]))
+    [top.kzre.homunculus.backend.shader.ast :as ast]))
 
 ;; ═══════════════════════════════════════════
 ;; 节点判定

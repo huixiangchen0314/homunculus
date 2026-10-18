@@ -156,7 +156,7 @@
   [name register-kw & members]
   (let [pairs (partition 2 members)
         map-expr (into {} (map (fn [[sym type-ctor]]
-                                 [(keyword sym) (fully-qualified-ctor type-ctor)])
+                                 [sym (fully-qualified-ctor type-ctor)])
                                pairs))
         member-defs (map (fn [[sym type-ctor]]
                            (let [full-ctor (fully-qualified-ctor type-ctor)]
