@@ -4,8 +4,33 @@
    [clojure.java.io :as io]
    [clojure.string :as str])
   (:import
-   [clojure.lang LineNumberingPushbackReader]
+    [clojure.lang LineNumberingPushbackReader PersistentQueue]
    (java.io FileNotFoundException StringReader)))
+
+(defn ensure-suffix
+  "确保字符串 s 以 suffix 结尾，没有则补上。"
+  [s suffix]
+  (if (str/ends-with? s suffix)
+    s
+    (str s suffix)))
+
+(defn remove-suffix
+  "移除 s 末尾的 suffix。
+
+   s 可以是符号或字符串——返回同类型。
+   suffix 可以是符号、字符串或字符——按 name 比较。
+
+   s 不以 suffix 结尾时原样返回。
+   s 和 suffix 完全相等时返回空字符串或空符号（保留类型）。"
+  [s suffix]
+  (let [s-str      (if (string? s) s (name s))
+        suffix-str (if (string? suffix) suffix (name suffix))
+        n          (count suffix-str)]
+    (if (and (>= (count s-str) n)
+             (= suffix-str (subs s-str (- (count s-str) n))))
+      (let [trimmed (subs s-str 0 (- (count s-str) n))]
+        (if (string? s) trimmed (symbol trimmed)))
+      s)))
 
 ;; ── 符号转换工具 ────────────────────────
 (defn ->symbol
@@ -27,9 +52,9 @@
 (def ^:private module-naming-style-handlers
   {:default    (fn [ns-name suffix]
                  (let [prefix (str/replace ns-name "." "/")]
-                   (str prefix suffix)))
-   :flat       (fn [ns-name suffix] (str ns-name suffix))
-   :flat-snake (fn [ns-name suffix] (str (str/replace ns-name "." "_") suffix))})
+                   (ensure-suffix prefix suffix)))
+   :flat       (fn [ns-name suffix] (ensure-suffix ns-name suffix))
+   :flat-snake (fn [ns-name suffix] (ensure-suffix (str/replace ns-name "." "_") suffix))})
 
 (defn ns->module-path
   "根据 module-naming-style 将命名空间符号转换为模块文件名（包含可能的前缀路径，但不含输出根目录）。
@@ -47,10 +72,11 @@
   "将命名空间符号转换为相对于 base-path 的文件路径（.clj 扩展名）。"
   [base-path ns-sym]
   (let [ns-str         (name ns-sym)
+
         relative-path  (-> ns-str
                            (str/replace "." "/")
                            (str/replace "-" "_"))
-        filename       (str relative-path ".clj")
+        filename       (ensure-suffix relative-path ".clj")
         ;; 去掉 base-path 末尾可能存在的多余 /
         base           (if (str/ends-with? base-path "/")
                          (subs base-path 0 (dec (count base-path)))
@@ -72,12 +98,12 @@
                (catch FileNotFoundException _ nil)))
         paths))
 
-;; 新增：将命名空间符号转换为 classpath 资源路径
+;; 将命名空间符号转换为 classpath 资源路径
 (defn- ns->classpath [ns-sym]
   (-> (name ns-sym)
       (str/replace "." "/")
       (str/replace "-" "_")
-      (str ".clj")))
+      (ensure-suffix ".clj")))
 
 (defn resolve-module
   "从 lib-paths 中查找模块源文件，若找不到则尝试从 classpath 资源加载（用于标准库等）。"
@@ -137,7 +163,7 @@
   (if-let [cycle (detect-cycle graph)]
     (throw (ex-info "Circular dependency detected" {:cycle cycle}))
     (let [in-degree (atom {})
-          zero-queue (atom clojure.lang.PersistentQueue/EMPTY)
+          zero-queue (atom PersistentQueue/EMPTY)
           sorted (atom [])]
       (doseq [node (keys graph)]
         (swap! in-degree assoc node 0))

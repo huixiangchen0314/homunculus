@@ -10,6 +10,7 @@
 
 (def ^:private scalar-map
   {"bool" "bool" "int" "int" "uint" "uint" "float" "float"})
+
 (def ^:private scaler-types (set (vals scalar-map)))
 
 (def ^:private vector-map
@@ -17,27 +18,34 @@
    "int2"  "ivec2" "int3"  "ivec3" "int4"  "ivec4"
    "uint2" "uvec2" "uint3" "uvec3" "uint4" "uvec4"
    "float2" "vec2" "float3" "vec3" "float4" "vec4"})
+
 (def ^:private vector-types (set (vals vector-map)))
 
 (def ^:private matrix-map
   {"float2x2" "mat2"   "float2x3" "mat2x3" "float2x4" "mat2x4"
    "float3x2" "mat3x2" "float3x3" "mat3"   "float3x4" "mat3x4"
    "float4x2" "mat4x2" "float4x3" "mat4x3" "float4x4" "mat4"})
+
+
 (def ^:private matrix-types (set (vals matrix-map)))
 
 (defn type->str
   "IR 类型 → GLSL 类型字符串。
 
-   TVec —— 由 clang.lang/type->str 翻译为 element[size] 形式。
-   TCon —— 先转字符串，再查 GLSL 映射表；未命中时原样返回
-           （用户 struct 名、sampler2D 等）。
+   TVec —— 递归映射元素类型，外层拼 [N]。
+           (TVec (TCon float2) 13) → \"vec2[13]\"
+   TCon —— 查 GLSL 映射表；未命中原样返回。
    其他 —— clang.lang/type->str 的 strict 模式抛异常。"
   [ir-type]
-  (let [type-str (clang.lang/type->str ir-type)]
-    (or (scalar-map type-str)
-        (vector-map type-str)
-        (matrix-map type-str)
-        type-str)))
+  (if (ty/vec-type? ir-type)
+    (let [elem-str (type->str (ty/vec-element-type ir-type))
+          size     (ty/value-val (ty/vec-size ir-type))]
+      (str elem-str "[" size "]"))
+    (let [type-str (clang.lang/type->str ir-type)]
+      (or (scalar-map type-str)
+          (vector-map type-str)
+          (matrix-map type-str)
+          type-str))))
 
 (defn primitive-type?
   "判断GLSL 类型字符串是否是原始类型"
@@ -49,6 +57,32 @@
       (contains? scaler-types s)
       (contains? vector-types s)
       (contains? matrix-types s))))
+
+;; 函数名称映射表
+(def ^:private fn-map
+  {;; ── Bit-cast（按位重解释）─────────────────────────────
+   "asfloat" "intBitsToFloat"   ; int/uint → float
+   "asint"   "floatBitsToInt"   ; float/uint → int
+   "asuint"  "floatBitsToUint"  ; float/int → uint
+   "f16tof32" "unpackHalf2x16"
+   "f32tof16" "packHalf2x16"
+
+   ;; ── 数学函数（名称不同）────────────────────────────────
+   "frac"       "fract"
+   "lerp"       "mix"
+   "saturate"   "clamp"         ; 参数需补 0.0, 1.0
+   "mad"        "fma"
+   "rsqrt"      "inversesqrt"
+   "ddx"        "dFdx"
+   "ddy"        "dFdy"
+   "fwidth"     "fwidth"        ; 同名，但 GLSL 用 fwidth 而非 abs(ddx)+abs(ddy)
+   "clip"       "discard"       ; 特殊：HLSL 的 clip 在 GLSL 是 discard 语句
+   "countbits"  "bitCount"
+   "reversebits" "bitfieldReverse"
+   "firstbithigh" "findMSB"
+   "firstbitlow"  "findLSB"
+   "atan2"      "atan"          ; GLSL 的 atan(y, x) 即 atan2(y, x)
+   })
 
 (defn naming-fn
   "GLSL 的函数名/操作符映射。返回符号。
@@ -68,6 +102,7 @@
       (or (scalar-map s)
           (vector-map s)
           (matrix-map s)
+          (fn-map s)
           s))))
 
 (def ^:private sample-fn-map

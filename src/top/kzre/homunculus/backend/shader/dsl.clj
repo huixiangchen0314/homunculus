@@ -2,7 +2,8 @@
   "着色器 DSL 语法糖。提供统一的资源/入口声明，通过元数据传递给后端。"
   (:refer-clojure :exclude [float int])
   (:require
-    [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]))
+    [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 ;;; ========= 类型构造器 =========================================
 ;;; 命名与 HLSL 原始拼写一致：
@@ -106,10 +107,19 @@
 
 (defmacro defuniform
   "定义全局 uniform 常量。示例：(defuniform worldViewProj float4x4)"
-  [name type-ctor]
-  `(def ~(vary-meta name assoc
-                    :shader/uniform? true)
-     (~(fully-qualified-ctor type-ctor))))
+  ([var-name elem-ctor size]
+   (let [elem-sym (symbol (name elem-ctor))
+         ;; 直接标注 IR 类型，避免解析
+         arr-ty   (ty/make-tvec
+                    (ty/make-tcon elem-sym)
+                    (ty/make-tvalue size))]
+     `(def ~(vary-meta var-name assoc
+                       :shader/uniform? true
+                       :tag arr-ty))))
+  ([name type-ctor]
+   `(def ~(vary-meta name assoc
+                     :shader/uniform? true)
+      (~(fully-qualified-ctor type-ctor)))))
 
 (defmacro defstatic
   "定义全局静态变量专用宏. eg. (defstatic accumColor (float4 0.0 0.0 0.0 0.0))"

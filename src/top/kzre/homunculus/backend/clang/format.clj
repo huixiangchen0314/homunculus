@@ -31,14 +31,14 @@
 
 
 (defn binary-op
-  [op left right]
-  (let [op    (lang/naming-operator op)]
+  [op left right & {:keys [left-parens? right-parens?]}]
+  (let [left  (if left-parens?  (str "(" left ")")  left)
+        right (if right-parens? (str "(" right ")") right)]
     (T "${left} ${op} ${right}")))
 
-
 (defn unary-op
-  [op expr]
-  (let [op   (lang/naming-operator op)]
+  [op expr & {:keys [operand-parens?]}]
+  (let [expr (if operand-parens? (str "(" expr ")") expr)]
     (T "${op}${expr}")))
 
 (defn assign

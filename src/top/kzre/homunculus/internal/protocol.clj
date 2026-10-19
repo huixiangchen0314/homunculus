@@ -30,7 +30,10 @@
   (symbols [this ns-sym] "返回模块可见的符号表")
   (module-unit [this ns-sym])
   (set-module-unit! [this unit])
-  (all-module-units [this] "返回积累的所有模块单元"))
+  (all-module-units [this] "返回积累的所有模块单元")
+  (macro-namespaces [_]
+    "所有宏命名空间——前端内置的 + 用户通过 :macro-ns 选项
+     额外指定的。前端协议只提供内置集合，用户扩展在这一层组合。"))
 
 (defprotocol IEmitter
   (emit [this nodes context opts] "发射AST"))

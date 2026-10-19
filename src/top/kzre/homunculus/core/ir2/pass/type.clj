@@ -3,10 +3,10 @@
    确保所有 Pass 对类型的操作一致，避免覆盖错误。"
   (:require [clojure.string :as str]
             [clojure.walk :as walk]
+            [top.kzre.homunculus.core.ir2.ast :as ir2]
             [top.kzre.homunculus.core.ir2.pass.model :as t]
             [top.kzre.homunculus.core.ir2.pass.protocol :as p]
-            [top.kzre.homunculus.internal.utils :as iu]
-            [top.kzre.homunculus.core.ir2.ast :as ir2]))
+            [top.kzre.homunculus.internal.utils :as iu]))
 
 
 
@@ -54,7 +54,10 @@
 
 (defn fun-params [fn-ty]
   (when (fun-type? fn-ty)
-    (cons (fun-param fn-ty) (fun-params (fun-ret fn-ty)))))
+    (if (nil? (fun-param fn-ty))
+      []                                    ; 零参函数
+      (cons (fun-param fn-ty)
+            (fun-params (fun-ret fn-ty))))))
 
 (defn fun-return-type
   ([fn-ty]
@@ -74,6 +77,24 @@
          ty)
        (recur (fun-ret ty) (dec n))))))
 
+(defn fun-params-return
+  "解构柯里化函数，返回形参类型向量和返回值类型。
+
+   零参函数 (TFun nil ret) 返回 {:params [] :return ret}——
+   与 make-fun-type 的空参数表示、fun-return-type 的 arity=0
+   语义保持一致（零参函数消耗 0 个参数即得返回类型）。
+
+   非函数类型直接返回 {:params [] :return ty}——
+   便于调用方统一处理：:return 就是\"消耗所有形参后的剩余类型\"。"
+  [fn-ty]
+  (loop [ty     fn-ty
+         params []]
+    (if (fun-type? ty)
+      (if (nil? (fun-param ty))
+        ;; 零参函数 (TFun nil ret)：参数链到此结束
+        {:params params :return (fun-ret ty)}
+        (recur (fun-ret ty) (conj params (fun-param ty))))
+      {:params params :return ty})))
 
 
 ;; ── 容器类型访问器（TContainer 字段）──
@@ -100,39 +121,83 @@
 
 
 (defn- parse-type-symbol
-  "解析符号字符串中的函数类型表达式，支持 'int->int->int 和 'int->(int->int)。"
+  "解析符号字符串中的类型表达式。
+
+   支持：
+   ▸ 基本类型名：float / int / float4
+   ▸ 函数类型：int->int->int / (int->int)->float
+   ▸ 同构向量：float2@13 / int@4 / float@4@3（从内到外）
+
+   向量后缀用 @ 分隔——`float@4@3` 表示外层 3、元素 `float[4]`。"
   [s]
-  (let [tokens (re-seq #"[a-zA-Z0-9_]+|->|\(|\)" s)
-        pos (atom 0)]
+  (let [tokens (re-seq #"[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+|->|@|\(|\)" s)
+        pos    (atom 0)]
     (letfn [(peek-token [] (nth tokens @pos nil))
             (next-token [] (let [t (peek-token)] (swap! pos inc) t))
+
             (parse-atom []
               (let [t (next-token)]
                 (cond
-                  (= t "(") (let [ty (parse-expr)]
-                              (when (not= (next-token) ")")
-                                (throw (ex-info "Expected )" {:s s})))
-                              ty)
-                  (= t ")") (throw (ex-info "Unexpected )" {:s s}))
+                  (= t "(")
+                  (let [ty (parse-expr)]
+                    (when (not= (next-token) ")")
+                      (throw (ex-info "Expected )" {:s s})))
+                    ty)
+                  (= t ")")  (throw (ex-info "Unexpected )" {:s s}))
                   (= t "->") (throw (ex-info "Unexpected ->" {:s s}))
-                  :else (make-tcon (symbol t)))))
+                  (= t "@")  (throw (ex-info "Unexpected @" {:s s}))
+                  (nil? t)   (throw (ex-info "Unexpected end of type string" {:s s}))
+                  :else      (make-tcon (symbol t)))))
+
+            (parse-postfix []
+              (loop [ty (parse-atom)]
+                (if (= (peek-token) "@")
+                  (do
+                    (next-token)  ; 消耗 @
+                    (let [size-str (next-token)]
+                      (when-not (and size-str
+                                     (re-matches #"[0-9]+" size-str))
+                        (throw (ex-info "Expected integer size after @"
+                                        {:s s :token size-str})))
+                      (recur (t/->TVec ty (t/->TValue (parse-long size-str))))))
+                  ty)))
+
             (parse-expr []
-              (let [left (parse-atom)]
+              (let [left (parse-postfix)]
                 (if (= (peek-token) "->")
-                  (do (next-token) ; consume arrow
+                  (do (next-token)
                       (let [right (parse-expr)]
                         (make-tfun left right)))
                   left)))]
       (parse-expr))))
 
-(defn parse-type [type-spec]
+(defn parse-type
+  "解析类型标注。
+
+   接受：
+   ▸ keyword  —— 简单类型名，如 :float
+   ▸ 符号     —— 简单名、函数类型（`int->int`）、同构向量（`float2@13`）
+   ▸ 字符串   —— 同上，字符串形式
+   ▸ 其他     —— 视为已构造的 IR 类型对象，原样返回
+
+   同构向量的符号形式用 @ 分隔——`float2@13` / `float@4@3`。
+   不用 `[]`——Clojure reader 会把它当作独立的形式，破坏符号。"
+  [type-spec]
   (cond
-    (keyword? type-spec) (make-tcon (symbol (name type-spec)))
+    (keyword? type-spec)
+    (make-tcon (symbol (name type-spec)))
+
+    (string? type-spec)
+    (parse-type-symbol type-spec)
+
     (symbol? type-spec)
     (let [s (name type-spec)]
-      (if (or (str/includes? s "->") (str/includes? s "("))
+      (if (or (str/includes? s "->")
+              (str/includes? s "(")
+              (str/includes? s "@"))
         (parse-type-symbol s)
         (make-tcon type-spec)))
+
     :else type-spec))
 
 
@@ -204,15 +269,20 @@
 
 (defn meta->type
   "从元数据 map 中提取类型标注。
-   优先 :tag 符号（如 ^float），其次遍历关键字键，
-   与 known-types（符号集合）匹配后返回 TCon。"
+
+   优先 :tag 键。值可以是：
+   ▸ 符号   —— 简单类型（'float / 'float4）、函数类型（'int->int）、
+               同构向量（'float2@13）
+   ▸ 字符串 —— 同上，字符串形式
+
+   `^float` / `^int->int` / `^float2@13` 这类 metadata 语法可以
+   直接写符号——Clojure reader 对 `@` 在符号内合法。"
   ([md]
-   ;; TODO 前向推导时候顺便完成静态类型检查
    (when md
-     (when-let [type-sym (:tag md)]
-       (t/->TCon type-sym))))
+     (when-let [type-spec (:tag md)]
+       (parse-type type-spec))))
   ([md _]
-    (meta->type md)))
+   (meta->type md)))
 
 (defn get-type
   "获取节点的类型，优先级：attrs :type > node-meta 类型标注 > nil。"

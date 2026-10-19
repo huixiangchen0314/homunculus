@@ -267,6 +267,38 @@
             [['a 'uint3  'b 'uint3]  'bool3]
             [['a 'uint4  'b 'uint4]  'bool4]]
 
+           [:func 'lessThan {:pure? true}
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
+
+           [:func 'greaterThan {:pure? true}
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
+
+           [:func 'any {:pure? true}
+            [['v 'bool2] 'bool]
+            [['v 'bool3] 'bool]
+            [['v 'bool4] 'bool]]
+
+           [:func 'all {:pure? true}
+            [['v 'bool2] 'bool]
+            [['v 'bool3] 'bool]
+            [['v 'bool4] 'bool]]
+
            ;; ═══════════════════════════════════════════
            ;; 向量构造
            ;; ═══════════════════════════════════════════
@@ -822,9 +854,7 @@
   (macro-namespaces [_] #{'top.kzre.homunculus.backend.shader.dsl
                           'top.kzre.homunculus.core
                           'cljh.core
-                          })
-  (entry-point? [_ node]
-    (boolean (:shader/stage (ir2/node-meta node)))))
+                          }))
 
 (defonce ^:private frontend* (->HLSLFrontend))
 

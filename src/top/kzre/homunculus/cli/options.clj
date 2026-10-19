@@ -2,7 +2,8 @@
   "可扩展的命令行选项解析。
    参照 LLVM / Git 风格，支持多个后端动态注册选项。
    每个选项规范形如 [短选项 长选项 说明 :default 默认值 :parse-fn 解析函数 :assoc-fn 累加函数]"
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [top.kzre.homunculus.internal.utils :as iu]))
 
 ;; ═══════════════════════════════════════════════════════════
 ;; 全局选项注册表
@@ -23,7 +24,8 @@
    short-opt 必须以 '-' 开头，long-opt 必须以 '--' 开头。
    若短选项或长选项已注册，抛出异常。"
   [opt-spec]
-  (let [[short long desc & {:as opts}] opt-spec]
+  (let [[short long desc & {:as opts}]
+        opt-spec]
     (when-not (str/starts-with? short "-")
       (throw (ex-info "短选项必须以 - 开头" {:spec opt-spec})))
     (when-not (str/starts-with? long "--")
@@ -80,6 +82,14 @@
 (register-option!
   ["-S" "--split-modules" "为每个模块生成独立的输出文件"
    :default false])
+
+(register-option!
+  ["-M" "--macro-ns" "添加宏命名空间（分号分隔多个，可重复传）"
+   :default []
+   :assoc-fn (fn [m k v]
+               (update m k into
+                       (map #(symbol %)
+                            (str/split v #";"))))])
 
 ;; ═══════════════════════════════════════════════════════════
 ;; 选项映射工具

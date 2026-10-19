@@ -20,6 +20,32 @@
 (defn- emit-node [node env]
   (emit-node* node env))
 
+(defn- binary-child-op
+  [node]
+  (when (= :binary-op (ast/kind node))
+    (:op node)))
+
+(defmethod emit-node* :binary-op [node env]
+  (let [op    (clang.lang/naming-operator (:op node))
+        left  (:left node)
+        right (:right node)]
+    (clang.format/binary-op
+      op
+      (emit-node left env)
+      (emit-node right env)
+      :left-parens?  (clang.lang/operand-needs-parens?
+                       (binary-child-op left) op false)
+      :right-parens? (clang.lang/operand-needs-parens?
+                       (binary-child-op right) op true))))
+
+(defmethod emit-node* :unary-op [node env]
+  (let [child (:expr node)]
+    (clang.format/unary-op
+      (clang.lang/naming-operator (:op node))
+      (emit-node child env)
+      :operand-parens? (clang.lang/unary-operand-needs-parens?
+                         (binary-child-op child)))))
+
 (def ^:private texture-method-names
   {'sample              "Sample"
    'sampleLod           "SampleLevel"
@@ -224,14 +250,6 @@
       (clang.format/include path))
     :variable
     (clang.lang/naming (:name node))
-    :binary-op
-    (clang.format/binary-op
-      (:op node)
-      (emit-node* (:left node) env)
-      (emit-node* (:right node) env))
-    :unary-op
-    (clang.format/unary-op (:op node)
-                           (emit-node* (:expr node) env))
     :block
     (emit-block-body node env false)
     :while

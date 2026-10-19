@@ -47,16 +47,31 @@
 (defmethod emit-node* :variable [node _]
   (clang.lang/naming (:name node)))
 
+(defn- binary-child-op
+  [node]
+  (when (= :binary-op (ast/kind node))
+    (:op node)))
+
 (defmethod emit-node* :binary-op [node env]
-  (clang.format/binary-op
-    (:op node)
-    (emit-node (:left node) env)
-    (emit-node (:right node) env)))
+  (let [op    (clang.lang/naming-operator (:op node))
+        left  (:left node)
+        right (:right node)]
+    (clang.format/binary-op
+      op
+      (emit-node left env)
+      (emit-node right env)
+      :left-parens?  (clang.lang/operand-needs-parens?
+                       (binary-child-op left) op false)
+      :right-parens? (clang.lang/operand-needs-parens?
+                       (binary-child-op right) op true))))
 
 (defmethod emit-node* :unary-op [node env]
-  (clang.format/unary-op
-    (:op node)
-    (emit-node (:expr node) env)))
+  (let [child (:expr node)]
+    (clang.format/unary-op
+      (clang.lang/naming-operator (:op node))
+      (emit-node child env)
+      :operand-parens? (clang.lang/unary-operand-needs-parens?
+                         (binary-child-op child)))))
 
 (defmethod emit-node* :call [node env]
   (clang.format/call
@@ -100,9 +115,10 @@
             (emit-node i env))))
 
 (defmethod emit-node* :uniform [node _]
-  (let [type-str (:type node)
-        name     (:name node)]
-    (T "uniform ${type-str} ${name};")))
+  (let [decl (clang.format/var-decl
+               (:name node)
+               (:type node))]
+    (T "uniform ${decl};")))
 
 (defmethod emit-node* :global-var [node env]
   (let [type-str (:type node)

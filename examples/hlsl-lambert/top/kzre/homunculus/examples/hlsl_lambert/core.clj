@@ -42,7 +42,7 @@
            (set! vv 3)
            (def avv (%%new-array vv))
            ;; 使用 my-map 对 x 的每个元素加 1
-           (def y (map (fn [v] (+ v 1.0)) sv))
+           (def y (map (fn [v] (* (+ v 1.0) 2)) sv))
            (let [worldPos (mul worldViewProj pos)
                  ll (if true 1 2)
                  xxxxx [1 2 3]]
@@ -66,4 +66,4 @@
                 (def ^{:aaa MyInout} f (range 10))
                 (def g (drop 3 f))
                 (def z (butlast g))
-                lv))
+                finalColor))

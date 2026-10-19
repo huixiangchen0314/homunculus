@@ -58,7 +58,7 @@
    生成完整的 GLSL 源文本（含 #version prologue）。"
   [ctx path {:keys [entry asts]} analysis]
   (let [stage (semantic/shader-stage entry)
-        path (str path
+        path' (str path
                   (stage->extension stage))
         sem-config (sematic/make-config ctx)
         lived (-> asts
@@ -68,7 +68,7 @@
                              sem-config)
         lowered (glsl.lower/lower lived (glsl.lower/make-env ctx) layout)
         code  (emit/emit lowered (emit/make-env ctx) analysis)]
-    (m/make-module-result path code)))
+    (m/make-module-result path' code)))
 
 ;; ═══════════════════════════════════════════
 ;; Emitter
@@ -77,7 +77,8 @@
 (defrecord GLSLEmitter []
   ip/IEmitter
   (emit [_ nodes ctx {:keys [unit]}]
-    (let [path (unit-path ctx unit)
+    (let [cfg (ip/config ctx)
+          path (ip/output-dir  cfg)
           ;; IR2 → IRStmt → 优化 → ShaderAST
           irstmts      (irstmt.lower/lower nodes)
           sted         (statementize/statementize-nodes irstmts)

@@ -141,13 +141,16 @@
     (doseq [root ir2-roots]
       (try
         (case (n/kind root)
+          ;; TODO 使用新的隔离符号表，以支持可见性
           :define   (when-let [entry (collect-define root compile-ctx)]
                       (swap! module-atom mu/register-symbol entry)
                       (p/register-sym compile-ctx entry))
           :record   (when-let [entry (collect-record root compile-ctx)]
                       (swap! module-atom mu/register-symbol entry)
+                      (p/register-sym compile-ctx entry)
                       (let [ctor-entry (emit-record-ctor entry unit)]
-                        (swap! module-atom mu/register-symbol ctor-entry)))
+                        (swap! module-atom mu/register-symbol ctor-entry)
+                        (p/register-sym compile-ctx ctor-entry)))
           :protocol (when-let [entry (collect-protocol root compile-ctx)]
                       (swap! module-atom mu/register-symbol entry)
                       (p/register-sym compile-ctx entry))

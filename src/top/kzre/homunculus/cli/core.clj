@@ -1,8 +1,9 @@
 (ns top.kzre.homunculus.cli.core
   (:gen-class)
   (:require
-   [top.kzre.homunculus.backend.hlsl.core :as hlsl]
    [top.kzre.homunculus.backend.glsl.core :as glsl]
+   [top.kzre.homunculus.backend.hlsl.core :as hlsl]
+   [top.kzre.homunculus.cli.load :as load]
    [top.kzre.homunculus.cli.options :as opts]
    [top.kzre.homunculus.internal.model :as model]
    [top.kzre.homunculus.internal.module-unit]
@@ -14,7 +15,6 @@
   (case target
     :hlsl (hlsl/target)
     :glsl (glsl/target)
-    ;; 未来可添加其他后端
     (throw (ex-info (str "Unsupported target: " target) {:target target}))))
 
 
@@ -42,6 +42,18 @@
       (println "错误: 未指定输入文件")
       (println (opts/usage-string))
       (System/exit 1))
+
+    ;; 加载用户宏命名空间——按列表顺序，在 -L 路径下逐个查找
+    (when (seq (:macro-ns options))
+      (try
+        (load/load-macro-namespaces! (:macro-ns options) (:lib options))
+        (catch Exception e
+          (println "[ERROR]" (.getMessage e))
+          (when-let [data (ex-data e)]
+            (when (:searched data)
+              (println "  已搜索路径:")
+              (doseq [p (:searched data)] (println "   " p))))
+          (System/exit 1))))
 
     (let [config (model/make-compile-config options)
           target (lookup-compile-target (p/target config))

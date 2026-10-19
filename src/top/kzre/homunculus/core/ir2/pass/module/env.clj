@@ -88,8 +88,7 @@
    非 cljh.core 模块自动加 cljh.core 兜底依赖。"
   [ns-node compile-ctx]
   (let [self-ns  (:name ns-node)
-        frontend (ip/frontend compile-ctx)
-        macro-ns (or (when frontend (types/macro-namespaces frontend)) #{})
+        macro-ns (when compile-ctx (ip/macro-namespaces compile-ctx))
         dep-syms (cond-> (remove macro-ns
                                  (namespace/ns-dependency-syms ns-node))
                          (not= self-ns 'cljh.core)

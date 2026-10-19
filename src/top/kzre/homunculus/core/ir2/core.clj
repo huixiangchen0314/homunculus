@@ -10,7 +10,8 @@
 (defn make-env [ctx] (->Env ctx))
 (defn compile-context [env] (:ctx env))
 (defn frontend [env] (ip/frontend (compile-context env)))
-
+(defn macro-namespace [env]
+  (ip/macro-namespaces (:ctx env)))
 (defmulti lower-ast
           "将 IR1 节点降低为 IR2 节点向量。"
           (fn [ir1-node _env]
@@ -19,8 +20,7 @@
 (defmethod lower-ast :default [_node _env] [])
 
 (defmethod lower-ast :ns [node env]
-  (let [frontend (frontend env)
-        macro-namespaces (tp/macro-namespaces frontend)
+  (let [macro-namespaces (macro-namespace env)
         ;; 过滤宏空间 TODO 上下文合并各种来源的宏空间
         striped-requires (filterv
                            (fn [req]

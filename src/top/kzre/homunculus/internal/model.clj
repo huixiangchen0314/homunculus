@@ -121,7 +121,14 @@
     (if-let [ns-sym (mu/module-ns unit)]
       (swap! state-atom assoc-in [:modules ns-sym] unit)
       (throw (ex-info "ns is require for module unit" {:unit unit}))))
-  (all-module-units [_] (vals (get-in @state-atom [:modules]))))
+  (all-module-units [_] (vals (get-in @state-atom [:modules])))
+  (macro-namespaces [this]
+    (let [builtin (some-> (p/frontend this)
+                          tp/macro-namespaces
+                          (or #{}))
+          extra   (set (:macro-ns (p/options config)))]
+      (into builtin extra)))
+  )
 
 (defn make-compile-context
   [config target]

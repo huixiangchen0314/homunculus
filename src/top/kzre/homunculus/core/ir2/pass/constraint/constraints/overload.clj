@@ -101,11 +101,12 @@
                                 subst-map % arg-tys' ret-tv' env)
                              fn-type-vec)]
             (if (empty? scored)
-              (throw (ex-info "No matching overload"
-                              {:arg-tys arg-tys'
-                               :candidates fn-type-vec
-                               :callee callee-name
-                               :data data}))
+              (let [data data]
+                (throw (ex-info "No matching overload"
+                                {:arg-tys arg-tys'
+                                 :candidates fn-type-vec
+                                 :callee callee-name
+                                 :data data})))
               (let [grouped  (group-by :cost scored)
                     min-cost (apply min (keys grouped))
                     best     (get grouped min-cost)]

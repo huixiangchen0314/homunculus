@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.backend.format
   (:require
-   [clojure.string :as str]))
+    [clojure.string :as str]
+    [top.kzre.homunculus.internal.utils :as iu]))
 
 
 (defmacro T [template-str]
@@ -23,6 +24,5 @@
 (defn ensure-suffix
   "确保字符串 s 以 suffix 结尾，没有则补上。"
   [s suffix]
-  (if (str/ends-with? s suffix)
-    s
-    (str s suffix)))
+  (iu/ensure-suffix s suffix))
+
