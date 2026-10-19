@@ -16,12 +16,13 @@
            env (env/make-env compile-ctx)]
       (let [[remaining subst-map' env']
             (reduce
-              (fn [[cs substs e] c]
+              (fn [[acc-constraints
+                    substs e] c]
                 (let [s (proto/solve-constraint c substs e)
                       c' (proto/substitute-constraint c s)]
                   (if (proto/solved? c')
-                    [cs s e]
-                    [(conj cs c') s e])))
+                    [acc-constraints s e]
+                    [(conj acc-constraints c') s e])))
               [[] subs-map env]
               constrs)]
         (if (or (empty? remaining)

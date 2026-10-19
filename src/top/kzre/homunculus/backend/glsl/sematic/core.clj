@@ -5,28 +5,30 @@
    根据 SLAnalysis + 当前 stage + 该入口点组的 asts，生成 GLSL
    降级所需的规划数据：
    ▸ sampler 规划——每个 (texture, sampler) 组合 → SamplerUniform，
-     按 config 策略分配 texture unit
-   ▸ 入口点规划——入口点的 params / return → in/out IODecl，
-     按语义查 location；struct 返回按 out-struct-strategy 展开
+     按 load-only 规则区分是否带 sampler
+   ▸ 入口点规划——入口点的 params / return → in/out IODecl 或
+     InterfaceBlock，按 out-struct-strategy 展开
 
    ── 语言层工具 ────────────────────────────────────────
-   类型映射、sampler 类型推导、flat 判定走 glsl.lang；
+   类型映射、sampler 类型推导、flat 判定、内置语义走 glsl.lang；
    struct 类型判定走 hlsl.lang。本层只负责规划编排。
 
    ── 不在本层做的事 ────────────────────────────────────
    ▸ uniform block 的 binding——逐节点翻译，尊重 register(bN)
-   ▸ :interface-block 策略——暂未实现，遇到时抛异常
+   ▸ vertex input struct 参数——当前只处理离散参数
    ▸ 名字冲突检测——假设 HLSL 变量名与 GLSL 生成名不冲突"
   (:require
     [top.kzre.homunculus.backend.glsl.lang :as lang]
     [top.kzre.homunculus.backend.glsl.sematic.config :as config]
     [top.kzre.homunculus.backend.glsl.sematic.layout
-     :refer [->EntryLayout ->IODecl ->Layout ->SamplerUniform]]
+     :refer [->EntryLayout ->IODecl ->InterfaceBlock
+             ->InterfaceBlockMember ->Layout ->SamplerUniform]]
     [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
     [top.kzre.homunculus.backend.shader.ast :as ast]
     [top.kzre.homunculus.backend.shader.pass.analyze.model :as model]
     [top.kzre.homunculus.backend.shader.semantic :as semantic]
-    [top.kzre.homunculus.core.ir2.pass.type :as ty])
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]
+    [top.kzre.homunculus.core.error :as err])
   (:import
     (top.kzre.homunculus.backend.glsl.sematic.layout
       Layout)
@@ -68,8 +70,7 @@
 
    load 的 sample-call 的 :sampler 为 nil——它只引用 texture，
    不引用 sampler（HLSL 的 tex.Load 不经过 sampler）。此类记录
-   只校验 texture，sampler 留 nil 传递给 plan-samplers 的
-   _raw 分支。"
+   只校验 texture，sampler 留 nil 传递给 plan-samplers。"
   [^SLAnalysis analysis]
   (let [textures (into {} (map (fn [^SLTexture t] [(:name t) t])
                                (:textures analysis)))
@@ -131,7 +132,7 @@
   "遍历 sample-calls，为每个 (texture, sampler) 组合生成 SamplerUniform。
    按 config 策略分配 texture unit。"
   [^SLAnalysis analysis cfg]
-  (let [entries  (resolve-sample-entries analysis)
+  (let [entries          (resolve-sample-entries analysis)
         binding-strategy (config/texture-sampler-binding-strategy cfg)
         naming-strategy  (config/sampler-naming-strategy cfg)
         ;; simple 策略的冲突统计——load-only（sampler 为 nil）不参与
@@ -201,72 +202,103 @@
             (when (nil? location)
               (throw (ex-info "no location configured for vertex input"
                               {:param (:name p) :semantic sem})))
-            (->IODecl (:name p)
-                      (:type p)
-                      location
-                      (lang/flat-required? (:type p))
-                      false)))
-        params))
-
-(defn- plan-fragment-inputs
-  [params]
-  (into []
-        (keep (fn [^SLParam p]
-                (let [sem (:semantic p)]
-                  (cond
-                    (lang/builtin-semantic? :fragment sem)
-                    (->IODecl (lang/builtin-var-name :fragment sem)
-                              (:type p) nil
-                              (lang/flat-required? (:type p))
-                              true)
-                    :else
-                    (->IODecl (:name p) (:type p) nil
-                              (lang/flat-required? (:type p))
-                              false)))))
+            (->IODecl (:name p) (:type p) sem location
+                      (lang/flat-required? (:type p)) false)))
         params))
 
 (defn- plan-struct-fields
-  "展开 struct 的字段为 IODecl。
-   每个字段按语义查 location；内置语义（:position / :depth）
-   映射为内置变量。"
-  [stage struct-decl cfg]
-  (mapv (fn [field]
-          (let [sem  (semantic/shader-semantic field)
-                type (:type field)
-                name (:name field)]
-            (cond
-              (and (= stage :vertex) (= sem :position))
-              (->IODecl "gl_Position" type nil (lang/flat-required? type) true)
+  "展开 struct 的字段。
 
-              (and (= stage :fragment) (= sem :depth))
-              (->IODecl "gl_FragDepth" type nil (lang/flat-required? type) true)
+   :split           —— 每个字段一个 IODecl（内置字段标 builtin? true）。
+   :interface-block —— 内置字段 IODecl + 自定义字段打包成一个 InterfaceBlock。"
+  [stage struct-decl cfg direction]
+  (when (empty? (:members struct-decl))
+    (throw (err/compile-error
+             :gl-plan-struct-fields-failed
+             "struct has no members"
+             {:struct (:name struct-decl)})))
+  (let [strategy (config/out-struct-strategy cfg)]
+    (case strategy
+      :split
+      (mapv (fn [field]
+              (let [sem  (semantic/shader-semantic field)
+                    type (:type field)
+                    name (:name field)]
+                (if (lang/builtin-semantic? stage sem)
+                  (->IODecl (lang/builtin-var-name stage sem)
+                            type sem nil
+                            (lang/flat-required? type) true)
+                  (let [location (case stage
+                                   :vertex   (config/vertex-semantic-location cfg sem)
+                                   :fragment (config/fragment-semantic-location cfg sem))]
+                    (when (nil? location)
+                      (throw (ex-info "no location configured for struct field"
+                                      {:field name :semantic sem :stage stage})))
+                    (->IODecl name type sem location
+                              (lang/flat-required? type) false)))))
+            (:members struct-decl))
 
-              :else
-              (let [location (case stage
-                               :vertex   (config/vertex-semantic-location cfg sem)
-                               :fragment (config/fragment-semantic-location cfg sem))]
-                (when (nil? location)
-                  (throw (ex-info "no location configured for struct field"
-                                  {:field name :semantic sem :stage stage})))
-                (->IODecl name type location (lang/flat-required? type) false)))))
-        (:members struct-decl)))
+      :interface-block
+      (let [members     (:members struct-decl)
+            is-builtin? (fn [f] (lang/builtin-semantic?
+                                  stage (semantic/shader-semantic f)))
+            builtins    (filterv is-builtin? members)
+            customs     (filterv (complement is-builtin?) members)
+            builtin-ios (mapv (fn [f]
+                                (let [sem (semantic/shader-semantic f)]
+                                  (->IODecl (lang/builtin-var-name stage sem)
+                                            (:type f) sem nil
+                                            (lang/flat-required? (:type f)) true)))
+                              builtins)
+            block       (when (seq customs)
+                          (->InterfaceBlock
+                            (config/interface-block-naming cfg (:name struct-decl))
+                            (config/interface-block-instance-naming
+                              cfg (:name struct-decl) stage direction)
+                            nil
+                            (mapv (fn [f]
+                                    (->InterfaceBlockMember
+                                      (:name f) (:type f) nil
+                                      (lang/flat-required? (:type f))))
+                                  customs)))]
+        (into builtin-ios (when block [block])))
+
+      (throw (ex-info "unknown out-struct-strategy" {:strategy strategy})))))
+
+(defn- plan-fragment-inputs
+  [params cfg struct-names asts]
+  (into []
+        (mapcat (fn [^SLParam p]
+                  (let [sem  (:semantic p)
+                        type (:type p)]
+                    (cond
+                      ;; 内置语义 → 内置变量
+                      (lang/builtin-semantic? :fragment sem)
+                      [(->IODecl (lang/builtin-var-name :fragment sem)
+                                 type sem nil
+                                 (lang/flat-required? type) true)]
+
+                      ;; struct 参数 → plan-struct-fields 内部按策略分叉
+                      ;;   :split           → 展开为离散 IODecl
+                      ;;   :interface-block → block + 内置 IODecl
+                      (hlsl.lang/struct-type? type struct-names)
+                      (let [sd (find-struct asts (ty/type-sym type))]
+                        (plan-struct-fields :fragment sd cfg :in))
+
+                      ;; 离散参数 → 离散 IODecl（与策略无关）
+                      :else
+                      [(->IODecl (:name p) type sem nil
+                                 (lang/flat-required? type) false)]))))
+        params))
 
 (defn- plan-vertex-return
   [^SLReturn return cfg struct-names asts]
   (let [type (:type return)]
     (if (hlsl.lang/struct-type? type struct-names)
       (let [sd (find-struct asts (ty/type-sym type))]
-        (case (config/out-struct-strategy cfg)
-          :split
-          (plan-struct-fields :vertex sd cfg)
-
-          :interface-block
-          (throw (ex-info "interface-block strategy not yet implemented"
-                          {:stage :vertex}))
-
-          (throw (ex-info "unknown out-struct-strategy"
-                          {:strategy (config/out-struct-strategy cfg)}))))
-      [(->IODecl "gl_Position" type nil (lang/flat-required? type) true)])))
+        (plan-struct-fields :vertex sd cfg :out))
+      [(->IODecl "gl_Position" type :position nil
+                 (lang/flat-required? type) true)])))
 
 (defn- plan-fragment-return
   [^SLReturn return cfg struct-names asts]
@@ -274,22 +306,13 @@
         sem  (:semantic return)]
     (if (hlsl.lang/struct-type? type struct-names)
       (let [sd (find-struct asts (ty/type-sym type))]
-        (case (config/out-struct-strategy cfg)
-          :split
-          (plan-struct-fields :fragment sd cfg)
-
-          :interface-block
-          (throw (ex-info "interface-block strategy not yet implemented"
-                          {:stage :fragment}))
-
-          (throw (ex-info "unknown out-struct-strategy"
-                          {:strategy (config/out-struct-strategy cfg)}))))
+        (plan-struct-fields :fragment sd cfg :out))
       (if (= sem :depth)
-        [(->IODecl "gl_FragDepth" type nil (lang/flat-required? type) true)]
+        [(->IODecl "gl_FragDepth" type :depth nil
+                   (lang/flat-required? type) true)]
         (let [location (or (config/fragment-semantic-location cfg sem) 0)]
           [(->IODecl (config/fragment-out-name cfg)
-                     type
-                     location
+                     type sem location
                      (lang/flat-required? type)
                      false)])))))
 
@@ -308,7 +331,7 @@
       :fragment
       (->EntryLayout
         :fragment
-        (plan-fragment-inputs params)
+        (plan-fragment-inputs params cfg struct-names asts)
         (plan-fragment-return return cfg struct-names asts))
 
       (throw (ex-info "unsupported graphics entry stage"

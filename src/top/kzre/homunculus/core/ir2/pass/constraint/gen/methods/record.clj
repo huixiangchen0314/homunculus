@@ -1,12 +1,14 @@
 (ns top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.record
   (:require
-    [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
-    [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
+   [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as env]
+   [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
+   [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 (defmethod gen/gen-node* :record [current-node env]
-  (let [fields (n/record-fields current-node)
+  (let [record-name (n/record-name current-node)
+        fields (n/record-fields current-node)
         ;; 顺序处理字段，累积环境
         [new-fields constraints final-env]
         (reduce
@@ -34,11 +36,20 @@
                init-env]))
           [[] [] env]
           fields)
-        record-tv (gen/fresh-tvar)
+
+        record-ty  (ty/make-tcon record-name)
+        ctor-sym   (symbol (namespace record-name)
+                           (str "->" (name record-name)))
+        field-tvs  (mapv :type new-fields)
+        ctor-type  (reduce (fn [ret arg] (ty/make-tfun arg ret))
+                           record-ty
+                           (reverse field-tvs))
+        env'       (env/bind-var final-env ctor-sym ctor-type)
+        tv (gen/fresh-tvar)
         new-node  (-> current-node
                       (assoc :fields new-fields)
-                      (ty/set-type! record-tv))]
-    {:type        record-tv
+                      (ty/set-type! tv))]
+    {:type        tv
      :node        new-node
      :constraints (vec constraints)
-     :env         final-env}))
+     :env         env'}))

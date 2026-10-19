@@ -27,7 +27,7 @@
 (defrecord SamplerUniform
   [var-name            ;; GLSL 变量名，如 "tex0_samp0"
    texture             ;; 原始 texture 名
-   sampler             ;; 原始 sampler 名
+   sampler             ;; 原始 sampler 名；load-only 时为 nil
    dimension
    sampler-type-str    ;; GLSL sampler 类型名字符串，如 "sampler2D" / "sampler2DShadow"
    texture-unit])      ;; 纹理单元编号，用于 glUniform1i 绑定
@@ -40,6 +40,7 @@
 (defrecord IODecl
   [var-name        ;; GLSL 变量名。builtin? 为 true 时是内置变量名
    type            ;; IR 类型对象
+   semantic
    location        ;; layout(location = N)，或 nil
    flat?           ;; 是否 flat——整数插值必须 true
    builtin?])      ;; true 表示 GLSL 内置变量——降级器不声明，直接赋值
@@ -94,8 +95,10 @@
 
 (defn find-load-sampler
   "查找 load 用的 sampler uniform。
-   load-only 用 <tex>_raw；有 sample 配对的用第一个配对 uniform
-   （texelFetch 不需要采样器状态，任意一个都行）。"
+
+    load-only 的 SamplerUniform :sampler 为 nil，var-name 是纹理名
+    （不再有 _raw 后缀）。有 sample 配对的用第一个配对 uniform——
+    texelFetch 不需要采样器状态，任意一个都行。"
   [^Layout layout tex-name]
   (or (some (fn [^SamplerUniform s]
               (when (and (= (:texture s) tex-name)

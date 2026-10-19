@@ -9,20 +9,22 @@
    :wrap    —— 原 entry 改名 __entry_<name>，生成 wrapper main
    :inplace —— 原地改造 entry 为 main（暂未实现）"
   (:require
-   [top.kzre.homunculus.backend.glsl.ast :as glsl]
-   [top.kzre.homunculus.backend.glsl.lang :as lang]
-   [top.kzre.homunculus.backend.glsl.lower.env :as env]
-   [top.kzre.homunculus.backend.glsl.sematic.layout]
-   [top.kzre.homunculus.backend.glsl.sematic.layout :as layout]
-   [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
-   [top.kzre.homunculus.backend.shader.ast :as ast]
-   [top.kzre.homunculus.core.ir2.pass.type :as ty])
+    [top.kzre.homunculus.backend.glsl.ast :as glsl]
+    [top.kzre.homunculus.backend.glsl.lang :as lang]
+    [top.kzre.homunculus.backend.glsl.lower.env :as env]
+    [top.kzre.homunculus.backend.glsl.sematic.layout :as layout]
+    [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
+    [top.kzre.homunculus.backend.shader.ast :as ast]
+    [top.kzre.homunculus.backend.shader.semantic :as semantic]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty])
   (:import
     (top.kzre.homunculus.backend.glsl.sematic.layout
-    EntryLayout
-    IODecl
-    Layout
-    SamplerUniform)))
+      EntryLayout
+      IODecl
+      InterfaceBlock
+      InterfaceBlockMember
+      Layout
+      SamplerUniform)))
 
 ;; ═══════════════════════════════════════════
 ;; AST 辅助
@@ -41,7 +43,6 @@
 (defn- lower-children
   [children layout]
   (mapv #(lower-node % layout) children))
-
 
 ;; ═══════════════════════════════════════════
 ;; 节点降级
@@ -94,9 +95,6 @@
         (update :type lang/type->str)
         (update :expr lower-node layout))))
 
-
-
-
 (defmethod lower-node* :call [node layout]
   (let [fn-name (:fn node)
         args    (:args node)]
@@ -119,7 +117,6 @@
           (-> node
               (assoc :fn glsl-fn)
               (assoc :args new-args))))
-
 
       (= (name fn-name) "load")
       (let [[tex-node & coords] args
@@ -231,31 +228,46 @@
           (glsl/->Uniform (:var-name s) (:sampler-type-str s) nil nil))
         (:samplers layout)))
 
-(defn- lower-input-decls
-  [^EntryLayout entry]
-  (into []
-        (keep (fn [^IODecl d]
-                (when-not (:builtin? d)
-                  (glsl/->InputDecl (:var-name d)
-                                    (:location d)
-                                    (lang/type->str (:type d))
-                                    (:flat? d)
-                                    nil
-                                    nil))))
-        (:inputs entry)))
+(defn- lower-decl
+  "把一个规划声明（IODecl 或 InterfaceBlock）降级为 GLSL AST 节点。
+   builtin IODecl 返回 nil——不声明，由 wrapper 直接读写内置变量。"
+  [d direction]
+  (cond
+    (instance? IODecl d)
+    (when-not (:builtin? d)
+      (let [ctor (case direction
+                   :in  glsl/->InputDecl
+                   :out glsl/->OutputDecl)]
+        (ctor (:var-name d)
+              (:location d)
+              (lang/type->str (:type d))
+              (:flat? d)
+              nil
+              nil)))
 
-(defn- lower-output-decls
-  [^EntryLayout entry]
-  (into []
-        (keep (fn [^IODecl d]
-                (when-not (:builtin? d)
-                  (glsl/->OutputDecl (:var-name d)
-                                     (:location d)
-                                     (lang/type->str (:type d))
-                                     (:flat? d)
-                                     nil
-                                     nil))))
-        (:outputs entry)))
+    (instance? InterfaceBlock d)
+    (glsl/->InterfaceBlock
+      (:block-name d)
+      direction
+      (:instance-name d)
+      (:location d)
+      (mapv (fn [m]
+              (glsl/->InterfaceBlockMember
+                (:var-name m)
+                (lang/type->str (:type m))
+                (:location m)
+                (:flat? m)
+                nil
+                nil))
+            (:members d))
+      nil
+      nil)
+
+    :else nil))
+
+(defn- lower-decls
+  [decls direction]
+  (into [] (keep #(lower-decl % direction)) decls))
 
 ;; ═══════════════════════════════════════════
 ;; 入口点降级
@@ -264,17 +276,75 @@
 (defn- rename-entry [name]
   (str "__entry_" name))
 
-(defn- wrapper-call
-  "构造 wrapper 对原 entry 函数的调用。
+(defn- require-struct-def
+  "多 out 场景下 struct 定义必须存在——否则生成空的 wrapper body。"
+  [struct-def return-type]
+  (or struct-def
+      (throw (ex-info "struct return type definition required for wrapper"
+                      {:return-type return-type}))))
 
-   inputs 按位置映射为实参——builtin 输入（如 gl_FragCoord）
-   也传。原 entry 函数的形参保留了这些位置——函数体里可能引用。"
-  [original-name ^EntryLayout entry]
-  (let [args (mapv (fn [^IODecl in]
-                     ;; TODO InterfaceBlock 支持
-                     (glsl/->Variable (:var-name in) nil nil))
-                   (:inputs entry))]
-    (glsl/->Call (symbol original-name) args nil nil)))
+(defn- wrapper-call
+  "构造对原 entry 函数的调用。返回 [setup-stmts call-expr]。
+
+   参数全是简单类型（标量/向量/矩阵） —— 离散模式：按 param 的
+   semantic 匹配 IODecl 的 var-name。
+   参数含非简单类型 —— struct 模式：单参数 + block，构造完整
+   struct 后传一个实参（builtin 字段读内置变量，非 builtin 字段
+   读 block instance 的成员）。"
+  [node ^EntryLayout entry asts]
+  (let [original-name (rename-entry (:name node))
+        params        (:params node)
+        inputs        (:inputs entry)
+        stage         (:stage entry)
+        block         (some #(when (instance? InterfaceBlock %) %) inputs)
+        simple?       (fn [p] (lang/primitive-type? (:type p)))]
+    (if (every? simple? params)
+      ;; ── 离散模式 ──
+      (let [by-sem (into {}
+                         (keep (fn [d]
+                                 (when (instance? IODecl d)
+                                   [(:semantic d) d])))
+                         inputs)
+            args   (mapv (fn [p]
+                           (let [sem (semantic/shader-semantic p)
+                                 d   (get by-sem sem)]
+                             (when-not d
+                               (throw (ex-info "no IODecl matched for param semantic"
+                                               {:param (:name p) :semantic sem})))
+                             (glsl/->Variable (:var-name d) nil nil)))
+                         params)]
+        [[] (glsl/->Call (symbol original-name) args nil nil)])
+
+      ;; ── struct 模式 ──
+      (do
+        (when-not (and (= 1 (count params)) block)
+          (throw (ex-info
+                   "non-simple param requires single struct param with interface-block strategy"
+                   {:params (mapv (juxt :name :type) params)})))
+        (let [p0         (first params)
+              struct-def (find-struct-def asts (ty/type-sym (:type p0)))]
+          (when-not struct-def
+            (throw (ex-info "struct definition not found for param"
+                            {:param (:name p0) :type (:type p0)})))
+          (let [instance   (:instance-name block)
+                tmp        "__entry_input"
+                ctor-args  (mapv (fn [f]
+                                   (let [sem (semantic/shader-semantic f)]
+                                     (if (lang/builtin-semantic? stage sem)
+                                       (glsl/->Variable
+                                         (lang/builtin-var-name stage sem)
+                                         nil nil)
+                                       (glsl/->MemberAccess
+                                         (glsl/->Variable instance nil nil)
+                                         (:name f) nil nil))))
+                                 (:members struct-def))
+                type-str   (lang/type->str (:type p0))
+                setup      [(glsl/->VarDecl
+                              tmp type-str
+                              (glsl/->Constructor type-str ctor-args nil nil)
+                              nil nil)]]
+            [setup (glsl/->Call (symbol original-name)
+                                [(glsl/->Variable tmp nil nil)] nil nil)]))))))
 
 (defn- wrapper-single-body
   "单 out——直接赋值。builtin out（gl_Position / gl_FragDepth）
@@ -284,12 +354,14 @@
                   call-expr nil nil)])
 
 (defn- wrapper-struct-body
-  "多 out——struct 返回值赋给临时变量，再逐字段赋给对应 out。
+  "多 out（:split 策略）——struct 返回值赋给临时变量，再逐字段
+   赋给对应 IODecl。
 
    field-names 与 outputs 按位置对应——都由 plan-struct-fields
    按 struct 成员顺序产出。"
   [call-expr return-type ^EntryLayout entry struct-def]
-  (let [tmp-name    "__entry_result"
+  (let [struct-def  (require-struct-def struct-def return-type)
+        tmp-name    "__entry_result"
         tmp-type    (lang/type->str return-type)
         tmp-decl    (glsl/->VarDecl tmp-name tmp-type call-expr nil nil)
         field-names (mapv :name (:members struct-def))]
@@ -302,14 +374,49 @@
                    nil nil))
                (:outputs entry) field-names))))
 
+(defn- wrapper-interface-body
+  "多 out（:interface-block 策略）——struct 返回值赋给临时变量，
+   每个字段按 semantic 拆到内置变量或 block instance 成员。"
+  [call-expr return-type ^EntryLayout entry struct-def]
+  (let [struct-def  (require-struct-def struct-def return-type)
+        stage       (:stage entry)
+        tmp-name    "__entry_result"
+        tmp-type    (lang/type->str return-type)
+        tmp-decl    (glsl/->VarDecl tmp-name tmp-type call-expr nil nil)
+        block       (some #(when (instance? InterfaceBlock %) %) (:outputs entry))
+        assigns     (mapv (fn [f]
+                            (let [sem   (semantic/shader-semantic f)
+                                  value (glsl/->MemberAccess
+                                          (glsl/->Variable tmp-name nil nil)
+                                          (:name f) nil nil)]
+                              (if (lang/builtin-semantic? stage sem)
+                                (glsl/->Assign
+                                  (glsl/->Variable
+                                    (lang/builtin-var-name stage sem) nil nil)
+                                  value nil nil)
+                                (glsl/->Assign
+                                  (glsl/->MemberAccess
+                                    (glsl/->Variable (:instance-name block) nil nil)
+                                    (:name f) nil nil)
+                                  value nil nil))))
+                          (:members struct-def))]
+    (into [tmp-decl] assigns)))
+
 (defn- wrapper-body
   [call-expr node ^EntryLayout entry struct-def]
-  (if (= 1 (count (:outputs entry)))
+  (cond
+    (some #(instance? InterfaceBlock %) (:outputs entry))
+    (wrapper-interface-body call-expr (:return-type node) entry struct-def)
+
+    (= 1 (count (:outputs entry)))
     (wrapper-single-body call-expr (first (:outputs entry)))
-    (if struct-def
-      (wrapper-struct-body call-expr (:return-type node) entry struct-def)
-      (throw (ex-info "struct return type definition required for multiple outputs"
-                      {:return-type (:return-type node)})))))
+
+    struct-def
+    (wrapper-struct-body call-expr (:return-type node) entry struct-def)
+
+    :else
+    (throw (ex-info "struct return type definition required for multiple outputs"
+                    {:return-type (:return-type node)}))))
 
 (defn- build-wrapper
   [node ^EntryLayout entry asts]
@@ -317,8 +424,8 @@
         struct-sym  (ty/type-sym return-type)
         struct-def  (when struct-sym
                       (find-struct-def asts struct-sym))
-        call-expr   (wrapper-call (rename-entry (:name node)) entry)
-        body-stmts  (wrapper-body call-expr node entry struct-def)]
+        [setup call-expr] (wrapper-call node entry asts)
+        body-stmts  (into setup (wrapper-body call-expr node entry struct-def))]
     (glsl/->Function "main" "void" []
                      (glsl/->Block body-stmts nil nil nil)
                      nil nil)))
@@ -345,8 +452,8 @@
 (defn- lower-entry
   [node env layout asts]
   (let [entry-layout (:entry layout)
-        in-decls     (lower-input-decls entry-layout)
-        out-decls    (lower-output-decls entry-layout)
+        in-decls     (lower-decls (:inputs entry-layout) :in)
+        out-decls    (lower-decls (:outputs entry-layout) :out)
         entry-fns    (case (env/low-entry-strategy env)
                        :wrap    (lower-entry-wrap node layout asts)
                        :inplace (lower-entry-inplace node layout asts)

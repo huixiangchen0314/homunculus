@@ -54,7 +54,7 @@
           ir2-roots (ir2/lower-nodes polyfilled-ir1s ctx)
           ir2-roots' (rename/rename ir2-roots)
           ir2-roots' (alias/alias-nodes ir2-roots' ctx)
-          ir2-roots' (module/resolve-ns ir2-roots' ctx)
+          ir2-roots' (module/resolve-ns ir2-roots' (module/build-env ir2-roots' ctx))
           unit1      (module/collect-symbols ir2-roots' ctx unit)
           traited-roots (mark-trait/mark ir2-roots')   ;; 分析标记
           ir2-roots' (inline/inline traited-roots (inline/make-env ctx))  ;; 执行内联
@@ -84,16 +84,16 @@
   ;; 全局链接
   (link [_ context]
     (let [all-units (p/all-module-units context)
-          all-roots (mapcat mu/module-nodes all-units)
+          roots (mapcat mu/module-nodes all-units)
           emitter (p/emitter context)
-          roots (remove n/ns-node? all-roots)
+          roots1 (remove n/ns-node? roots)
           ;; dce
           dce-ctx (dce/make-context context)   ;; 使用默认配置
-          roots (dce/eliminate-ho-defs roots dce-ctx)
-          roots (dce/eliminate-inline-defs roots dce-ctx)
-          roots (dce/eliminate-polymorphic-defs roots dce-ctx)
+          roots2 (dce/eliminate-ho-defs roots1 dce-ctx)
+          roots3 (dce/eliminate-inline-defs roots2 dce-ctx)
+          roots4 (dce/eliminate-polymorphic-defs roots3 dce-ctx)
           ;; 最终类型检查
-          checked   (check/check roots (check/make-env context))
+          checked   (check/check roots4 (check/make-env context))
           ;; 代码生成
           result    (p/emit emitter checked context {})]
       result)))

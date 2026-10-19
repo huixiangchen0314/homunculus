@@ -10,17 +10,20 @@
 
 (def ^:private scalar-map
   {"bool" "bool" "int" "int" "uint" "uint" "float" "float"})
+(def ^:private scaler-types (set (vals scalar-map)))
 
 (def ^:private vector-map
   {"bool2" "bvec2" "bool3" "bvec3" "bool4" "bvec4"
    "int2"  "ivec2" "int3"  "ivec3" "int4"  "ivec4"
    "uint2" "uvec2" "uint3" "uvec3" "uint4" "uvec4"
    "float2" "vec2" "float3" "vec3" "float4" "vec4"})
+(def ^:private vector-types (set (vals vector-map)))
 
 (def ^:private matrix-map
   {"float2x2" "mat2"   "float2x3" "mat2x3" "float2x4" "mat2x4"
    "float3x2" "mat3x2" "float3x3" "mat3"   "float3x4" "mat3x4"
    "float4x2" "mat4x2" "float4x3" "mat4x3" "float4x4" "mat4"})
+(def ^:private matrix-types (set (vals matrix-map)))
 
 (defn type->str
   "IR 类型 → GLSL 类型字符串。
@@ -35,6 +38,17 @@
         (vector-map type-str)
         (matrix-map type-str)
         type-str)))
+
+(defn primitive-type?
+  "判断GLSL 类型字符串是否是原始类型"
+  [type]
+  (let [s (if (string? type)
+            type
+            (type->str type))]
+    (or
+      (contains? scaler-types s)
+      (contains? vector-types s)
+      (contains? matrix-types s))))
 
 (defn naming-fn
   "GLSL 的函数名/操作符映射。返回符号。

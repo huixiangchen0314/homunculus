@@ -98,10 +98,9 @@
         record-ty   (ty/make-tcon sym)
         fields     (:fields entry)
         field-tys   (mapv :type fields)
+
         ctor-name   (mu/norm-sym unit (symbol (str "->" (name sym))))
-        ctor-type   (reduce (fn [ret arg] (ty/make-tfun arg ret))
-                            record-ty
-                            (reverse field-tys))
+        ctor-type    (ty/make-fun-type field-tys record-ty)
         ctor-params (mapv (fn [f]
                             (sym/make-param (get f :field-name)   ; sym/make-field 返回包含 :field-name
                                             :type (:type f)
@@ -111,7 +110,7 @@
                    :params ctor-params
                    :ret (sym/make-ret record-ty)
                    :type ctor-type
-                   :meta {:cljh/ctor? true                  ;; 自动生成的构造器
+                   :meta {:constructor? true                ;; 自动生成的构造器
                           })))
 
 (defn- collect-protocol [node _context]
@@ -136,7 +135,8 @@
 (defn collect-symbols
   "遍历 IR2 根节点，收集所有顶层定义并注册到 compile-ctx。"
   [ir2-roots compile-ctx ^ModuleUnit unit]
-  (let [module-atom (atom unit)]
+  (let [module-atom (atom unit)
+        ]
     (doseq [root ir2-roots]
       (try
         (case (n/kind root)

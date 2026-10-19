@@ -19,11 +19,12 @@
 
 (defn riemann-integral [a] (- a 1.0))
 
-(defrecord MyInout [^:target0 ^float a])
+(defrecord VertOutput [^:position ^float4 pos
+                       ^:normal ^float3 nrm
+                       ^:texcoord0 ^float2 uv])
 
 ;; ── 顶点着色器 (包含高阶调用测试) ────────
 (defshader :vertex vsMain
-           ^:position
            [^:position ^float4 pos
             ^:normal ^float3 nrm
             ^:texcoord0 ^float2 uv
@@ -42,12 +43,12 @@
            (def avv (%%new-array vv))
            ;; 使用 my-map 对 x 的每个元素加 1
            (def y (map (fn [v] (+ v 1.0)) sv))
-           (def io (->MyInout 1.0))
-           (def local-a (:a io))
            (let [worldPos (mul worldViewProj pos)
                  ll (if true 1 2)
                  xxxxx [1 2 3]]
-             (float4 (float3 (%%aget y 0) vv 1.0) (%%aget xxxxx 0))))
+             (->VertOutput (float4 (float3 (%%aget y 0) vv 1.0) (%%aget xxxxx 0))
+                           (float3 0.0 0.0 0.0)
+                           (float2 0.0 0.0))))
 
 ;; ── 片段着色器 ────────────────────────────
 (defshader :fragment psMain

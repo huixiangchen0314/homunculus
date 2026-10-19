@@ -20,7 +20,6 @@
    [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
    [top.kzre.homunculus.internal.model :as m]
    [top.kzre.homunculus.internal.module-unit :as mu]
-   [top.kzre.homunculus.internal.protocol :as p]
    [top.kzre.homunculus.internal.protocol :as ip]
    [top.kzre.homunculus.internal.utils :as iu]))
 
@@ -39,12 +38,12 @@
 
 (defn- unit-path
   [ctx unit]
-  (let [cfg (p/config ctx)
-        out-dir (p/output-dir  cfg)]
+  (let [cfg (ip/config ctx)
+        out-dir (ip/output-dir  cfg)]
     (str out-dir "/"
          (if unit
            (iu/ns->module-path (mu/module-ns unit)
-                               (p/module-naming-style cfg))
+                               (ip/module-naming-style cfg))
            "out"))))
 
 ;; ═══════════════════════════════════════════
@@ -75,7 +74,7 @@
 ;; ═══════════════════════════════════════════
 
 (defrecord GLSLEmitter []
-  p/IEmitter
+  ip/IEmitter
   (emit [_ nodes ctx {:keys [unit]}]
     (let [path (unit-path ctx unit)
           ;; IR2 → IRStmt → 优化 → ShaderAST

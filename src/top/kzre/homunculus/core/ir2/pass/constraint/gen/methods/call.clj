@@ -31,13 +31,14 @@
         arg-nodes    (mapv :node arg-results)
         arg-constrs  (mapcat :constraints arg-results)
         args-concrete? (every? t/concrete? arg-types)
-        matched-cand (when args-concrete?
-                       (some (fn [cand]
-                               (let [cand-args (take-while some? (map :arg (iterate :ret cand)))]
-                                 (when (and (= (count cand-args) (count arg-types))
-                                            (every? true? (map = cand-args arg-types)))
-                                   cand)))
-                             candidates))]
+        matched-cand
+        (when args-concrete?
+          (some (fn [cand]
+                  (let [cand-args (take-while some? (map :arg (iterate :ret cand)))]
+                    (when (and (= (count cand-args) (count arg-types))
+                               (every? true? (map = cand-args arg-types)))
+                      cand)))
+                candidates))]
     (if matched-cand
       (let [ret-type (t/fun-return-type matched-cand (count arg-types))
             new-node (n/make-call fn-node (vec arg-nodes)
@@ -56,7 +57,8 @@
                                   (n/attrs current-node)
                                   (n/node-meta current-node))
             extra    (if (seq candidates)
-                       [(cons/make-coverload candidates arg-types ret-tv fn-type)]
+                       [(cons/make-coverload candidates arg-types ret-tv fn-type
+                                             {:node new-node})]
                        [])]
         {:type        ret-tv
          :node        (t/set-type! new-node ret-tv)

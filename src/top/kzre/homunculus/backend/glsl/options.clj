@@ -7,7 +7,7 @@
 
 (defn out-struct-strategy
   [options]
-  (get options :gl-out-struct-strategy :split))
+  (get options :gl-out-struct-strategy :interface-block))
 
 (defn ns-strategy
   "命名空间处理策略。
