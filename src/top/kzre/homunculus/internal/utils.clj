@@ -25,7 +25,9 @@
 
 
 (def ^:private module-naming-style-handlers
-  {:default    (fn [ns-name suffix] (str (str/replace ns-name "." "/") suffix))
+  {:default    (fn [ns-name suffix]
+                 (let [prefix (str/replace ns-name "." "/")]
+                   (str prefix suffix)))
    :flat       (fn [ns-name suffix] (str ns-name suffix))
    :flat-snake (fn [ns-name suffix] (str (str/replace ns-name "." "_") suffix))})
 
@@ -33,7 +35,7 @@
   "根据 module-naming-style 将命名空间符号转换为模块文件名（包含可能的前缀路径，但不含输出根目录）。
    style : :default, :flat, :flat-snake (默认为 :default)
    suffix : 文件后缀，如 \".hlsl\"、\".glsl\"。"
-  ([ns-sym suffix] (ns->module-path ns-sym :default suffix))
+  ([ns-sym style] (ns->module-path ns-sym style ""))
   ([ns-sym style suffix]
    (let [ns-name (name ns-sym)
          handler (get module-naming-style-handlers style (module-naming-style-handlers :default))]

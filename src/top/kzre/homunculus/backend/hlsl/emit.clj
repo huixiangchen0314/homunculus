@@ -21,7 +21,6 @@
   (emit-node* node env))
 
 (def ^:private texture-method-names
-  "纹理函数：DSL 函数名 → HLSL 成员方法名"
   {'sample              "Sample"
    'sampleLod           "SampleLevel"
    'sampleBias          "SampleBias"
@@ -42,13 +41,11 @@
         args     (:args node)
         arg-strs (mapv #(emit-node* % env) args)]
     (cond
-      ;; 纹理成员方法：tex.Method(rest-args...)
       (contains? texture-method-names fn-sym)
       (let [tex      (first arg-strs)
             rest-str (str/join ", " (rest arg-strs))]
         (str tex "." (texture-method-names fn-sym) "(" rest-str ")"))
 
-      ;; 普通函数
       :else
       (clang.format/call fn-sym arg-strs))))
 
@@ -64,30 +61,30 @@
         (map #(emit-node* % env) (:args node))))))
 
 (defn- render-var-decl [ir-type var-name]
-  (let [type-str (clang.lang/type->str  ir-type)]
+  (let [type-str (clang.lang/type->str ir-type)]
     (clang.format/var-decl var-name type-str)))
 
 ;; ── 变量声明 ──
 (defmethod emit-node* :var-decl [node env]
-  (let [ty (:type node)
-        init (:init node)
-        init-str (when init
-                   (str " = " (emit-node* init env)))
-        type-str (clang.lang/type->str  ty)]
-    (str (clang.format/var-decl
-           (:name node) type-str) init-str)))
+  (let [ty        (:type node)
+        init-node (:init node)
+        init-str  (when (some? init-node)
+                    (let [s (emit-node* init-node env)]
+                      (when-not (str/blank? s)
+                        (str " = " s))))
+        type-str  (clang.lang/type->str ty)]
+    (str (clang.format/var-decl (:name node) type-str) init-str)))
 
 (defmethod emit-node* :static-var [node env]
-  (let [ty (:type node)
-        init (:init node)
-        init-str (when init
-                   (str " = " (emit-node* init env)))
-        type-str (clang.lang/type->str  ty)]
-    (str
-      (clang.format/var-decl
-        (:name node) type-str
-        :static? true) init-str ";")))
-
+  (let [ty        (:type node)
+        init-node (:init node)
+        init-str  (when (some? init-node)
+                    (let [s (emit-node* init-node env)]
+                      (when-not (str/blank? s)
+                        (str " = " s))))
+        type-str  (clang.lang/type->str ty)]
+    (str (clang.format/var-decl (:name node) type-str :static? true)
+         init-str ";")))
 
 ;; ── 语句结尾分号 ──
 (defn- stmt-needs-semicolon? [node]
@@ -96,7 +93,6 @@
                   (ast/kind node))))
 
 (defn- pure-value-node?
-  "判断节点是否为纯值表达式，即不能独立作为语句的节点。"
   [node]
   (contains? #{:variable :literal :member-access :array-index} (ast/kind node)))
 
@@ -104,7 +100,6 @@
 (defn- emit-block-body [block env top-level?]
   (let [stmts (:stmts block)
         ret   (:ret block)
-        ;; 过滤掉无意义的纯值语句
         lines (keep (fn [s]
                       (when-not (pure-value-node? s)
                         (let [code (emit-node* s env)]
@@ -114,7 +109,7 @@
                     stmts)
         body-str (format/rows lines)]
     (if (and top-level? ret)
-      (let [ret-str (emit-node* ret env)
+      (let [ret-str  (emit-node* ret env)
             ret-line (str "return " ret-str ";")]
         (if (str/blank? body-str)
           ret-line
@@ -129,39 +124,37 @@
           :else (when-let [e (:else node)]
                   (indent/indent (emit-block-body e env false)))))
 
-
 ;; ── 普通函数 ──
 (defmethod emit-node* :function [node env]
-  (let [ret-type   (clang.lang/type->str (:return-type node))
-        params (mapv (fn [p]
-                       (clang.format/param
-                         :type (clang.lang/type->str (:type p))
-                         :name (:name p)))
-                         (:params node))
-        body       (indent/indent (emit-block-body (:body node) env true))]
+  (let [ret-type (clang.lang/type->str (:return-type node))
+        params   (mapv (fn [p]
+                         (clang.format/param
+                           :type (clang.lang/type->str (:type p))
+                           :name (:name p)))
+                       (:params node))
+        body     (indent/indent (emit-block-body (:body node) env true))]
     (clang.format/function
       :name (:name node)
       :return-type ret-type
       :params params
       :body body)))
 
-
 ;; ── 入口点 ──
 (defmethod emit-node* :entry-point [node env]
   (let [ret-type (clang.lang/type->str (:return-type node))
-        stage (:stage node)
-        sematic (semantic/shader-semantic node)
-        after      (when sematic
-                     (str ": " (lang/sematic->str sematic :fragment)))
-        params (map (fn [p]
-                         (let [sem (semantic/shader-semantic p)]
-                           (clang.format/param
-                             :type (clang.lang/type->str (:type p))
-                             :name (:name p)
-                             :after (when sem
-                                      (str ": " (lang/sematic->str sem stage))))))
-                    (:params node))
-        body (indent/indent (emit-block-body (:body node) env true))]
+        stage    (:stage node)
+        sematic  (semantic/shader-semantic node)
+        after    (when sematic
+                   (str ": " (lang/sematic->str sematic stage)))
+        params   (map (fn [p]
+                        (let [sem (semantic/shader-semantic p)]
+                          (clang.format/param
+                            :type (clang.lang/type->str (:type p))
+                            :name (:name p)
+                            :after (when sem
+                                     (str ": " (lang/sematic->str sem stage))))))
+                      (:params node))
+        body     (indent/indent (emit-block-body (:body node) env true))]
     (clang.format/function
       :name (:name node)
       :return-type ret-type
@@ -184,19 +177,16 @@
                           (:members node))
         members     (indent/indent (format/rows member-strs))]
     (clang.format/struct
-      :name (:name node)
+      :name (clang.lang/naming (:name node))
       :members members)))
 
 ;; ── 资源声明 ──
 
 (defmethod emit-node* :texture-decl [node env]
-  (let [res-name (name (:name node))
+  (let [res-name  (name (:name node))
         res-reg   (name (:register node))
-        dim      (:dimension node)
-        tex-type   (or (lang/texture-dimension->type-str (:dimension node))
-                       (throw (err/compile-error
-                                :unknown-texture-dimension
-                                (str "Unknown texture dimension: " dim))))
+        dim       (:dimension node)
+        tex-type  (name (lang/texture-dimension->type-sym dim))
         elem-type (clang.lang/type->str (:element-type node))]
     (T "${tex-type}<${elem-type}> ${res-name} : register(${res-reg});")))
 
@@ -211,22 +201,24 @@
     (T "${type-str} ${res-name} : register(${res-reg});")))
 
 (defmethod emit-node* :cbuffer-decl [node env]
-  (let [res-name (name (:name node))
-        res-reg (name (:register node))
-        members (:members node)
+  (let [res-name   (name (:name node))
+        res-reg    (name (:register node))
+        members    (:members node)
         member-str (when (seq members)
-                     (indent/indent (str/join "\n"
-                                       (map #(let [t (clang.lang/type->str (:type %))
-                                                   n (name (:name %))]
-                                               (T "${t} ${n};"))
-                                            members))))]
+                     (indent/indent
+                       (str/join "\n"
+                                 (map #(let [t (clang.lang/type->str (:type %))
+                                             n (name (:name %))]
+                                         (T "${t} ${n};"))
+                                      members))))]
     (T "cbuffer ${res-name} : register(${res-reg})\n{\n${member-str}\n}")))
 
 (defmethod emit-node* :default [node env]
   (case (ast/kind node)
     :literal
-    (let [val (:val node)]
-      (clang.lang/literal->str val))
+    (if (some? (:val node))
+      (clang.lang/literal->str (:val node))
+      "")
     :import
     (let [path (str (:path node) ".hlsl")]
       (clang.format/include path))
@@ -239,7 +231,7 @@
       (emit-node* (:right node) env))
     :unary-op
     (clang.format/unary-op (:op node)
-              (emit-node* (:expr node) env))
+                           (emit-node* (:expr node) env))
     :block
     (emit-block-body node env false)
     :while
@@ -259,7 +251,7 @@
       (emit-node* (:target node) env)
       (emit-node* (:index node) env))
     :uniform
-    (let [ty (:type node)
+    (let [ty   (:type node)
           name (clang.lang/naming (:name node))]
       (str "uniform " (render-var-decl ty name) ";"))
     :member-access
@@ -270,7 +262,7 @@
 
 ;; ── 入口 ──
 (defn emit [nodes]
-  (let [env (env/make-env)
+  (let [env      (env/make-env)
         filtered (remove #(and (= :var-decl (ast/kind %))
                                (semantic/shader-ignore-emit? %))
                          nodes)]

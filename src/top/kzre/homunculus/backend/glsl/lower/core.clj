@@ -124,7 +124,6 @@
             sampler  (layout/find-load-sampler layout tex-name)
             lowered-coords (lower-children coords layout)
             dimension (:dimension sampler)
-            ;; Buffer 没有 lod 参数——其他维度补 0
             final-coords (if (= :buffer dimension)
                            lowered-coords
                            (if (= 1 (count lowered-coords))
@@ -254,8 +253,8 @@
       (mapv (fn [m]
               (glsl/->InterfaceBlockMember
                 (:var-name m)
-                (lang/type->str (:type m))
                 (:location m)
+                (lang/type->str (:type m))
                 (:flat? m)
                 nil
                 nil))
@@ -277,88 +276,97 @@
   (str "__entry_" name))
 
 (defn- require-struct-def
-  "多 out 场景下 struct 定义必须存在——否则生成空的 wrapper body。"
   [struct-def return-type]
   (or struct-def
       (throw (ex-info "struct return type definition required for wrapper"
                       {:return-type return-type}))))
 
+(defn- build-by-sem
+  "构建 semantic → 取值表达式构造器的映射。
+
+   来源：
+   ▸ IODecl —— 取 (:var-name) 作为 Variable（builtin 时是内置变量名）
+   ▸ InterfaceBlock 成员 —— 取 (:instance-name) 的成员访问
+
+   同一 semantic 在两个来源里同时出现时后写入的覆盖——
+   plan 阶段已保证 builtin semantic 只出现在 IODecl 侧，
+   block 只收非 builtin 字段，不会冲突。"
+  [inputs]
+  (let [block (some #(when (instance? InterfaceBlock %) %) inputs)]
+    (into {}
+          (concat
+            (keep (fn [d]
+                    (when (instance? IODecl d)
+                      [(:semantic d)
+                       (fn [] (glsl/->Variable (:var-name d) nil nil))]))
+                  inputs)
+            (when block
+              (keep (fn [m]
+                      (when-let [s (:semantic m)]
+                        [s (fn []
+                             (glsl/->MemberAccess
+                               (glsl/->Variable (:instance-name block) nil nil)
+                               (:var-name m) nil nil))]))
+                    (:members block)))))))
+
 (defn- wrapper-call
   "构造对原 entry 函数的调用。返回 [setup-stmts call-expr]。
 
-   参数全是简单类型（标量/向量/矩阵） —— 离散模式：按 param 的
-   semantic 匹配 IODecl 的 var-name。
-   参数含非简单类型 —— struct 模式：单参数 + block，构造完整
-   struct 后传一个实参（builtin 字段读内置变量，非 builtin 字段
-   读 block instance 的成员）。"
+   struct 参数（params 含非 primitive 类型）——构造完整 struct 传一个实参。
+     字段按 semantic 从 IODecl 或 block 成员取值。
+   离散参数（params 全 primitive）——每个 param 按 semantic 从 IODecl
+     或 block 成员取值。
+
+   判据是 params 的构成而不是 inputs 的构成——VS 用 block 输出 + FS
+   离散参数时，inputs 有 block 但 params 全 primitive；:split 策略下
+   FS struct 参数时，inputs 全离散 IODecl 但 params 含 struct。"
   [node ^EntryLayout entry asts]
   (let [original-name (rename-entry (:name node))
         params        (:params node)
         inputs        (:inputs entry)
-        stage         (:stage entry)
-        block         (some #(when (instance? InterfaceBlock %) %) inputs)
-        simple?       (fn [p] (lang/primitive-type? (:type p)))]
-    (if (every? simple? params)
-      ;; ── 离散模式 ──
-      (let [by-sem (into {}
-                         (keep (fn [d]
-                                 (when (instance? IODecl d)
-                                   [(:semantic d) d])))
-                         inputs)
-            args   (mapv (fn [p]
-                           (let [sem (semantic/shader-semantic p)
-                                 d   (get by-sem sem)]
-                             (when-not d
-                               (throw (ex-info "no IODecl matched for param semantic"
-                                               {:param (:name p) :semantic sem})))
-                             (glsl/->Variable (:var-name d) nil nil)))
-                         params)]
-        [[] (glsl/->Call (symbol original-name) args nil nil)])
+        by-sem        (build-by-sem inputs)
+        struct-param? (some #(not (lang/primitive-type? (:type %))) params)]
+    (if struct-param?
+      ;; ── struct 参数：构造完整 struct ──
+      (let [p0         (first params)
+            struct-def (find-struct-def asts (ty/type-sym (:type p0)))]
+        (when-not struct-def
+          (throw (ex-info "struct definition not found for param"
+                          {:param (:name p0) :type (:type p0)})))
+        (let [ctor-args (mapv (fn [f]
+                                (let [sem  (semantic/shader-semantic f)
+                                      ctor (get by-sem sem)]
+                                  (when-not ctor
+                                    (throw (ex-info "no input matched for struct field semantic"
+                                                    {:field (:name f) :semantic sem})))
+                                  (ctor)))
+                              (:members struct-def))
+              tmp       "__entry_input"
+              type-str  (lang/type->str (:type p0))
+              setup     [(glsl/->VarDecl
+                           tmp type-str
+                           (glsl/->Constructor type-str ctor-args nil nil)
+                           nil nil)]]
+          [setup (glsl/->Call (symbol original-name)
+                              [(glsl/->Variable tmp nil nil)] nil nil)]))
 
-      ;; ── struct 模式 ──
-      (do
-        (when-not (and (= 1 (count params)) block)
-          (throw (ex-info
-                   "non-simple param requires single struct param with interface-block strategy"
-                   {:params (mapv (juxt :name :type) params)})))
-        (let [p0         (first params)
-              struct-def (find-struct-def asts (ty/type-sym (:type p0)))]
-          (when-not struct-def
-            (throw (ex-info "struct definition not found for param"
-                            {:param (:name p0) :type (:type p0)})))
-          (let [instance   (:instance-name block)
-                tmp        "__entry_input"
-                ctor-args  (mapv (fn [f]
-                                   (let [sem (semantic/shader-semantic f)]
-                                     (if (lang/builtin-semantic? stage sem)
-                                       (glsl/->Variable
-                                         (lang/builtin-var-name stage sem)
-                                         nil nil)
-                                       (glsl/->MemberAccess
-                                         (glsl/->Variable instance nil nil)
-                                         (:name f) nil nil))))
-                                 (:members struct-def))
-                type-str   (lang/type->str (:type p0))
-                setup      [(glsl/->VarDecl
-                              tmp type-str
-                              (glsl/->Constructor type-str ctor-args nil nil)
-                              nil nil)]]
-            [setup (glsl/->Call (symbol original-name)
-                                [(glsl/->Variable tmp nil nil)] nil nil)]))))))
+      ;; ── 离散参数：按 semantic 取 ──
+      (let [args (mapv (fn [p]
+                         (let [sem  (semantic/shader-semantic p)
+                               ctor (get by-sem sem)]
+                           (when-not ctor
+                             (throw (ex-info "no input matched for param semantic"
+                                             {:param (:name p) :semantic sem})))
+                           (ctor)))
+                       params)]
+        [[] (glsl/->Call (symbol original-name) args nil nil)]))))
 
 (defn- wrapper-single-body
-  "单 out——直接赋值。builtin out（gl_Position / gl_FragDepth）
-   照常赋值。"
   [call-expr ^IODecl out]
   [(glsl/->Assign (glsl/->Variable (:var-name out) nil nil)
                   call-expr nil nil)])
 
 (defn- wrapper-struct-body
-  "多 out（:split 策略）——struct 返回值赋给临时变量，再逐字段
-   赋给对应 IODecl。
-
-   field-names 与 outputs 按位置对应——都由 plan-struct-fields
-   按 struct 成员顺序产出。"
   [call-expr return-type ^EntryLayout entry struct-def]
   (let [struct-def  (require-struct-def struct-def return-type)
         tmp-name    "__entry_result"
@@ -375,8 +383,6 @@
                (:outputs entry) field-names))))
 
 (defn- wrapper-interface-body
-  "多 out（:interface-block 策略）——struct 返回值赋给临时变量，
-   每个字段按 semantic 拆到内置变量或 block instance 成员。"
   [call-expr return-type ^EntryLayout entry struct-def]
   (let [struct-def  (require-struct-def struct-def return-type)
         stage       (:stage entry)

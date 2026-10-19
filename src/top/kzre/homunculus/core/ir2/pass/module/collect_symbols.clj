@@ -2,12 +2,14 @@
   "收集命名空间符号, 注册到编译上下文。
    每次调用都尽可能收集完整信息：声明、类型、元数据、高阶标记及 IR 子树。"
   (:require
-    [top.kzre.homunculus.core.ir2.node :as n]
-    [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.core.symbol :as sym]
-    [top.kzre.homunculus.internal.protocol :as p]
-    [top.kzre.homunculus.internal.module-unit :as mu])
-  (:import (top.kzre.homunculus.internal.module_unit ModuleUnit)))
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.ir2.pass.record :as record]
+   [top.kzre.homunculus.core.ir2.pass.type :as ty]
+   [top.kzre.homunculus.core.symbol :as sym]
+   [top.kzre.homunculus.internal.module-unit :as mu]
+   [top.kzre.homunculus.internal.protocol :as p])
+  (:import
+   (top.kzre.homunculus.internal.module_unit ModuleUnit)))
 
 (defn- fully-qualified-sym [node]
   (n/define-name node))
@@ -98,9 +100,8 @@
         record-ty   (ty/make-tcon sym)
         fields     (:fields entry)
         field-tys   (mapv :type fields)
-
-        ctor-name   (mu/norm-sym unit (symbol (str "->" (name sym))))
-        ctor-type    (ty/make-fun-type field-tys record-ty)
+        {ctor-name :name
+         ctor-type :type} (record/make-ctor sym field-tys)
         ctor-params (mapv (fn [f]
                             (sym/make-param (get f :field-name)   ; sym/make-field 返回包含 :field-name
                                             :type (:type f)

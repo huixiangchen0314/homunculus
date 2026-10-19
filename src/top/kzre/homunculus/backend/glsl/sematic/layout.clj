@@ -54,6 +54,7 @@
 (defrecord InterfaceBlockMember
   [var-name        ;; 成员变量名
    type            ;; IR 类型对象
+   semantic        ;; 原始 semantic，fragment wrapper 按语义在 block 里查成员
    location        ;; 成员级 layout(location = N)，覆盖块级，或 nil
    flat?])         ;; 是否 flat
 

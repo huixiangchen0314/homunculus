@@ -127,7 +127,23 @@
                                          [(conj s stmt') e']))
                                      [[] env] stmts)
         [ret' env''] (if ret (lower-node* ret env') [nil env'])]
-    [(ast/->Block lowered-stmts ret' (:attrs node) (irstmt/node-meta node)) env'']))
+    (if (and ret'
+             (= :constructor (ast/kind ret')))
+      ;; 结构体构造器返回——HLSL 的 `return { ... }` 依赖聚合初始化，
+      ;; 在部分编译器下不保证支持；降级为临时变量声明 + 返回变量。
+      (let [ret-name  (gensym "__ret_")
+            var-decl  (ast/->VarDecl ret-name
+                                     (ty/get-type ret)
+                                     ret'
+                                     {}
+                                     (ir-meta node))
+            ret-var   (ast/->Variable ret-name nil (ir-meta node))]
+        [(ast/->Block (conj lowered-stmts var-decl)
+                      ret-var
+                      (:attrs node)
+                      (ir-meta node))
+         env''])
+      [(ast/->Block lowered-stmts ret' (:attrs node) (ir-meta node)) env''])))
 
 (defmethod lower-node* :if [node env]
   (let [[test env1] (lower-node* (:test node) env)

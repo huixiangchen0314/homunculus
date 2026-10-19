@@ -38,8 +38,7 @@
       (println "stmted" sted)
       (println "shader-asts" shader-asts)
       (print "emitted:" emitted)
-      (m/make-module-result path emitted))
-    ))
+      (m/make-module-result path emitted))))
 
 (defonce ^:private emitter* (->HLSLEmitter))
 

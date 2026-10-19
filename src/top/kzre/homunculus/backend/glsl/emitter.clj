@@ -60,11 +60,12 @@
   (let [stage (semantic/shader-stage entry)
         path (str path
                   (stage->extension stage))
+        sem-config (sematic/make-config ctx)
         lived (-> asts
                  (liveness/analyze)
-                 (liveness/elim))
+                 (liveness/elim :keeps (sematic/stage-keeps analysis stage sem-config)))
         layout (sematic/plan lived analysis stage
-                             (sematic/make-config ctx))
+                             sem-config)
         lowered (glsl.lower/lower lived (glsl.lower/make-env ctx) layout)
         code  (emit/emit lowered (emit/make-env ctx) analysis)]
     (m/make-module-result path code)))

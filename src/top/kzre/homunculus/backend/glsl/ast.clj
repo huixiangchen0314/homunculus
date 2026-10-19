@@ -89,7 +89,7 @@
         ;; ── 接口块（in/out 的块形态） ─────────────────
         ;; 块级 location 可选——作为块内成员连续分配的起点。
         ;; 成员级 location 覆盖块级设置，并成为后续成员的新起点。
-        :interface-block ['name 'instance-name 'location
+        :interface-block ['name  'direction 'instance-name 'location
                           :interface-block-members 'members
                           'attrs]
 

@@ -124,10 +124,14 @@
   "根据活跃分析移除未标记的节点。
 
    只移除 eliminable-kinds 且未标 living? 的节点。
-   其余节点原样保留。"
-  [asts]
+   其余节点原样保留。
+
+   :keeps 强制保留的顶级符号。"
+  [asts & {:keys [keeps]
+           :or {keeps #{}}}]
   (into []
         (remove (fn [node]
                   (and (contains? eliminable-kinds (ast/kind node))
+                       (not (contains? keeps (:name node)))
                        (not (get-in node [:attrs :living?])))))
         asts))

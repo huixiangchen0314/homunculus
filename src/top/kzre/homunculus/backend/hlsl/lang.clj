@@ -33,19 +33,30 @@
              (str "Unknow HLSL sematic: " kw)
              ))))
 
-(def ^:private texture-dimension-str-map*
-  {:1d          "Texture1D"
-   :2d          "Texture2D"
-   :3d          "Texture3D"
-   :cube        "TextureCube"
-   :1d-array    "Texture1DArray"
-   :2d-array    "Texture2DArray"
-   :cube-array  "TextureCubeArray"
-   :2d-ms       "Texture2DMS"
-   :2d-ms-array "Texture2DMSArray"})
 
-(defn texture-dimension->type-str [dim]
-  (get texture-dimension-str-map* dim))
+(def ^:private texture-dimension->symbol-map
+  {:1d           'Texture1D
+   :1d-array     'Texture1DArray
+   :2d           'Texture2D
+   :2d-array     'Texture2DArray
+   :3d           'Texture3D
+   :cube         'TextureCube
+   :cube-array   'TextureCubeArray
+   :2d-ms        'Texture2DMS
+   :2d-ms-array  'Texture2DMSArray
+   :buffer       'Buffer})
+
+
+(defn texture-dimension->type-sym
+  "纹理维度关键字 → HLSL 纹理类型符号。
+   :2d → 'Texture2D，:2d-array → 'Texture2DArray，:buffer → 'Buffer。
+
+   未知维度抛异常。"
+  [dim]
+  (or (get texture-dimension->symbol-map dim)
+      (throw (err/compile-error
+               :unknown-texture-dimension
+               (str "Unknown texture dimension: " dim)))))
 
 (defn sampler-type-str [compare?]
   (if compare?
@@ -95,28 +106,7 @@
   (contains? builtin-types type-sym))
 
 
-(def ^:private texture-dimension->symbol-map
-  {:1d           'Texture1D
-   :1d-array     'Texture1DArray
-   :2d           'Texture2D
-   :2d-array     'Texture2DArray
-   :3d           'Texture3D
-   :cube         'TextureCube
-   :cube-array   'TextureCubeArray
-   :2d-ms        'Texture2DMS
-   :2d-ms-array  'Texture2DMSArray
-   :buffer       'Buffer})
 
-(defn texture-dimension->type-sym
-  "纹理维度关键字 → HLSL 纹理类型符号。
-   :2d → 'Texture2D，:2d-array → 'Texture2DArray，:buffer → 'Buffer。
-
-   未知维度抛异常。"
-  [dim]
-  (or (get texture-dimension->symbol-map dim)
-      (throw (err/compile-error
-               :unknown-texture-dimension
-               (str "Unknown texture dimension: " dim)))))
 
 
 (defn struct-type?

@@ -7,7 +7,7 @@
 
 (re-export
   [top.kzre.homunculus.backend.glsl.sematic.core
-   :refer [plan]])
+   :refer [plan stage-keeps]])
 
 (re-export
   [top.kzre.homunculus.backend.glsl.sematic.config

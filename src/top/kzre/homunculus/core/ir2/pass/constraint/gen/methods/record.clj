@@ -4,6 +4,7 @@
    [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as env]
    [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
+   [top.kzre.homunculus.core.ir2.pass.record :as record]
    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 (defmethod gen/gen-node* :record [current-node env]
@@ -37,14 +38,10 @@
           [[] [] env]
           fields)
 
-        record-ty  (ty/make-tcon record-name)
-        ctor-sym   (symbol (namespace record-name)
-                           (str "->" (name record-name)))
         field-tvs  (mapv :type new-fields)
-        ctor-type  (reduce (fn [ret arg] (ty/make-tfun arg ret))
-                           record-ty
-                           (reverse field-tvs))
-        env'       (env/bind-var final-env ctor-sym ctor-type)
+        {ctor-name :name
+         ctor-type :type} (record/make-ctor record-name field-tvs)
+        env'       (env/bind-var final-env ctor-name ctor-type)
         tv (gen/fresh-tvar)
         new-node  (-> current-node
                       (assoc :fields new-fields)

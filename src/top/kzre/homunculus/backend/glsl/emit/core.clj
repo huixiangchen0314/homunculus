@@ -11,9 +11,15 @@
     [top.kzre.homunculus.backend.indent :as indent]
     [top.kzre.homunculus.backend.shader.semantic :as semantic])
   (:import
-   (top.kzre.homunculus.backend.shader.pass.analyze.model SLAnalysis)))
+    (top.kzre.homunculus.backend.shader.pass.analyze.model SLAnalysis)))
 
 (defn- stmt-needs-semicolon?
+  "stmt 是否需要追加分号。
+
+   :interface-block / :struct / :function / :uniform-block
+   等顶层声明自身带分号或不需要分号——不在此集合。
+   :interface-block 已经在 emit-node* 内自带 `};`，
+   若再加入会在 emit-block-body 处变成 `};;`。"
   [node]
   (contains? #{:assign :var-decl :uniform :global-var
                :input-decl :output-decl}
@@ -185,26 +191,40 @@
   (clang.format/struct
     :name (:name node)
     :members (-> (map #(emit-node % env) (:members node))
-                (format/rows)
-                (indent/indent))))
+                 (format/rows)
+                 (indent/indent))))
 
 (defmethod emit-node* :uniform-block [node env]
-  (let [name      (:name node)
+  (let [name         (:name node)
         layout-parts (cond-> []
                              (:packing node) (conj (clang.lang/naming (:packing node)))
                              (:binding node) (conj (str "binding = " (:binding node))))
-        layout-str (if (seq layout-parts)
-                     (let [joined (str/join ", " layout-parts)]
-                       (str "layout(" joined ") "))
-                     "")
-        members   (str/join "\n"
-                            (map #(emit-node % env) (:members node)))
-        members   (indent/indent members)]
+        layout-str   (if (seq layout-parts)
+                       (let [joined (str/join ", " layout-parts)]
+                         (str "layout(" joined ") "))
+                       "")
+        members      (->> (:members node)
+                          (map #(emit-node % env))
+                          (str/join "\n")
+                          (indent/indent))]
     (T "${layout-str}uniform ${name} {\n${members}\n};")))
 
-(defmethod emit-node* :interface-block [node _env]
-  (throw (ex-info "interface-block emission not yet implemented"
-                  {:name (:name node)})))
+(defmethod emit-node* :interface-block [node env]
+  (let [dir      (:direction node)
+        dir-str  (case dir
+                   :in  "in"
+                   :out "out"
+                   (throw (ex-info "interface-block missing :direction"
+                                   {:name (:name node) :direction dir})))
+        name     (:name node)
+        instance (:instance-name node)
+        loc      (when-let [l (:location node)]
+                   (str "layout(location = " l ") "))
+        members  (->> (:members node)
+                      (map #(emit-node % env))
+                      (format/rows)
+                      (indent/indent))]
+    (T "${loc}${dir-str} ${name} {\n${members}\n} ${instance};")))
 
 (defmethod emit-node* :function [node env]
   (clang.format/function
