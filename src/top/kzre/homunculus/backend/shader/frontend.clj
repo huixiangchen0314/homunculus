@@ -1,11 +1,28 @@
-(ns top.kzre.homunculus.backend.hlsl.frontend
+(ns top.kzre.homunculus.backend.shader.frontend
   "HLSL 前端：实现 IFrontendInfo 协议，提供 HLSL 类型、字面量、内置函数。"
   (:require
-    [top.kzre.homunculus.core.ir2.ast :as ir2]
     [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
     [top.kzre.homunculus.core.symbol :as sym]))
 
+(def ^:private unary-ops
+  #{'not 'bit-not '-})
+
+(defn unary-ops?
+  [op-sym]
+  (contains? unary-ops op-sym))
+
+
+(def ^:private infix-ops
+  #{'+ '- '* '/ 'mod
+    '= 'not= '< '> '<= '>=
+    'and 'or
+    'bit-and 'bit-or 'bit-xor
+    'bit-shift-left 'bit-shift-right})
+
+(defn binary-ops?
+  [op-sym]
+  (contains? infix-ops op-sym))
 
 ;; ── 用 DSL 构建完整的内置符号表 ──
 (defonce ^:private symbol-tables
@@ -188,85 +205,38 @@
             [['a 'bool] 'bool]]
 
            ;; ── 比较运算 ────────────────────────────────
+           ;; 设计原则：显式大于隐式。
+           ;; 标量比较走运算符（无广播，语义明确）；
+           ;; 向量比较走显式函数（逐分量语义不隐藏在运算符里）。
+           ;; 向量运算符（< <= > >= = not= 的向量重载）一律删除。
+
+           ;; 标量运算符：仅 float / int / uint
            [:func '<  {:pure? true}
             [['a 'float  'b 'float]  'bool]
-            [['a 'float2 'b 'float2] 'bool2]
-            [['a 'float3 'b 'float3] 'bool3]
-            [['a 'float4 'b 'float4] 'bool4]
             [['a 'int    'b 'int]    'bool]
-            [['a 'int2   'b 'int2]   'bool2]
-            [['a 'int3   'b 'int3]   'bool3]
-            [['a 'int4   'b 'int4]   'bool4]
-            [['a 'uint   'b 'uint]   'bool]
-            [['a 'uint2  'b 'uint2]  'bool2]
-            [['a 'uint3  'b 'uint3]  'bool3]
-            [['a 'uint4  'b 'uint4]  'bool4]]
+            [['a 'uint   'b 'uint]   'bool]]
            [:func '<= {:pure? true}
             [['a 'float  'b 'float]  'bool]
-            [['a 'float2 'b 'float2] 'bool2]
-            [['a 'float3 'b 'float3] 'bool3]
-            [['a 'float4 'b 'float4] 'bool4]
             [['a 'int    'b 'int]    'bool]
-            [['a 'int2   'b 'int2]   'bool2]
-            [['a 'int3   'b 'int3]   'bool3]
-            [['a 'int4   'b 'int4]   'bool4]
-            [['a 'uint   'b 'uint]   'bool]
-            [['a 'uint2  'b 'uint2]  'bool2]
-            [['a 'uint3  'b 'uint3]  'bool3]
-            [['a 'uint4  'b 'uint4]  'bool4]]
-           [:func '> {:pure? true}
+            [['a 'uint   'b 'uint]   'bool]]
+           [:func '>  {:pure? true}
             [['a 'float  'b 'float]  'bool]
-            [['a 'float2 'b 'float2] 'bool2]
-            [['a 'float3 'b 'float3] 'bool3]
-            [['a 'float4 'b 'float4] 'bool4]
             [['a 'int    'b 'int]    'bool]
-            [['a 'int2   'b 'int2]   'bool2]
-            [['a 'int3   'b 'int3]   'bool3]
-            [['a 'int4   'b 'int4]   'bool4]
-            [['a 'uint   'b 'uint]   'bool]
-            [['a 'uint2  'b 'uint2]  'bool2]
-            [['a 'uint3  'b 'uint3]  'bool3]
-            [['a 'uint4  'b 'uint4]  'bool4]]
+            [['a 'uint   'b 'uint]   'bool]]
            [:func '>= {:pure? true}
             [['a 'float  'b 'float]  'bool]
-            [['a 'float2 'b 'float2] 'bool2]
-            [['a 'float3 'b 'float3] 'bool3]
-            [['a 'float4 'b 'float4] 'bool4]
             [['a 'int    'b 'int]    'bool]
-            [['a 'int2   'b 'int2]   'bool2]
-            [['a 'int3   'b 'int3]   'bool3]
-            [['a 'int4   'b 'int4]   'bool4]
-            [['a 'uint   'b 'uint]   'bool]
-            [['a 'uint2  'b 'uint2]  'bool2]
-            [['a 'uint3  'b 'uint3]  'bool3]
-            [['a 'uint4  'b 'uint4]  'bool4]]
-           [:func '= {:pure? true}
+            [['a 'uint   'b 'uint]   'bool]]
+           [:func '=  {:pure? true}
             [['a 'float  'b 'float]  'bool]
-            [['a 'float2 'b 'float2] 'bool2]
-            [['a 'float3 'b 'float3] 'bool3]
-            [['a 'float4 'b 'float4] 'bool4]
             [['a 'int    'b 'int]    'bool]
-            [['a 'int2   'b 'int2]   'bool2]
-            [['a 'int3   'b 'int3]   'bool3]
-            [['a 'int4   'b 'int4]   'bool4]
-            [['a 'uint   'b 'uint]   'bool]
-            [['a 'uint2  'b 'uint2]  'bool2]
-            [['a 'uint3  'b 'uint3]  'bool3]
-            [['a 'uint4  'b 'uint4]  'bool4]]
+            [['a 'uint   'b 'uint]   'bool]]
            [:func 'not= {:pure? true}
             [['a 'float  'b 'float]  'bool]
-            [['a 'float2 'b 'float2] 'bool2]
-            [['a 'float3 'b 'float3] 'bool3]
-            [['a 'float4 'b 'float4] 'bool4]
             [['a 'int    'b 'int]    'bool]
-            [['a 'int2   'b 'int2]   'bool2]
-            [['a 'int3   'b 'int3]   'bool3]
-            [['a 'int4   'b 'int4]   'bool4]
-            [['a 'uint   'b 'uint]   'bool]
-            [['a 'uint2  'b 'uint2]  'bool2]
-            [['a 'uint3  'b 'uint3]  'bool3]
-            [['a 'uint4  'b 'uint4]  'bool4]]
+            [['a 'uint   'b 'uint]   'bool]]
 
+           ;; 显式分量比较：向量版本（GLSL 原生；HLSL 后端转发为运算符）
            [:func 'lessThan {:pure? true}
             [['a 'float2 'b 'float2] 'bool2]
             [['a 'float3 'b 'float3] 'bool3]
@@ -278,7 +248,51 @@
             [['a 'uint3  'b 'uint3]  'bool3]
             [['a 'uint4  'b 'uint4]  'bool4]]
 
+           [:func 'lessThanEqual {:pure? true}
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
+
            [:func 'greaterThan {:pure? true}
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
+
+           [:func 'greaterThanEqual {:pure? true}
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
+
+           [:func 'equal {:pure? true}
+            [['a 'float2 'b 'float2] 'bool2]
+            [['a 'float3 'b 'float3] 'bool3]
+            [['a 'float4 'b 'float4] 'bool4]
+            [['a 'int2   'b 'int2]   'bool2]
+            [['a 'int3   'b 'int3]   'bool3]
+            [['a 'int4   'b 'int4]   'bool4]
+            [['a 'uint2  'b 'uint2]  'bool2]
+            [['a 'uint3  'b 'uint3]  'bool3]
+            [['a 'uint4  'b 'uint4]  'bool4]]
+
+           [:func 'notEqual {:pure? true}
             [['a 'float2 'b 'float2] 'bool2]
             [['a 'float3 'b 'float3] 'bool3]
             [['a 'float4 'b 'float4] 'bool4]

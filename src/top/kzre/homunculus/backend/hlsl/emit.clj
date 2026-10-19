@@ -61,6 +61,14 @@
    'gatherAlpha         "GatherAlpha"
    'textureSize         "GetDimensions"})
 
+(def ^:private component-compare-ops
+  {'lessThan         "<"
+   'lessThanEqual    "<="
+   'greaterThan      ">"
+   'greaterThanEqual ">="
+   'equal            "=="
+   'notEqual         "!="})
+
 ;; ── 函数调用 ──
 (defmethod emit-node* :call [node env]
   (let [fn-sym   (:fn node)
@@ -71,6 +79,18 @@
       (let [tex      (first arg-strs)
             rest-str (str/join ", " (rest arg-strs))]
         (str tex "." (texture-method-names fn-sym) "(" rest-str ")"))
+
+      (contains? component-compare-ops fn-sym)
+      (do
+        (when (not= 2 (count arg-strs))
+          (throw (err/compile-error
+                   :arity-mismatch
+                   (str fn-sym " expects exactly 2 arguments")
+                   {:node node :arg-count (count arg-strs)})))
+        (let [left  (first arg-strs)
+              right (second arg-strs)
+              op    (component-compare-ops fn-sym)]
+          (T "(${left} ${op} ${right})")))
 
       :else
       (clang.format/call fn-sym arg-strs))))

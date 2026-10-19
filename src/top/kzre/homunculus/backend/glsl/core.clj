@@ -2,7 +2,7 @@
   "大部分优化和pass都在 ShaderAST 完成，到GLSL 后，
   类型直接降级为字符串，不在 GlslAST 做复杂pass"
   (:require
-    [top.kzre.homunculus.backend.hlsl.frontend :as frontend]
+    [top.kzre.homunculus.backend.shader.frontend :as frontend]
    [top.kzre.homunculus.backend.hlsl.backend :as backend]
    [top.kzre.homunculus.internal.model :as model]
    [top.kzre.homunculus.compilers.firstorder :as firstorder]

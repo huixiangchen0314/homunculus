@@ -7,17 +7,9 @@
    [top.kzre.homunculus.backend.shader.semantic :as semantic]
    [top.kzre.homunculus.core.ir2.node :as n]
    [top.kzre.homunculus.core.ir2.pass.type :as ty]
-   [top.kzre.homunculus.core.irstmt.ast :as irstmt]))
+   [top.kzre.homunculus.core.irstmt.ast :as irstmt]
+   [top.kzre.homunculus.backend.shader.frontend :as frontend]))
 
-(def ^:private unary-ops
-  #{'not 'bit-not '-})
-
-(def ^:private infix-ops
-  #{'+ '- '* '/ 'mod
-    '= 'not= '< '> '<= '>=
-    'and 'or
-    'bit-and 'bit-or 'bit-xor
-    'bit-shift-left 'bit-shift-right})
 
 (defn- ir-meta [node] (irstmt/node-meta node))
 (declare lower-node*)
@@ -50,9 +42,9 @@
   (let [op-sym (:name (n/call-fn node))
         [args env'] (lower-expr-list env (n/call-args node))
         result (cond
-                 (and (contains? unary-ops op-sym) (= (count args) 1))
+                 (and (frontend/unary-ops? op-sym) (= (count args) 1))
                  (ast/->UnaryOp op-sym (first args) (:attrs node) (ir-meta node))
-                 (and (contains? infix-ops op-sym) (= (count args) 2))
+                 (and (frontend/binary-ops? op-sym) (= (count args) 2))
                  (ast/->BinaryOp op-sym (first args) (second args) (:attrs node) (ir-meta node))
                  ;; 结构体构造函数 TODO 使用符号表查询
                  (str/starts-with? (name op-sym) "->")
