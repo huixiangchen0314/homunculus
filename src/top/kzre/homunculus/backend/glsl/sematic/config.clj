@@ -8,7 +8,9 @@
   (gl-version [_])
   (out-struct-strategy [_])
   (fragment-out-name [_])
+  (semantic-location-strategy [_])
   (vertex-semantic-location [_ semantic])
+  (varying-semantic-location [_ semantic])
   (fragment-semantic-location [_ semantic])
   (texture-sampler-binding-strategy [_])
   (sampler-naming-strategy [_])
@@ -27,9 +29,14 @@
   (fragment-out-name [_]
     (opt/fragment-out-name options))
 
+  (semantic-location-strategy [_]
+    (opt/semantic-location-strategy options))
+
   (vertex-semantic-location [_ semantic]
-    (or (opt/vertex-semantic-location options semantic)
-        (location/default-location semantic)))
+    (opt/vertex-semantic-location options semantic))
+
+  (varying-semantic-location [_ semantic]
+    (opt/varying-semantic-location options semantic))
 
   (fragment-semantic-location [_ semantic]
     (opt/fragment-semantic-location options semantic))
