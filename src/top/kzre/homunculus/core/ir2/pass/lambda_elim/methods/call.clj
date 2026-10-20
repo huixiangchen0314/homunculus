@@ -1,30 +1,20 @@
 (ns top.kzre.homunculus.core.ir2.pass.lambda-elim.methods.call
   (:require [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.ir2.pass.lambda-elim.core :as elim]
-            [top.kzre.homunculus.core.ir2.pass.lambda-elim.env :as p]
-            [top.kzre.homunculus.core.ir2.pass.lambda-elim.env :as env]
-            [top.kzre.homunculus.core.ir2.ast :as ir2]))
+            [top.kzre.homunculus.core.ir2.pass.lambda-elim.env :as env]))
 
 (defn- lift-and-replace-call [call-node lam args env]
   (let [fv          (elim/free-vars-of-lambda lam env)
         fv-vec      (vec fv)
-        lifted-name (p/lift-name-gen env lam)
+        lifted-name (env/lift-name-gen env lam)
         new-params  (if (empty? fv-vec)
                       (n/lambda-params lam)
                       (into (mapv #(n/make-variable (n/var-name %) nil nil)
                                   (n/lambda-params lam))
                             (mapv #(n/make-variable % nil nil) fv-vec)))
-        new-body    (if (empty? fv-vec)
-                      (n/lambda-body lam)
-                      (let [bindings (mapv (fn [v]
-                                             (ir2/->Binding
-                                               (n/make-variable v nil nil)
-                                               (n/make-variable v nil nil)
-                                               nil
-                                               nil))
-                                           fv-vec)]
-                        (n/make-let bindings (n/lambda-body lam) {} nil)))
-        lifted-lam  (n/make-lambda new-params new-body fv-vec nil
+        ;; ← 自由变量已经是函数参数，函数体内直接可见，不需要 let 重绑定
+        new-body    (n/lambda-body lam)
+        lifted-lam  (n/make-lambda new-params new-body nil nil
                                    (n/attrs lam) (n/node-meta lam))
         new-call    (n/make-call (n/make-variable lifted-name nil nil)
                                  (if (empty? fv-vec)

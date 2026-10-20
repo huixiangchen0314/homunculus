@@ -106,15 +106,21 @@
   (let [val (n/define-val node)]
     (if (and val (= :lambda (ir2/kind val)))
       ;; 函数/入口点
-      (let [lam   val
-            params (n/lambda-params lam)
+      (let [lam         val
+            params      (n/lambda-params lam)
             param-nodes (mapv (fn [p] (ast/->Param (:name p) (n/attrs p) (n/node-meta p))) params)
-            [body-node env'] (lower-node* (n/lambda-body lam) env)]
-        [(ast/->Function (n/define-name node) param-nodes body-node (n/attrs node) (n/node-meta node)) env'])
+            ;; ← 参数加入 env：body 里对参数名的绑定走 Assign 而非 VarDecl
+            body-env    (reduce (fn [e p] (env-add-local e (:name p))) env params)
+            [body-node _] (lower-node* (n/lambda-body lam) body-env)]
+        [(ast/->Function (n/define-name node) param-nodes body-node
+                         (n/attrs node) (n/node-meta node))
+         env])   ; ← 返回原 env，函数体是独立作用域
       ;; 变量声明
       (let [var-name (n/define-name node)
             [init-expr env'] (if val (lower-node* val env) [nil env])]
-        [(ast/->VarDecl var-name init-expr (n/define-docstring node) (n/attrs node) (n/node-meta node)) env']))))
+        [(ast/->VarDecl var-name init-expr (n/define-docstring node)
+                        (n/attrs node) (n/node-meta node))
+         env']))))
 
 (defmethod lower-node* :while [node env]
   (let [[test env1] (lower-node* (n/while-test node) env)
