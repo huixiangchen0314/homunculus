@@ -868,7 +868,10 @@
   (macro-namespaces [_] #{'top.kzre.homunculus.backend.shader.dsl
                           'top.kzre.homunculus.core
                           'cljh.core
-                          }))
+                          })
+  (mutable-value-type? [_ type]
+    ;; 向量，在 shader中转译为 数组，是可变的，此外都是不可变的
+    (ty/vec-type? type)))
 
 (defonce ^:private frontend* (->HLSLFrontend))
 

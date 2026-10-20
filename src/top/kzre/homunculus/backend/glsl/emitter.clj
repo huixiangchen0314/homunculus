@@ -15,7 +15,7 @@
    [top.kzre.homunculus.backend.shader.semantic :as semantic]
    [top.kzre.homunculus.core.error :as err]
    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
-   [top.kzre.homunculus.core.irstmt.pass.assign-propagate :as irstmt.assign-propagate]
+   [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
    [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
    [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
    [top.kzre.homunculus.internal.model :as m]
@@ -82,7 +82,7 @@
           ;; IR2 → IRStmt → 优化 → ShaderAST
           irstmts      (irstmt.lower/lower nodes)
           sted         (statementize/statementize-nodes irstmts)
-          ped          (irstmt.assign-propagate/propagate-nodes sted)
+          ped          (propagate/propagate sted (propagate/make-env ctx))
           dced         (dce/elim ped (dce/make-env ctx))
           shader-asts  (lower/lower dced)
           vec-copied   (array-assign/expand shader-asts)

@@ -15,7 +15,11 @@
   (integer-type [this] "返回语言的整数类型.")
   (macro-namespaces [this]
     "返回一个集合（符号），表示仅用于编译时宏展开的命名空间，
-     这些依赖不应生成 #include 指令。"))
+     这些依赖不应生成 #include 指令。")
+  (mutable-value-type? [this type]
+    "查询一个类型是否是可变的值类型.
+    TODO 提升到 编译上下文，在符号表里标记，当支持原始类型时候，可能引入用户定义的可变类型
+    "))
 
 ;; ── 后端信息 ──────────────────────────────
 (defprotocol IBackendInfo
