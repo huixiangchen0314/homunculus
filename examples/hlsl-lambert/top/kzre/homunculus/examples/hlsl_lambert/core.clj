@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.examples.hlsl-lambert.core
   (:require
-    [top.kzre.homunculus.examples.hlsl-lambert.lib :as lib]
+    ;[top.kzre.homunculus.examples.hlsl-lambert.lib :as lib]
     [top.kzre.homunculus.backend.shader.dsl :refer :all]))
 
 ;; ── 资源声明 ──────────────────────────────
@@ -40,14 +40,15 @@
            (%%aset sv 3 0)
            (def vv 6)
            (set! vv 3)
-           (def avv (%%new-array vv))
+           ;; 元素类型没能求解出来 TODO 支持带类型的构造
+           ;(def avv (%%new-array vv))
            ;; 使用 my-map 对 x 的每个元素加 1
            (def y (map (fn [v] (* (+ v 1.0) 2)) sv))
            (let [worldPos (mul worldViewProj pos)
-                 ll (if true 1 2)
+                 ll (if true (if false  2 3) 1 )
                  xxxxx [1 2 3]]
              (->VertOutput (float4 (float3 (%%aget y 0) vv 1.0) (%%aget xxxxx 0))
-                           (float3 0.0 0.0 0.0)
+                           (float3 0.0 0.0 ll)
                            (float2 0.0 0.0))))
 
 ;; ── 片段着色器 ────────────────────────────

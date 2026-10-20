@@ -7,7 +7,7 @@
 (defn- expand-assign [assign]
   (let [meta     (:meta assign)
         vec-type (:vec-type meta)
-        size     (ty/vec-size vec-type)
+        size     (ty/value-val (ty/vec-size vec-type))
         lhs      (:lhs assign)
         rhs      (:rhs assign)]
     (mapv (fn [i]

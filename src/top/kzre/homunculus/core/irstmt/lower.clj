@@ -71,8 +71,8 @@
         [test env1] (lower-node* (n/if-test node) env)
         [then-val _] (lower-node* (n/if-then node) env1)
         [else-val _] (if-let [e (n/if-else node)]
-                          (lower-node* e env1)
-                          [nil env1])
+                       (lower-node* e env1)
+                       [nil env1])
         then-assign (ast/->Assign tmp-var then-val nil nil)
         then-node (n/if-then node)
         then-block (ast/->Block [then-assign] nil (n/attrs then-node) (n/node-meta then-node))

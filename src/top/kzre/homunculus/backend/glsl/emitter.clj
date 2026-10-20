@@ -16,7 +16,7 @@
    [top.kzre.homunculus.core.error :as err]
    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
    [top.kzre.homunculus.core.irstmt.pass.assign-propagate :as irstmt.assign-propagate]
-   [top.kzre.homunculus.core.irstmt.pass.dce :as irstmt.dce]
+   [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
    [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
    [top.kzre.homunculus.internal.model :as m]
    [top.kzre.homunculus.internal.module-unit :as mu]
@@ -83,7 +83,7 @@
           irstmts      (irstmt.lower/lower nodes)
           sted         (statementize/statementize-nodes irstmts)
           ped          (irstmt.assign-propagate/propagate-nodes sted)
-          dced         (irstmt.dce/elim-nodes ped ctx)
+          dced         (dce/elim ped (dce/make-env ctx))
           shader-asts  (lower/lower dced)
           vec-copied   (array-assign/expand shader-asts)
           renamed (ns-strategy/apply vec-copied
