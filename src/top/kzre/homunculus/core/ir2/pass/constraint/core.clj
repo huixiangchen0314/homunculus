@@ -18,11 +18,11 @@
             (reduce
               (fn [[acc-constraints
                     substs e] c]
-                (let [s (proto/solve-constraint c substs e)
-                      c' (proto/substitute-constraint c s)]
+                (let [s' (proto/solve-constraint c substs e)
+                      c' (proto/substitute-constraint c s')]
                   (if (proto/solved? c')
-                    [acc-constraints s e]
-                    [(conj acc-constraints c') s e])))
+                    [acc-constraints s' e]
+                    [(conj acc-constraints c') s' e])))
               [[] subs-map env]
               constrs)]
         (if (or (empty? remaining)

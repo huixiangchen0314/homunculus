@@ -22,12 +22,15 @@
               t2 (unify/substitute expected subst-map)]
           (if (and (ty/concrete? t1)
                    (ty/concrete? t2))
-            (if-let [cost (env/conversion-cost env t1 t2)]
-              (if cost
-                (assoc subst-map tvar t2)
-                subst-map)
-              subst-map)
-            subst-map))))))
+            subst-map
+            ;(if-let [cost (env/conversion-cost env t1 t2)]
+            ;  (if cost
+            ;    (assoc subst-map tvar t2)
+            ;    subst-map)
+            ;  subst-map)
+            subst-map)
+          )
+        ))))
 
 (defn make-cequal
   [tvar type]

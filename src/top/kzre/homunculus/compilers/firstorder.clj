@@ -59,8 +59,10 @@
           traited-roots (mark-trait/mark ir2-roots')   ;; 分析标记
           ir2-roots' (inline/inline traited-roots (inline/make-env ctx))  ;; 执行内联
           no-ho      (ho-elim/elim ir2-roots' (ho-elim/make-env ctx))
+          ;; 闭包消除可能引入新的高阶函数
           no-closure (lambda-elim/elim no-ho (lambda-elim/make-env))
-          no-recur   (recur-elim/elim no-closure)
+          no-ho2      (ho-elim/elim no-closure (ho-elim/make-env ctx))
+          no-recur   (recur-elim/elim no-ho2)
           inferred   (infer/infer no-recur (infer/make-env  ctx))
           ;solved     (solve/process inferred (solve/make-context ctx frontend backend))
           solved     (solve-fold inferred ctx)

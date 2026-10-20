@@ -10,7 +10,7 @@
     [top.kzre.homunculus.core.ir2.ast :as ir2]
     [top.kzre.homunculus.core.ir2.node :as n]))
 
-(defn- high-order? [node]
+(defn high-order? [node]
   (if (= :lambda (ir2/kind node))
     (ho/ho? node)
     false))

@@ -83,10 +83,15 @@
       (let [ret-tv   (gen/fresh-tvar)
             new-node (n/make-call fn-node (vec arg-nodes)
                                   (n/attrs current-node)
-                                  (n/node-meta current-node))]
+                                  (n/node-meta current-node))
+            ret-eq
+            (when (p/call-driven-inference? env)
+              [(cons/make-cequal
+                 (t/fun-return-type (first arity-compatible) arg-count)
+                 ret-tv)])]
         {:type        ret-tv
          :node        (t/set-type! new-node ret-tv)
-         :constraints (concat fn-constraints arg-constrs)
+         :constraints (concat fn-constraints arg-constrs ret-eq)
          :env         final-env})
 
       ;; ── 有候选但 arity 全不匹配：直接报错 ──
@@ -102,15 +107,28 @@
                                      :type  c})
                                   candidates)}))
 
-      ;; ── Arity 匹配但类型未完全匹配：投递约束（仅 arity 兼容的候选）──
+      ;; ── Arity 匹配但类型未完全确定：投递约束（仅 arity 兼容的候选）──
       :else
-      (let [ret-tv   (gen/fresh-tvar)
-            new-node (n/make-call fn-node (vec arg-nodes)
+      (let [ret-tv (gen/fresh-tvar)
+
+            new-node (n/make-call fn-node
+                                  (vec arg-nodes)
                                   (n/attrs current-node)
                                   (n/node-meta current-node))
             extra    [(cons/make-coverload arity-compatible arg-types ret-tv fn-type
-                                           {:node new-node})]]
+                                           :call-driven-interface?  (p/call-driven-inference? env)
+                                           :data new-node)]
+            ;; 单候选 + call-driven-inference 开启：
+            ;; 只有唯一候选，返回值必然是它的返回类型——
+            ;; 显式约束，不依赖 COverload 单候选分支的内部绑定。
+            ret-eq
+            (when (and
+                    (p/call-driven-inference? env)
+                    (= 1 (count arity-compatible)))
+              [(cons/make-cequal
+                 (t/fun-return-type (first arity-compatible) arg-count)
+                 ret-tv)])]
         {:type        ret-tv
          :node        (t/set-type! new-node ret-tv)
-         :constraints (concat extra fn-constraints arg-constrs)
+         :constraints (concat fn-constraints arg-constrs ret-eq extra)
          :env         final-env}))))

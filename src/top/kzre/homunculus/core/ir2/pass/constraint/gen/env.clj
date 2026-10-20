@@ -20,6 +20,19 @@
 ;; ═══════════════════════════════════════════════
 
 (defprotocol IEnv
+  (call-driven-inference? [this]
+    "是否允许从调用点反向约束函数类型（call-driven inference）。
+
+     严格 Hindley-Milner 下，函数类型只在定义处确定，调用点只能
+     实例化已有 scheme，不能反向传播类型。静态语言要支持闭包时，
+     闭包捕获的自由变量类型往往不在定义处完整可知，必须允许调用点
+     反向约束——本开关控制这一行为。
+
+     开启：调用点的实参类型参与约束被调函数的 TVar。
+     关闭：被调函数的 TVar 只能在定义处被约束。
+
+     命名由来：与 let-generalization（定义驱动泛化）对偶——
+     let 从定义处泛化，call-driven 从调用点具体化。")
   ;; ── 类型解析 ──
   (resolve-var-type [this name]
     "解析变量名对应的类型。
@@ -93,8 +106,11 @@
                 compile-ctx
                 frontend
                 backend
+                options
                 loop-vars-list]
   IEnv
+  (call-driven-inference? [_]
+    (get options :called-driven-interface? true))
   ;; ── 类型解析 ──
   (resolve-var-type [_ name]
     (if-let [binding (lookup-local type-scope name)]
@@ -153,6 +169,7 @@
   [compile-ctx]
   (let [frontend (ip/frontend compile-ctx)
         backend  (ip/backend compile-ctx)
+        options (ip/options (ip/config compile-ctx))
         symbols  (merge (tp/builtin-symbols frontend)
                         (ip/symbol-table compile-ctx))]
     (->Env {}
@@ -160,4 +177,5 @@
            compile-ctx
            frontend
            backend
+           options
            nil)))

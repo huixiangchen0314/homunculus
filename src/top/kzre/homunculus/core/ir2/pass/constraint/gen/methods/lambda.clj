@@ -25,9 +25,7 @@
         {:keys [type node constraints]}
         (gen/gen-node* (n/lambda-body current-node) inner-env)
         ;; 构建柯里化函数类型
-        fn-type     (reduce (fn [ret arg] (t/make-tfun arg ret))
-                            type
-                            (reverse param-types))
+        fn-type (t/make-fun-type param-types type)
         ;; 更新参数节点类型并重建 lambda 节点
         param-nodes (mapv (fn [param param-type]
                             (t/set-type! param param-type))
@@ -38,10 +36,10 @@
                                    (n/attrs current-node)
                                    (n/node-meta current-node))
         ;; 若 lambda 整体有标注（如 ^float4），添加约束
-        annotated-type (t/get-type current-node)
+        hint-type (t/get-type current-node)
         ;; lambda 上标注的是函数的返回值类型
-        annot-constr   (when annotated-type
-                         [(cons/make-cequal (t/fun-return-type fn-type) annotated-type)])]
+        annot-constr   (when hint-type
+                         [(cons/make-cequal (t/fun-return-type fn-type) hint-type)])]
     {:type        fn-type
      :node        (t/set-type! new-node fn-type)
      :constraints (concat constraints annot-constr)

@@ -80,6 +80,24 @@
   [fn-name]
   (contains? sample-fns fn-name))
 
+(def ^:private scalar-types
+  '#{bool int uint float})
+
+(defn scalar-type? [type-sym]
+  (contains? scalar-types type-sym))
+
+(def ^:private tensor-types
+  '#{bool2 bool3 bool4
+   int2 int3 int4
+   uint2 uint3 uint4
+   float2 float3 float4
+   float2x2 float2x3 float2x4
+   float3x2 float3x3 float3x4
+   float4x2 float4x3 float4x4})
+
+(defn tensor-type? [type-sym]
+  (contains? tensor-types type-sym))
+
 (def ^:private builtin-types
   "HLSL 内置类型集合。struct-type? 的反面——不在这个集合里的 TCon 是用户 struct。"
   '#{bool int uint float

@@ -12,48 +12,50 @@
    tv 必须是 TVar 实例，ty 是任意的 IType。
    返回 true 表示 tv 存在于 ty 的叶节点中，否则返回 false。"
   [tv ty]
-  (case (p/type-kind ty)
-    :var (= tv ty)
-    :fun (or (occur? tv (:arg ty)) (occur? tv (:ret ty)))
-    :vec (or (occur? tv (ty/vec-element-type ty))
-             (when (ty/var-type? (ty/vec-size ty))
-               (occur? tv (ty/vec-size ty))))
-    :hetero-vec (some #(occur? tv %) (ty/hetero-vec-types ty))
-    :hetero-map (some #(occur? tv (second %)) (:entries ty))
-    false))
+  (if (nil? ty)
+    false
+    (case (p/type-kind ty)
+      :var (= tv ty)
+      :fun (or (occur? tv (:arg ty)) (occur? tv (:ret ty)))
+      :vec (or (occur? tv (ty/vec-element-type ty))
+               (when (ty/var-type? (ty/vec-size ty))
+                 (occur? tv (ty/vec-size ty))))
+      :hetero-vec (some #(occur? tv %) (ty/hetero-vec-types ty))
+      :hetero-map (some #(occur? tv (second %)) (:entries ty))
+      false)))
 
 ;; ── 类型替换 ──
 (defn substitute
-  "根据替换映射 subst-map 对类型 ty 应用替换。内置循环检测，遇到循环时返回原变量。"
+  "根据替换映射 subst-map 对类型 ty 应用替换。内置循环检测。
+   visited 是递归路径上的变量集——只用于检测 A → B → A 这种真循环，
+   不做全局\"访问过就不再访问\"的去重（那会漏掉 TFun(A, A) 这种合法场景）。"
   [ty subst-map]
-  (let [visited (atom #{})]
-    (letfn [(sub [t]
-              (when t
-                (let [kind (p/type-kind t)]
-                  (case kind
-                    :var (if-let [new (get subst-map t)]
-                           (if (contains? @visited t)
-                             t   ;; 检测到循环，停止替换
-                             (do (swap! visited conj t)
-                                 (sub new)))
-                           t)
-                    :fun (let [new-arg (sub (:arg t))
-                               new-ret (sub (:ret t))]
-                           (if (and new-arg new-ret)
-                             (t/->TFun new-arg new-ret)
-                             t))
-                    :vec (let [elem-ty (sub (ty/vec-element-type t))
-                               sz       (ty/vec-size t)
-                               new-sz   (if (and sz (ty/var-type? sz)) (sub sz) sz)]
-                           (if elem-ty
-                             (ty/make-tvec elem-ty new-sz)
-                             t))
-                    :hetero-vec (let [new-types (mapv sub (ty/hetero-vec-types t))]
-                                  (t/->THeteroVec new-types))
-                    :hetero-map (let [new-entries (mapv (fn [[k v]] [k (sub v)]) (:entries t))]
-                                  (t/->THeteroMap new-entries))
-                    t))))]
-      (sub ty))))
+  (letfn [(sub [t path]
+            (when t
+              (let [kind (p/type-kind t)]
+                (case kind
+                  :var (if-let [new (get subst-map t)]
+                         (if (contains? path t)
+                           t   ;; 真循环，停止
+                           (sub new (conj path t)))
+                         t)
+                  :fun (t/->TFun (sub (:arg t) path)
+                                 (sub (:ret t) path))
+                  :vec (let [elem-ty (sub (ty/vec-element-type t) path)
+                             sz      (ty/vec-size t)
+                             new-sz  (if (and sz (ty/var-type? sz))
+                                       (sub sz path)
+                                       sz)]
+                         (if elem-ty
+                           (ty/make-tvec elem-ty new-sz)
+                           t))
+                  :hetero-vec (t/->THeteroVec
+                                (mapv #(sub % path) (ty/hetero-vec-types t)))
+                  :hetero-map (t/->THeteroMap
+                                (mapv (fn [[k v]] [k (sub v path)])
+                                      (:entries t)))
+                  t))))]
+    (sub ty #{})))
 
 (declare subst-walk)
 (defn subst-fn

@@ -1,7 +1,8 @@
 (ns top.kzre.homunculus.core.ir2.pass.lambda-elim.methods.call
   (:require [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.ir2.pass.lambda-elim.core :as elim]
-            [top.kzre.homunculus.core.ir2.pass.lambda-elim.env :as p]))
+            [top.kzre.homunculus.core.ir2.pass.lambda-elim.env :as p]
+            [top.kzre.homunculus.core.ir2.ast :as ir2]))
 
 (defn- lift-and-replace-call [call-node lam args env]
   (let [fv          (elim/free-vars-of-lambda lam env)
@@ -14,8 +15,12 @@
                             (mapv #(n/make-variable % nil nil) fv-vec)))
         new-body    (if (empty? fv-vec)
                       (n/lambda-body lam)
-                      (let [bindings (mapv (fn [v] [(n/make-variable v nil nil)
-                                                    (n/make-variable v nil nil)])
+                      (let [bindings (mapv (fn [v]
+                                             (ir2/->Binding
+                                               (n/make-variable v nil nil)
+                                               (n/make-variable v nil nil)
+                                               nil
+                                               nil))
                                            fv-vec)]
                         (n/make-let bindings (n/lambda-body lam) {} nil)))
         lifted-lam  (n/make-lambda new-params new-body fv-vec nil

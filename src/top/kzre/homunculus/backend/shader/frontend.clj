@@ -3,7 +3,8 @@
   (:require
     [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.core.symbol :as sym]))
+    [top.kzre.homunculus.core.symbol :as sym]
+    [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]))
 
 (def ^:private unary-ops
   #{'not 'bit-not '-})
@@ -871,6 +872,8 @@
                           })
   (mutable-value-type? [_ type]
     ;; 向量，在 shader中转译为 数组，是可变的，此外都是不可变的
+    ;; 结构体，向量，矩阵等类型虽然是可变的
+    ;; 但前端是 clojure dsl 情况下没有可变访问的能力，因为是不可变的.
     (ty/vec-type? type)))
 
 (defonce ^:private frontend* (->HLSLFrontend))

@@ -1,7 +1,8 @@
 (ns top.kzre.homunculus.core.ir2.node
   "IR2 节点字段的安全访问器、构造器与更新器。所有对节点内部关键字的直接操作都应通过此命名空间。
    统一使用 make-* 构造函数，不再使用旧的 ->* 风格。"
-  (:require [top.kzre.homunculus.core.ir2.ast :as ir2]))
+  (:require [top.kzre.homunculus.core.ir2.ast :as ir2]
+            [top.kzre.homunculus.core.error :as err]))
 
 
 (defn make-field
@@ -132,6 +133,9 @@
   ([bindings body]                      (make-let bindings body {} nil))
   ([bindings body attrs]                (make-let bindings body attrs nil))
   ([bindings body attrs meta]
+   (when-let [b (first bindings)]
+     (when (vector? b)
+       (throw (err/compile-error :type-error ""))))
    (ir2/->Let (vec bindings) body attrs meta)))
 
 (defn let-with-bindings [node bindings] (assoc node :bindings bindings))

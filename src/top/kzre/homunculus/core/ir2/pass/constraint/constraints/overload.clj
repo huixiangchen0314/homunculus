@@ -13,14 +13,48 @@
       (scheme/instantiate cand)
       cand)))
 
+(defn- call-driven-interface? [opts]
+  (:call-driven-interface? opts))
+
 (defn- bind-fn-tv
-  "若 fn-tv 是未绑定的类型变量，将其绑定到候选函数类型。"
-  [subst-map fn-tv candidate]
+  "若 fn-tv 是未绑定或部分绑定的类型变量，将其绑定到候选函数类型。
+
+   判定依据是绑定是否 concrete，不是 contains? 也不是 var-type?：
+   - 从未绑定            → unify 建立 fn-tv → candidate
+   - 已绑定且 concrete   → 保留（已完整，不覆盖）
+   - 已绑定但非 concrete → unify 合并当前绑定和 candidate，
+                          保留两边已知的部分
+
+   注意 fn-tv 可能是 substitute 后的非 TVar 形态（例如部分具体的
+   TFun(int, TVar-X)），同样走 unify——保证 candidate 的约束能和
+   当前形态合并，避免部分绑定时信息丢失。"
+  [subst-map fn-tv candidate opts]
   (cond
-    (nil? fn-tv)                subst-map
-    (not (ty/var-type? fn-tv))  subst-map
-    (contains? subst-map fn-tv) subst-map
-    :else                       (assoc subst-map fn-tv candidate)))
+    (nil? fn-tv)
+    subst-map
+
+    ;; 已完整绑定：保留（冲突检查由调用方负责，见 :solve-constraint）
+    (and (not (call-driven-interface? opts))
+         (ty/concrete? (unify/substitute fn-tv subst-map)))
+    subst-map
+
+    (and (call-driven-interface? opts)
+         (ty/concrete? (unify/substitute fn-tv subst-map))
+         (ty/concrete? (unify/substitute candidate subst-map)))
+    subst-map
+
+    ;; 其他情况（含部分具体的 TFun）统一走 unify：
+    ;; unify 内部先 substitute 再按 kind 分派，能正确处理
+    ;; TVar / TFun(具体,TVar) / TFun(TVar,TVar) 等形态
+    :else
+    (try
+      (unify/unify fn-tv candidate subst-map)
+      (catch Exception e
+        (throw (ex-info "fn-tv binding conflict"
+                        {:fn-tv     fn-tv
+                         :current   (unify/substitute fn-tv subst-map)
+                         :candidate candidate}
+                        e))))))
 
 (defn- try-match-overload-candidate
   "尝试单个候选。
@@ -63,36 +97,54 @@
                  :fn-type cand
                  :cost    total-cost}))))))))
 
-(defrecord COverload [fn-type-vec arg-tys ret-tv fn-tv data]
+(defrecord COverload
+  [fn-type-vec arg-tys ret-tv fn-tv
+   opts ]
   p/IConstraint
   (solved? [_]
    (and  (ty/concrete? ret-tv)
          (ty/concrete? fn-tv)))
   (substitute-constraint [this subst-map]
-    (assoc this
-      :fn-type-vec (mapv #(unify/substitute % subst-map) fn-type-vec)
-      :arg-tys     (mapv #(unify/substitute % subst-map) arg-tys)
-      :ret-tv      (unify/substitute ret-tv subst-map)
-      :fn-tv       (unify/substitute fn-tv subst-map)))
+    (if (and (call-driven-interface? opts)
+             (= 1 (count fn-type-vec)))
+      ;; call-driven + 单候选：先把 fn-tv 绑定到候选，
+      ;; 再用合并后的 subst-map 刷新所有字段
+      (let [cand       (unify/substitute (first fn-type-vec) subst-map)
+            subst-map' (try (unify/unify fn-tv cand subst-map)
+                            (catch Exception _ subst-map))]
+        (assoc this
+          :fn-type-vec [cand]
+          :arg-tys     (mapv #(unify/substitute % subst-map') arg-tys)
+          :ret-tv      (unify/substitute ret-tv subst-map')
+          :fn-tv       (unify/substitute fn-tv subst-map')))
+      ;; 默认：只刷新字段，不引入新绑定
+      (assoc this
+        :fn-type-vec (mapv #(unify/substitute % subst-map) fn-type-vec)
+        :arg-tys     (mapv #(unify/substitute % subst-map) arg-tys)
+        :ret-tv      (unify/substitute ret-tv subst-map)
+        :fn-tv       (unify/substitute fn-tv subst-map))))
   (solve-constraint [_ subst-map env]
     (let [arg-tys'   (mapv #(unify/substitute % subst-map) arg-tys)
           ret-tv'   (unify/substitute ret-tv subst-map)
           fn-tv'    (unify/substitute fn-tv subst-map)
           uncertain? (some #(not (ty/concrete? %)) arg-tys')
-          node       (:node data)
+          node       (:data opts)
           callee-name (n/var-name (n/call-fn node))]
       (if (= 1 (count fn-type-vec))
         ;; ── 单候选——无重载，成功/失败都只绑一次 fn-tv ──
-        (let [cand      (instantiate-candidate (first fn-type-vec) subst-map)
+        (let [cand (first fn-type-vec)
+              cand'      (instantiate-candidate cand subst-map)
               desired   (ty/make-fun-type arg-tys' ret-tv')
-              new-subst (try (unify/unify cand desired subst-map)
+              new-subst (try (unify/unify cand' desired subst-map)
                              (catch Exception _ subst-map))
-              fn-type   (unify/substitute cand new-subst)
+              fn-type   (unify/substitute cand' new-subst)
               new-subst (if (not (ty/concrete? ret-tv'))
                           (assoc new-subst ret-tv'
                                            (ty/fun-return-type fn-type))
                           new-subst)]
-          (bind-fn-tv new-subst fn-tv' fn-type))
+          (println "single solve overload: "
+                   callee-name)
+          (bind-fn-tv new-subst fn-tv' fn-type opts))
 
         ;; ── 多候选——按 cost 挑选，选中后绑一次 fn-tv ──
         (if uncertain?
@@ -101,27 +153,28 @@
                                 subst-map % arg-tys' ret-tv' env)
                              fn-type-vec)]
             (if (empty? scored)
-              (let [data data]
-                (throw (ex-info "No matching overload"
-                                {:arg-tys arg-tys'
-                                 :candidates fn-type-vec
-                                 :callee callee-name
-                                 :data data})))
-              (let [data data
-                    grouped  (group-by :cost scored)
+              (throw (ex-info "No matching overload"
+                              {:arg-tys arg-tys'
+                               :candidates fn-type-vec
+                               :callee callee-name
+                               :opts opts}))
+              (let [grouped  (group-by :cost scored)
                     min-cost (apply min (keys grouped))
                     best     (get grouped min-cost)]
                 (if (> (count best) 1)
                   (throw (ex-info "Ambiguous overload"
                                   {:arg-tys arg-tys'
-                                   :data data
+                                   :opts opts
                                    :matched (map :fn-type best)}))
                   (let [{:keys [subst ret fn-type]} (first best)
                         subst (if (not (ty/concrete? ret-tv'))
                                 (assoc subst ret-tv' ret)
                                 subst)]
-                    (bind-fn-tv subst fn-tv' fn-type)))))))))))
+                    (println "solve overload: "
+                             (n/var-name (n/call-fn (:data opts))))
+                    (bind-fn-tv subst fn-tv' fn-type opts)))))))))))
 
 (defn make-coverload
-  [fn-type-vec arg-tys ret-tv fn-tv & [data]]
-  (->COverload fn-type-vec arg-tys ret-tv fn-tv data))
+  [fn-type-vec arg-tys ret-tv fn-tv
+   & {:keys [data] :as opts}]
+  (->COverload fn-type-vec arg-tys ret-tv fn-tv opts))

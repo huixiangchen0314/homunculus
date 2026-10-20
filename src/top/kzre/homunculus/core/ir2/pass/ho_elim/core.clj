@@ -17,9 +17,8 @@
     ;; define：被标记为高阶的 lambda 注册进环境
     :define
     (let [name (n/define-name node)
-          val  (n/define-val node)
-          ho?  (-> node n/attrs :ho?)]
-      (if (and val ho? (n/lambda-node? val))
+          val  (n/define-val node)]
+      (if (and val (mark-ho/high-order? val))
         (walk node (env/track-ho env name val))
         (walk node env)))
 

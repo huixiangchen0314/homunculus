@@ -4,7 +4,8 @@
     [top.kzre.homunculus.core.ir2.ast :as ir2]
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.transform.rename.rename :as rename]
-    [top.kzre.homunculus.core.ir2.pass.recur-elim.env :as p]))
+    [top.kzre.homunculus.core.ir2.pass.recur-elim.env :as p]
+    [top.kzre.homunculus.core.error :as err]))
 
 (declare elim-node*)
 
@@ -100,7 +101,11 @@
     (n/make-let all-bindings let-body {} nil)))
 
 ;; ── 分派入口 ──────────────────────────────
-(defmulti elim-node* (fn [node] (n/kind node)))
+(defmulti elim-node*
+          (fn [node]
+            (if (satisfies? ir2/IR2 node)
+              (n/kind node)
+              (throw (err/compile-error :error-ir2-type "")))))
 
 (defmethod elim-node* :loop [node]
   (rename/rename-node (transform-loop node)))

@@ -1,7 +1,9 @@
 (ns top.kzre.homunculus.core.ir2.pass.dc-elim.core
   "死代码消除 Pass：根据配置消除未引用的高阶函数、内联函数和多态函数定义。"
-  (:require [top.kzre.homunculus.core.ir2.node :as n]
-            [top.kzre.homunculus.core.ir2.pass.type :as ty]))
+  (:require [top.kzre.homunculus.core.ir2.ast :as ir2]
+            [top.kzre.homunculus.core.ir2.node :as n]
+            [top.kzre.homunculus.core.ir2.pass.type :as ty]
+            [top.kzre.homunculus.core.ir2.pass.mark-ho :as mark-ho]))
 
 (defn make-context
   "构造 DCE Pass 的配置上下文。
@@ -27,7 +29,14 @@
   (if (get context :dce-eliminate-ho? true)
     (filterv (fn [root]
                (if (n/define-node? root)
-                 (not (-> root n/attrs :ho?))
+                 (let [val-node (n/define-val root)]
+                   (if (= :lambda (ir2/kind val-node))
+                     ;; 有类型标记就查询类型推断，否则走自由变量分析
+                     (if-let [t (ty/get-type root)]
+                       (ty/concrete? t)
+                       (mark-ho/high-order? val-node))
+                     true)
+                   )
                  true))
              ir2-roots)
     ir2-roots))
