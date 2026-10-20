@@ -34,6 +34,8 @@
            (= (ir2/kind (n/define-val node)) :lambda))
     (let [attrs (n/attrs node)]
       (if (or (true? (:inline attrs))
+              (true? (:inline (:meta node)))
+              ;; TODO 多态内联需要配置
               (true? (:polymorphic attrs)))
         (p/register-inline-def env (n/define-name node) (n/define-val node))
         env))

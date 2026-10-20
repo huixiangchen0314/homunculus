@@ -2,6 +2,7 @@
   (:require [top.kzre.homunculus.core.ir2.node :as n]
             [top.kzre.homunculus.core.ir2.pass.lambda-elim.core :as elim]
             [top.kzre.homunculus.core.ir2.pass.lambda-elim.env :as p]
+            [top.kzre.homunculus.core.ir2.pass.lambda-elim.env :as env]
             [top.kzre.homunculus.core.ir2.ast :as ir2]))
 
 (defn- lift-and-replace-call [call-node lam args env]
@@ -30,7 +31,13 @@
                                    args
                                    (into args (mapv #(n/make-variable % nil nil) fv-vec)))
                                  (n/attrs call-node) (n/node-meta call-node))
-        new-defines [(n/make-define lifted-name lifted-lam nil nil nil)]]
+        init-attrs
+        (if (env/inline-all-lambda? env)
+          {:inline true}
+          {})
+        new-defines [(n/make-define
+                       lifted-name lifted-lam nil
+                       init-attrs init-attrs)]]
     {:new-call    new-call
      :new-defines new-defines}))
 

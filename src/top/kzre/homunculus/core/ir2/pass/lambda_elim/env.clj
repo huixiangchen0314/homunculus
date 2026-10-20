@@ -1,7 +1,11 @@
-(ns top.kzre.homunculus.core.ir2.pass.lambda-elim.env)
+(ns top.kzre.homunculus.core.ir2.pass.lambda-elim.env
+  (:require
+    [top.kzre.homunculus.internal.protocol :as ip]))
 
 (defprotocol IEnv
-  "Lambda 提升/特化的配置"
+  (inline-all-lambda? [_]
+    "是否内联所有lambda, 这里只是对提升函数进行管线约定的标记，
+    是否内联取决于后续是否有 inline pass")
   (max-iterations [this]
     "最大迭代次数，默认为 5")
   (strict-mode? [this]
@@ -14,8 +18,10 @@
   (bind-var [this var-name] "绑定变量名"))
 
 
-(defrecord Env [vars]
+(defrecord Env [vars options]
   IEnv
+  (inline-all-lambda? [_]
+    (get options :inline-all-lambda? false))
   (max-iterations [_] 1000)
   (strict-mode? [_] true)
   (on-unresolved [_ lambda _reason]
@@ -25,5 +31,5 @@
   (bound-vars [_] vars)
   (bind-var [this var-name] (assoc this :vars (conj vars var-name))))
 
-(defn make-env []
-  (->Env #{}))
+(defn make-env [compile-ctx]
+  (->Env #{} (ip/options (ip/config compile-ctx))))

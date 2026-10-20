@@ -56,12 +56,13 @@
           ir2-roots' (alias/alias-nodes ir2-roots' ctx)
           ir2-roots' (module/resolve-ns ir2-roots' (module/build-env ir2-roots' ctx))
           unit1      (module/collect-symbols ir2-roots' ctx unit)
-          traited-roots (mark-trait/mark ir2-roots')   ;; 分析标记
-          ir2-roots' (inline/inline traited-roots (inline/make-env ctx))  ;; 执行内联
-          no-ho      (ho-elim/elim ir2-roots' (ho-elim/make-env ctx))
+          traited    (mark-trait/mark ir2-roots')   ;; 分析标记
+          inlined    (inline/inline traited (inline/make-env ctx))  ;; 执行内联
+          no-ho      (ho-elim/elim inlined (ho-elim/make-env ctx))
           ;; 闭包消除可能引入新的高阶函数
-          no-closure (lambda-elim/elim no-ho (lambda-elim/make-env))
-          no-ho2      (ho-elim/elim no-closure (ho-elim/make-env ctx))
+          no-closure (lambda-elim/elim no-ho (lambda-elim/make-env ctx))
+          inlined2    (inline/inline no-closure (inline/make-env ctx))  ;; 执行内联
+          no-ho2      (ho-elim/elim inlined2 (ho-elim/make-env ctx))
           no-recur   (recur-elim/elim no-ho2)
           inferred   (infer/infer no-recur (infer/make-env  ctx))
           ;solved     (solve/process inferred (solve/make-context ctx frontend backend))
