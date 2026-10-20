@@ -107,12 +107,14 @@
                                  :candidates fn-type-vec
                                  :callee callee-name
                                  :data data})))
-              (let [grouped  (group-by :cost scored)
+              (let [data data
+                    grouped  (group-by :cost scored)
                     min-cost (apply min (keys grouped))
                     best     (get grouped min-cost)]
                 (if (> (count best) 1)
                   (throw (ex-info "Ambiguous overload"
                                   {:arg-tys arg-tys'
+                                   :data data
                                    :matched (map :fn-type best)}))
                   (let [{:keys [subst ret fn-type]} (first best)
                         subst (if (not (ty/concrete? ret-tv'))

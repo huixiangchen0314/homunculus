@@ -3,7 +3,8 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
-    [top.kzre.homunculus.core.ir2.pass.type :as t]))
+    [top.kzre.homunculus.core.ir2.pass.type :as t]
+    [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]))
 
 (defmethod gen/gen-node* :let [current-node env]
   (let [bindings (n/let-bindings current-node)   ;; Binding 向量
@@ -11,16 +12,24 @@
         (reduce
           (fn [[bnds current-env collected] b]
             (let [var-node (:var b)
+                  hint-type (t/get-type var-node)
                   val-node (:val b)
                   {:keys [type node constraints]}
                   (gen/gen-node* val-node current-env)
                   var-name     (:name var-node)
                   binding-type (p/generalize current-env type)
-                  typed-var    (t/set-type! var-node binding-type)
+                  typed-var    (if hint-type
+                                 (t/set-type! var-node hint-type)
+                                 (t/set-type! var-node binding-type))
+                  collected' (if hint-type
+                               (concat collected
+                                       constraints
+                                       [(cons/make-cequal hint-type binding-type)])
+                              (concat collected constraints))
                   new-binding  (assoc b :var typed-var :val node)]
               [(conj bnds new-binding)
                (p/bind-var current-env var-name binding-type)
-               (concat collected constraints)]))
+               collected']))
           [[] env []]
           bindings)
         {:keys [type node constraints]}
