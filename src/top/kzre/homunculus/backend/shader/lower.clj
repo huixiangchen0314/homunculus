@@ -22,6 +22,20 @@
           [[] env] nodes))
 
 
+(defn- strip-block-ret
+  "清空 Block 的 :ret。
+   用于语句位置的 Block（while body、if 语句的 then/else）。
+   语义：Block 的 :ret 只在表达式位置（函数体顶层、赋值 RHS、
+   call 参数等）有意义。语句位置没有返回值。"
+  [node]
+  (if (= :block (ast/kind node))
+    (ast/->Block (vec (:stmts node)) nil
+                 (:attrs node)
+                 (:meta node))
+    (ast/->Block [node] nil
+                 (:attrs node)
+                 (:meta node))))
+
 ;; 多方法
 (defmulti lower-node* (fn [node _env] (irstmt/kind node)))
 
@@ -159,17 +173,14 @@
                        :vec-type lhs-type)) env2]
       [(ast/->Assign lhs rhs (:attrs node) (ir-meta node)) env2])))
 
+
 (defmethod lower-node* :while [node env]
   (let [[test env1] (lower-node* (n/while-test node) env)
         [body env2] (lower-node* (n/while-body node) env1)
-        body-block (if (= :block (ast/kind body))
-                     body
-                     (ast/->Block [body] nil
-                                  (:attrs node)
-                                  (ir-meta (n/while-body node))))
-        ]
+        body-block  (strip-block-ret body)]
     [(ast/->Block [(ast/->While test body-block (:attrs node) (ir-meta node))]
-                  nil {} (ir-meta node)) env2]))
+                  nil {} (ir-meta node))
+     env2]))
 
 (defmethod lower-node* :var-decl [node env]
   (let [var-name (:name node)
