@@ -12,11 +12,12 @@
         (reduce
           (fn [[bnds current-env collected] b]
             (let [var-node (:var b)
+                  var-name     (:name var-node)
                   hint-type (t/get-type var-node)
                   val-node (:val b)
                   {:keys [type node constraints]}
                   (gen/gen-node* val-node current-env)
-                  var-name     (:name var-node)
+
                   binding-type (p/generalize current-env type)
                   typed-var    (if hint-type
                                  (t/set-type! var-node hint-type)

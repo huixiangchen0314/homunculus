@@ -37,4 +37,4 @@
   "对一组 IR1 根节点执行 lowering，返回 IR2 节点向量。"
   [nodes ctx]
   (let [init-env (make-env ctx)]
-    (mapcat #(lower-ast % init-env) nodes)))
+    (vec (mapcat #(lower-ast % init-env) nodes))))

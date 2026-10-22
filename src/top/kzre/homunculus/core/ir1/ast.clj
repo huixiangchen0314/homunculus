@@ -39,7 +39,7 @@
         :do              [:exprs 'exprs]
         :let             [:bindings 'bindings :expr 'body]
         :fn              ['name :params 'params :expr 'body]
-        :def             ['name :expr 'val 'docstring]     ; 顺序: name, val, docstring
+        :def             ['name :expr 'val {:optional true} 'docstring]     ; 顺序: name, val, docstring
         :loop            [:bindings 'bindings :expr 'body]
         :recur           [:exprs 'exprs]
         :quote           [:expr 'expr]

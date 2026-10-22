@@ -11,7 +11,8 @@
     [top.kzre.homunculus.core.ir2.node :as n]))
 
 (defn high-order? [node]
-  (if (= :lambda (ir2/kind node))
+  (if (and node
+           (= :lambda (ir2/kind node)))
     (ho/ho? node)
     false))
 
@@ -22,8 +23,13 @@
    其他节点原样返回。"
   [node env]
   (if (= :define (ir2/kind node))
-    (let [new-val (first (mark-fn (n/define-val node) env))
-          ho?     (high-order? new-val)]
+    (let [val-node (n/define-val node)
+          new-val
+          (when val-node
+            (first (mark-fn (n/define-val node) env)))
+          ho?
+          (when val-node
+            (high-order? new-val))]
       [(n/make-define (n/define-name node)
                       new-val
                       (n/define-docstring node)

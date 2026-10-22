@@ -19,21 +19,33 @@
        :node        (t/set-type! new-node tv)
        :constraints nil
        :env         env})
-
-    (let [{:keys [type node constraints env]}
-          (gen/gen-node* (n/define-val current-node) env)
-          annotated-type (t/get-type current-node)
-          final-type     (or annotated-type type)
-          extra-constr   (when annotated-type
-                           [(cons/make-cequal type annotated-type)])
-          new-node       (n/make-define (n/define-name current-node)
-                                        node
-                                        (n/define-docstring current-node)
-                                        (n/attrs current-node)
-                                        (n/node-meta current-node))
-          ;; 将定义名与最终类型写入环境
-          new-env        (env/bind-var env (n/define-name current-node) final-type)]
-      {:type        final-type
-       :node        (t/set-type! new-node final-type)
-       :constraints (concat constraints extra-constr)
-       :env         new-env})))
+    (if-let [val-node (n/define-val current-node)]
+      (let [{:keys [type node constraints env]} (gen/gen-node* val-node env)
+            annotated-type (t/get-type current-node)
+            final-type     (or annotated-type type)
+            extra-constr   (when annotated-type
+                             [(cons/make-cequal type annotated-type)])
+            new-node       (n/make-define (n/define-name current-node)
+                                          node
+                                          (n/define-docstring current-node)
+                                          (n/attrs current-node)
+                                          (n/node-meta current-node))
+            ;; 将定义名与最终类型写入环境
+            new-env        (env/bind-var env (n/define-name current-node) final-type)]
+        {:type        final-type
+         :node        (t/set-type! new-node final-type)
+         :constraints (concat constraints extra-constr)
+         :env         new-env})
+      (let [annotated-type (t/get-type current-node)
+            final-type     (or annotated-type (gen/fresh-tvar))
+            new-node       (n/make-define (n/define-name current-node)
+                                          nil
+                                          (n/define-docstring current-node)
+                                          (n/attrs current-node)
+                                          (n/node-meta current-node))
+            ;; 将定义名与最终类型写入环境
+            new-env        (env/bind-var env (n/define-name current-node) final-type)]
+        {:type        final-type
+         :node        (t/set-type! new-node final-type)
+         :constraints nil
+         :env         new-env}))))

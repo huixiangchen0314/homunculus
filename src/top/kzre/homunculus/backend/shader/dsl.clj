@@ -117,10 +117,14 @@
      `(def ~(vary-meta var-name assoc
                        :shader/uniform? true
                        :tag arr-ty))))
-  ([name type-ctor]
-   `(def ~(vary-meta name assoc
-                     :shader/uniform? true)
-      (~(fully-qualified-ctor type-ctor)))))
+  ([var-name elem-ctor]
+   (let [elem-sym (symbol (name elem-ctor))
+         ;; 直接标注 IR 类型，避免解析
+         arr-ty
+         (ty/make-tcon elem-sym)]
+     `(def ~(vary-meta var-name assoc
+                       :shader/uniform? true
+                       :tag arr-ty)))))
 
 (defmacro defstatic
   "定义全局静态变量专用宏. eg. (defstatic accumColor (float4 0.0 0.0 0.0 0.0))"

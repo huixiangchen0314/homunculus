@@ -9,4 +9,7 @@
         attr-map (when (map? (first rest-after-doc)) (first rest-after-doc))
         val-expr (if attr-map (second rest-after-doc) (first rest-after-doc))
         def-meta (merge (meta form) (meta sym) (meta val-expr) attr-map)]
-    (n/make-def (ir1/->ir1 sym) (ir1/->ir1 val-expr) docstring def-meta)))
+    (n/make-def (ir1/->ir1 sym)
+                (when val-expr
+                  (ir1/->ir1 val-expr))
+                docstring def-meta)))

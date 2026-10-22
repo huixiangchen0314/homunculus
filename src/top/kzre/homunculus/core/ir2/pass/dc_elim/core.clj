@@ -29,14 +29,14 @@
   (if (get context :dce-eliminate-ho? true)
     (filterv (fn [root]
                (if (n/define-node? root)
-                 (let [val-node (n/define-val root)]
+                 (if-let [val-node (n/define-val root)]
                    (if (= :lambda (ir2/kind val-node))
                      ;; 有类型标记就查询类型推断，否则走自由变量分析
                      (if-let [t (ty/get-type root)]
                        (ty/concrete? t)
                        (mark-ho/high-order? val-node))
                      true)
-                   )
+                   true)
                  true))
              ir2-roots)
     ir2-roots))
