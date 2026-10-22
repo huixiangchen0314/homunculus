@@ -33,7 +33,7 @@
       s)))
 
 ;; ── 符号转换工具 ────────────────────────
-(defn ->symbol
+(defn ensure-symbol
   "将字符串、关键字、符号或 (quote sym) 形式统一转换为符号。
    若 x 是字符串或关键字，取其名称转换为符号；
    若 x 是符号，直接返回；
@@ -45,7 +45,7 @@
     (string? x) (symbol x)
     (keyword? x) (symbol (name x))
     (and (seq? x) (= (first x) 'quote) (= (count x) 2))
-    (->symbol (second x))
+    (ensure-symbol (second x))
     :else nil))
 
 

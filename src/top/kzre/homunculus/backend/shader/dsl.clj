@@ -110,9 +110,10 @@
   ([var-name elem-ctor size]
    (let [elem-sym (symbol (name elem-ctor))
          ;; 直接标注 IR 类型，避免解析
-         arr-ty   (ty/make-tvec
-                    (ty/make-tcon elem-sym)
-                    (ty/make-tvalue size))]
+         arr-ty
+         (ty/make-tvec
+           (ty/make-tcon elem-sym)
+           (ty/make-tvalue size))]
      `(def ~(vary-meta var-name assoc
                        :shader/uniform? true
                        :tag arr-ty))))

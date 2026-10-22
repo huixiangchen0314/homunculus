@@ -13,7 +13,10 @@
     [top.kzre.homunculus.backend.shader.pass.analyze.model
      :refer [->SLAnalysis ->SLTexture ->SLSampler ->SLSampleCall
              ->SLGraphicsEntry ->SLComputeEntry ->SLParam
-             ->SLReturn ->SLThreadGroup]]))
+             ->SLReturn ->SLThreadGroup]]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]
+    [top.kzre.homunculus.internal.utils :as iu]
+    [top.kzre.homunculus.core.error :as err]))
 
 ;; ═══════════════════════════════════════════
 ;; 数据构造辅助
@@ -41,7 +44,14 @@
 
   (add-texture [this var-name register dimension element-type]
     (update this :textures conj
-            (->SLTexture var-name register dimension element-type)))
+            (->SLTexture var-name register dimension
+                         (if (ty/con-type? element-type)
+                          element-type
+                          (if-let [s (iu/ensure-symbol element-type)]
+                            (ty/make-tcon s)
+                            (throw (err/compile-error
+                                     :unknown-shader-type
+                                     "unknown shader type")))))))
 
   (add-sampler [this var-name register compare?]
     (update this :samplers conj

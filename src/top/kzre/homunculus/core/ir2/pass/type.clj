@@ -111,11 +111,17 @@
 ;; ── 类型构造器 ─────────────────────────────
 
 (defn make-tvar [id] (t/->TVar id))
-(defn make-tcon [name] (t/->TCon (iu/->symbol name)))
-(defn make-tvalue [val] (t/->TValue val))
+(defn make-tcon [name] (t/->TCon (iu/ensure-symbol name)))
+
 ;; 柯里化函数
 (defn make-tfun [arg ret] (t/->TFun arg ret))
 
+(defn make-tapp [ctor args] (t/->TApp ctor args))
+(defn make-tvec [elem-ty size] (t/->TVec elem-ty size))
+(defn ^:deprecated make-hetero-vec [types] (t/->THeteroVec types))
+(defn ^:deprecated make-hetero-map [entries] (t/->THeteroMap entries))
+
+(defn make-tvalue [val] (t/->TValue val))
 ;; 类型级值
 (defn value-val [ty] (:val ty))
 
@@ -126,11 +132,14 @@
    支持：
    ▸ 基本类型名：float / int / float4
    ▸ 函数类型：int->int->int / (int->int)->float
-   ▸ 同构向量：float2@13 / int@4 / float@4@3（从内到外）
+   ▸ 定长数组：float2[13] / int[4] / float[4][3]（从内到外）
+   ▸ 泛型应用：samplerBuffer<uvec4> / Option<int> / Map<int, Vec<float>>
 
-   向量后缀用 @ 分隔——`float@4@3` 表示外层 3、元素 `float[4]`。"
+   数组用 [N] 后缀，N 必须是整数；泛型用 <A, B> 后缀，参数是完整类型表达式。
+   两者都是后缀，可以链式组合：foo<int>[3] / int[3] 等。
+   后缀的优先级高于 ->，即 `int->int[3]` 解析为 `int -> (int[3])`。"
   [s]
-  (let [tokens (re-seq #"[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+|->|@|\(|\)" s)
+  (let [tokens (re-seq #"[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+|->|[\[\]<>(),]" s)
         pos    (atom 0)]
     (letfn [(peek-token [] (nth tokens @pos nil))
             (next-token [] (let [t (peek-token)] (swap! pos inc) t))
@@ -144,22 +153,46 @@
                       (throw (ex-info "Expected )" {:s s})))
                     ty)
                   (= t ")")  (throw (ex-info "Unexpected )" {:s s}))
+                  (= t "]")  (throw (ex-info "Unexpected ]" {:s s}))
+                  (= t ">")  (throw (ex-info "Unexpected >" {:s s}))
+                  (= t ",")  (throw (ex-info "Unexpected ," {:s s}))
                   (= t "->") (throw (ex-info "Unexpected ->" {:s s}))
-                  (= t "@")  (throw (ex-info "Unexpected @" {:s s}))
+                  (= t "[")  (throw (ex-info "Unexpected [" {:s s}))
+                  (= t "<")  (throw (ex-info "Unexpected <" {:s s}))
                   (nil? t)   (throw (ex-info "Unexpected end of type string" {:s s}))
                   :else      (make-tcon (symbol t)))))
 
+            (parse-generic-args []
+              ;; 解析 <A, B, ...> 里的类型参数——每个都是完整类型表达式
+              (let [first-arg (parse-expr)]
+                (loop [args [first-arg]]
+                  (let [t (next-token)]
+                    (cond
+                      (= t ",") (recur (conj args (parse-expr)))
+                      (= t ">") args
+                      :else (throw (ex-info "Expected , or > in generic args"
+                                            {:s s :token t})))))))
+
             (parse-postfix []
               (loop [ty (parse-atom)]
-                (if (= (peek-token) "@")
+                (case (peek-token)
+                  "["
                   (do
-                    (next-token)  ; 消耗 @
+                    (next-token)
                     (let [size-str (next-token)]
-                      (when-not (and size-str
-                                     (re-matches #"[0-9]+" size-str))
-                        (throw (ex-info "Expected integer size after @"
+                      (when-not (and size-str (re-matches #"[0-9]+" size-str))
+                        (throw (ex-info "Expected integer size after ["
                                         {:s s :token size-str})))
-                      (recur (t/->TVec ty (t/->TValue (parse-long size-str))))))
+                      (when (not= (next-token) "]")
+                        (throw (ex-info "Expected ]" {:s s})))
+                      (recur (make-tvec ty (make-tvalue (parse-long size-str))))))
+
+                  "<"
+                  (do
+                    (next-token)
+                    (let [args (parse-generic-args)]
+                      (recur (make-tapp ty args))))
+
                   ty)))
 
             (parse-expr []
@@ -169,19 +202,24 @@
                       (let [right (parse-expr)]
                         (make-tfun left right)))
                   left)))]
-      (parse-expr))))
+      (let [result (parse-expr)]
+        (when (not= @pos (count tokens))
+          (throw (ex-info "Trailing tokens in type string"
+                          {:s s :pos @pos :total (count tokens)})))
+        result))))
 
 (defn parse-type
   "解析类型标注。
 
    接受：
    ▸ keyword  —— 简单类型名，如 :float
-   ▸ 符号     —— 简单名、函数类型（`int->int`）、同构向量（`float2@13`）
+   ▸ 符号     —— 简单名、函数类型（`int->int`）、定长数组（`float2[13]`）、
+                 泛型应用（`samplerBuffer<uvec4>`）
    ▸ 字符串   —— 同上，字符串形式
    ▸ 其他     —— 视为已构造的 IR 类型对象，原样返回
 
-   同构向量的符号形式用 @ 分隔——`float2@13` / `float@4@3`。
-   不用 `[]`——Clojure reader 会把它当作独立的形式，破坏符号。"
+   数组用 [N]（N 是整数），泛型用 <A, B>。Clojure reader 允许 [ 和 < 出现在
+   符号内——`float2[13]` / `Option<int>` 在 reader 层面都是合法的单个符号。"
   [type-spec]
   (cond
     (keyword? type-spec)
@@ -194,7 +232,8 @@
     (let [s (name type-spec)]
       (if (or (str/includes? s "->")
               (str/includes? s "(")
-              (str/includes? s "@"))
+              (str/includes? s "[")
+              (str/includes? s "<"))
         (parse-type-symbol s)
         (make-tcon type-spec)))
 
@@ -218,11 +257,6 @@
   (make-fun-type (mapv :type (:params arity))
                  (some-> (:ret arity) :type)))
 
-(defn make-tapp [ctor args] (t/->TApp ctor args))
-(defn make-tvec [elem-ty size] (t/->TVec elem-ty size))
-(defn make-hetero-vec [types] (t/->THeteroVec types))
-(defn make-hetero-map [entries] (t/->THeteroMap entries))
-;; 在 type.clj 中补充以下内容
 
 ;; ── TVec (同构向量) 谓词与访问器 ──
 (defn vec-type? [ty]

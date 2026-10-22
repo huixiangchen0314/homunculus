@@ -33,6 +33,8 @@
 
      命名由来：与 let-generalization（定义驱动泛化）对偶——
      let 从定义处泛化，call-driven 从调用点具体化。")
+  (runtime-type-erased? [this]
+    "是否运行时类型擦除， 如果是，则类型推断决议会直接忽略应用类型构造参数")
   ;; ── 类型解析 ──
   (resolve-var-type [this name]
     "解析变量名对应的类型。
@@ -111,6 +113,8 @@
   IEnv
   (call-driven-inference? [_]
     (get options :called-driven-interface? true))
+  (runtime-type-erased? [_]
+    (get options :runtime-type-erased? true))
   ;; ── 类型解析 ──
   (resolve-var-type [_ name]
     (if-let [binding (lookup-local type-scope name)]
