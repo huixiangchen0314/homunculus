@@ -50,7 +50,7 @@
       (when (seq (proto/get-option cfg :macro-ns))
         (try
           (load/load-macro-namespaces! (proto/get-option cfg :macro-ns)
-                                       (proto/lib-paths options))
+                                       (proto/lib-paths cfg))
           (catch Exception e
             (println "[ERROR]" (.getMessage e))
             (when-let [data (ex-data e)]

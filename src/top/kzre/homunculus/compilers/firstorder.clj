@@ -87,9 +87,9 @@
   ;; 全局链接
   (link [_ context]
     (let [all-units (p/all-module-units context)
-          roots (mapcat mu/module-nodes all-units)
+          roots (vec (mapcat mu/module-nodes all-units))
           emitter (p/emitter context)
-          roots1 (remove n/ns-node? roots)
+          roots1 (vec (remove n/ns-node? roots))
           ;; dce
           dce-ctx (dce/make-context context)   ;; 使用默认配置
           roots2 (dce/eliminate-ho-defs roots1 dce-ctx)
