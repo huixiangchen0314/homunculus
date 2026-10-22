@@ -3,7 +3,7 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as env]
     [top.kzre.homunculus.core.ir2.pass.type :as t]))
 
 (defmethod gen/gen-node* :define [current-node env]
@@ -32,7 +32,7 @@
                                         (n/attrs current-node)
                                         (n/node-meta current-node))
           ;; 将定义名与最终类型写入环境
-          new-env        (p/bind-var env (n/define-name current-node) final-type)]
+          new-env        (env/bind-var env (n/define-name current-node) final-type)]
       {:type        final-type
        :node        (t/set-type! new-node final-type)
        :constraints (concat constraints extra-constr)

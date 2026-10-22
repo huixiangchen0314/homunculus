@@ -32,8 +32,8 @@
   (let [tv (fresh-tvar)]
     (result tv (ty/set-type! node tv) nil env)))
 
-;; ── 对外单节点入口 ──────────────────────
-(defn gen-node
+
+(defn gen-node-hinted
   "节点约束生成入口，返回 {:type :node :constraints :env}。
    若节点已有注解类型，附加一条 type ≡ annotated 约束。"
   [current-node current-env]
@@ -45,29 +45,6 @@
       (update r :constraints conj (cons/make-cequal type hinted-type))
       r)))
 
-;; ── 顺序遍历辅助 ────────────────────────
-(defn gen-nodes
-  "顺序约束生成一组节点（走 gen-node，含注解处理）。
-   返回 {:results [...] :env ...}。"
-  [nodes env]
-  (reduce (fn [acc node]
-            (let [r (gen-node node (:env acc))]
-              (-> acc
-                  (update :results conj r)
-                  (assoc :env (:env r)))))
-          {:results [] :env env}
-          nodes))
-
-(defn gen-nodes*
-  "同 gen-nodes，但走 gen-node*（跳过注解处理）。"
-  [nodes env]
-  (reduce (fn [acc node]
-            (let [r (gen-node* node (:env acc))]
-              (-> acc
-                  (update :results conj r)
-                  (assoc :env (:env r)))))
-          {:results [] :env env}
-          nodes))
 
 ;; ── 全局入口 ────────────────────────────
 (defn gen
@@ -77,7 +54,7 @@
   (let [[new-roots constraints _final-env]
         (reduce
           (fn [[roots constrs current-env] current-node]
-            (let [{:keys [node constraints env]} (gen-node current-node current-env)]
+            (let [{:keys [node constraints env]} (gen-node-hinted current-node current-env)]
               [(conj roots node)
                (into constrs constraints)
                env]))

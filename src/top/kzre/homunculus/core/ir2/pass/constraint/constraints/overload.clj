@@ -158,7 +158,8 @@
                                :candidates fn-type-vec
                                :callee callee-name
                                :opts opts}))
-              (let [grouped  (group-by :cost scored)
+              (let [opts opts
+                    grouped  (group-by :cost scored)
                     min-cost (apply min (keys grouped))
                     best     (get grouped min-cost)]
                 (if (> (count best) 1)

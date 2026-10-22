@@ -22,10 +22,10 @@
 (defn con-type?   [ty] (= :con       (type-kind ty)))
 (defn fun-type?   [ty] (= :fun       (type-kind ty)))
 (defn app-type?   [ty] (= :app       (type-kind ty)))
-(defn container-type? [ty] (= :container (type-kind ty)))
 (defn scheme-type? [ty] (= :scheme        (type-kind ty)))
 (defn type-value? [ty] (= :value (type-kind ty)))
-;; 新增谓词
+(defn vec-type? [ty]
+  (= :vec (type-kind ty)))
 (defn hetero-vec? [ty] (= :hetero-vec (type-kind ty)))
 (defn hetero-map? [ty] (= :hetero-map (type-kind ty)))
 
@@ -37,12 +37,38 @@
 
 ;; TODO 补充函数类型的判等逻辑
 (defn type=?
-  "比较两个类型是否具有相同的类型名称 (type-sym)。
-   当两个 type-sym 都为 nil 时，视为不相等。"
   [t1 t2]
-  (let [s1 (type-sym t1)
-        s2 (type-sym t2)]
-    (and s1 s2 (= s1 s2))))
+  (cond
+    (and (con-type? t1) (con-type? t2))
+    (= (:name t1) (:name t2))
+
+    (and (var-type? t1) (var-type? t2))
+    (= (:id t1) (:id t2))
+
+    (and (fun-type? t1) (fun-type? t2))
+    (and (type=? (:arg t1) (:arg t2))
+         (type=? (:ret t1) (:ret t2)))
+
+    (and (vec-type? t1) (vec-type? t2))
+    (and (type=? (:element-type t1) (:element-type t2))
+         (= (:val (:size t1)) (:val (:size t2))))
+
+    (and (app-type? t1) (app-type? t2))
+    (and (= (:ctor t1) (:ctor t2))
+         (= (count (:args t1)) (count (:args t2)))
+         (every? true? (map type=? (:args t1) (:args t2))))
+
+    (and (hetero-vec? t1) (hetero-vec? t2))
+    (and (= (count (:types t1)) (count (:types t2)))
+         (every? true? (map type=? (:types t1) (:types t2))))
+
+    (and (hetero-map? t1) (hetero-map? t2))
+    (= (:entries t1) (:entries t2))
+
+    (and (type-value? t1) (type-value? t2))
+    (= (:val t1) (:val t2))
+
+    :else false))
 
 ;; ── 函数类型访问器（TFun 字段，非协议）──
 
@@ -259,8 +285,7 @@
 
 
 ;; ── TVec (同构向量) 谓词与访问器 ──
-(defn vec-type? [ty]
-  (= :vec (type-kind ty)))
+
 
 (defn vec-element-type [ty]
   (when (vec-type? ty)
@@ -366,6 +391,7 @@
                         (concrete? (fun-ret ty)))
     (vec-type? ty) (and (concrete? (vec-element-type ty))
                         (integer? (value-val (vec-size ty))))
+    (app-type? ty) (every? concrete? (tapp-args ty))
     (hetero-vec? ty) (every? concrete? (hetero-vec-types ty))
     (hetero-map? ty) (every? (fn [[_ v]] (concrete? v)) (hetero-map-entries ty))
     :else false))

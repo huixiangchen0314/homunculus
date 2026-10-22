@@ -9,7 +9,7 @@
         ;; 顺序处理每个表达式，用 gen-node（含注解处理），环境随遍历推进
         [results final-env]
         (reduce (fn [[results current-env] expr]
-                  (let [{:keys [env] :as result} (gen/gen-node expr current-env)]
+                  (let [{:keys [env] :as result} (gen/gen-node-hinted expr current-env)]
                     [(conj results result) env]))
                 [[] init-env]
                 exprs)
