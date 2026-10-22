@@ -1,12 +1,14 @@
 (ns top.kzre.homunculus.core.ir2.pass.type
   "统一的类型访问与修改工具。提供 get-type, has-type?, ensure-type, set-type! 等 API。
    确保所有 Pass 对类型的操作一致，避免覆盖错误。"
-  (:require [clojure.string :as str]
-            [clojure.walk :as walk]
-            [top.kzre.homunculus.core.ir2.ast :as ir2]
-            [top.kzre.homunculus.core.ir2.pass.model :as t]
-            [top.kzre.homunculus.core.ir2.pass.protocol :as p]
-            [top.kzre.homunculus.internal.utils :as iu]))
+  (:require
+   [clojure.string :as str]
+   [clojure.walk :as walk]
+   [top.kzre.homunculus.core.ir2.ast :as ir2]
+   [top.kzre.homunculus.core.ir2.pass.model :as t]
+   [top.kzre.homunculus.core.ir2.pass.protocol :as p]
+   [top.kzre.homunculus.core.ir2.pass.type-tokenizer :as type-tokenizer]
+   [top.kzre.homunculus.internal.utils :as iu]))
 
 
 
@@ -151,69 +153,105 @@
 ;; 类型级值
 (defn value-val [ty] (:val ty))
 
+(defn- normalize-type-name
+  "把类型名字面量规范化为显式 namespace 形式。
+
+   规则：
+   ▸ 已含 '/'——保留原样（namespace 已显式指定）
+   ▸ 无 '/' 有 '.'——最后一个 '.' 为 namespace/name 分隔
+   ▸ 无 '/' 无 '.'——原样返回
+
+   例：
+     'float4                          → 'float4
+     'foo/bar                         → 'foo/bar（不变）
+     'aa.bb.c                         → 'aa.bb/c
+     'foo.bar                         → 'foo/bar
+     'composite.tile-layout/uTileSize → 不变（已有 '/'）
+
+   这样 'aa.bb.c 和 'aa.bb/c 解析结果一致——
+   两种写法都是 TCon{name: aa.bb/c}。"
+  [sym]
+  (let [s (str sym)]
+    (cond
+      (str/includes? s "/") sym
+      (str/includes? s ".")
+      (let [idx (str/last-index-of s ".")]
+        (symbol (subs s 0 idx) (subs s (inc idx))))
+      :else sym)))
 
 (defn- parse-type-symbol
   "解析符号字符串中的类型表达式。
 
-   支持：
-   ▸ 基本类型名：float / int / float4
-   ▸ 函数类型：int->int->int / (int->int)->float
-   ▸ 定长数组：float2[13] / int[4] / float[4][3]（从内到外）
-   ▸ 泛型应用：samplerBuffer<uvec4> / Option<int> / Map<int, Vec<float>>
+   token 化由 Java 的 TypeTokenizer 完成——标识符字符集
+   （含 `.` `/` `?` 和中间连字符）在 Java 侧统一处理。
 
-   数组用 [N] 后缀，N 必须是整数；泛型用 <A, B> 后缀，参数是完整类型表达式。
-   两者都是后缀，可以链式组合：foo<int>[3] / int[3] 等。
-   后缀的优先级高于 ->，即 `int->int[3]` 解析为 `int -> (int[3])`。"
+   token 类型：
+     :ident    —— 类型名（可能含 namespace）
+     :type-var —— ?a 的 text 是 \"a\"（不含 ?）
+     :int      —— 数组长度
+     :arrow    —— ->
+     :lbracket / :rbracket / :langle / :rangle / :lparen / :rparen / :comma
+     :eof      —— 结束哨兵
+
+   后缀优先级：[] 和 <> 高于 ->。"
   [s]
-  (let [tokens (re-seq #"[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+|->|[\[\]<>(),]" s)
+  (let [tokens (type-tokenizer/tokenize s)
         pos    (atom 0)]
-    (letfn [(peek-token [] (nth tokens @pos nil))
+    (letfn [(peek-token [] (nth tokens @pos))
             (next-token [] (let [t (peek-token)] (swap! pos inc) t))
+            (peek-type  [] (:type (peek-token)))
 
             (parse-atom []
-              (let [t (next-token)]
+              (let [t (next-token)
+                    tt (:type t)
+                    tx (:text t)]
                 (cond
-                  (= t "(")
+                  (= tt :lparen)
                   (let [ty (parse-expr)]
-                    (when (not= (next-token) ")")
-                      (throw (ex-info "Expected )" {:s s})))
+                    (when (not= :rparen (peek-type))
+                      (throw (ex-info "Expected )" {:s s :got (peek-token)})))
+                    (next-token)
                     ty)
-                  (= t ")")  (throw (ex-info "Unexpected )" {:s s}))
-                  (= t "]")  (throw (ex-info "Unexpected ]" {:s s}))
-                  (= t ">")  (throw (ex-info "Unexpected >" {:s s}))
-                  (= t ",")  (throw (ex-info "Unexpected ," {:s s}))
-                  (= t "->") (throw (ex-info "Unexpected ->" {:s s}))
-                  (= t "[")  (throw (ex-info "Unexpected [" {:s s}))
-                  (= t "<")  (throw (ex-info "Unexpected <" {:s s}))
-                  (nil? t)   (throw (ex-info "Unexpected end of type string" {:s s}))
-                  :else      (make-tcon (symbol t)))))
+
+                  (= tt :ident)
+                  (make-tcon (normalize-type-name (symbol tx)))
+
+                  (= tt :type-var)
+                  (make-tvar (symbol tx))
+
+                  (= tt :eof)
+                  (throw (ex-info "Unexpected end of type string" {:s s}))
+
+                  :else
+                  (throw (ex-info "Unexpected token in atom"
+                                  {:s s :token t})))))
 
             (parse-generic-args []
-              ;; 解析 <A, B, ...> 里的类型参数——每个都是完整类型表达式
               (let [first-arg (parse-expr)]
                 (loop [args [first-arg]]
                   (let [t (next-token)]
-                    (cond
-                      (= t ",") (recur (conj args (parse-expr)))
-                      (= t ">") args
-                      :else (throw (ex-info "Expected , or > in generic args"
-                                            {:s s :token t})))))))
+                    (case (:type t)
+                      :comma (recur (conj args (parse-expr)))
+                      :rangle args
+                      (throw (ex-info "Expected , or > in generic args"
+                                      {:s s :token t})))))))
 
             (parse-postfix []
               (loop [ty (parse-atom)]
-                (case (peek-token)
-                  "["
+                (case (peek-type)
+                  :lbracket
                   (do
                     (next-token)
-                    (let [size-str (next-token)]
-                      (when-not (and size-str (re-matches #"[0-9]+" size-str))
+                    (let [t (next-token)]
+                      (when-not (= :int (:type t))
                         (throw (ex-info "Expected integer size after ["
-                                        {:s s :token size-str})))
-                      (when (not= (next-token) "]")
-                        (throw (ex-info "Expected ]" {:s s})))
-                      (recur (make-tvec ty (make-tvalue (parse-long size-str))))))
+                                        {:s s :token t})))
+                      (when (not= :rbracket (peek-type))
+                        (throw (ex-info "Expected ]" {:s s :token (peek-token)})))
+                      (next-token)
+                      (recur (t/->TVec ty (t/->TValue (parse-long (:text t)))))))
 
-                  "<"
+                  :langle
                   (do
                     (next-token)
                     (let [args (parse-generic-args)]
@@ -223,45 +261,65 @@
 
             (parse-expr []
               (let [left (parse-postfix)]
-                (if (= (peek-token) "->")
+                (if (= :arrow (peek-type))
                   (do (next-token)
                       (let [right (parse-expr)]
                         (make-tfun left right)))
                   left)))]
       (let [result (parse-expr)]
-        (when (not= @pos (count tokens))
+        (when-not (= :eof (peek-type))
           (throw (ex-info "Trailing tokens in type string"
-                          {:s s :pos @pos :total (count tokens)})))
+                          {:s s :remaining (drop @pos tokens)})))
         result))))
 
 (defn parse-type
-  "解析类型标注。
-
-   接受：
-   ▸ keyword  —— 简单类型名，如 :float
-   ▸ 符号     —— 简单名、函数类型（`int->int`）、定长数组（`float2[13]`）、
-                 泛型应用（`samplerBuffer<uvec4>`）
-   ▸ 字符串   —— 同上，字符串形式
-   ▸ 其他     —— 视为已构造的 IR 类型对象，原样返回
-
-   数组用 [N]（N 是整数），泛型用 <A, B>。Clojure reader 允许 [ 和 < 出现在
-   符号内——`float2[13]` / `Option<int>` 在 reader 层面都是合法的单个符号。"
   [type-spec]
   (cond
     (keyword? type-spec)
-    (make-tcon (symbol (name type-spec)))
+    (let [s (if-let [ns-part (namespace type-spec)]
+              (str ns-part "/" (name type-spec))
+              (name type-spec))]
+      (make-tcon (normalize-type-name (symbol s))))
 
     (string? type-spec)
     (parse-type-symbol type-spec)
 
+    ;; ── S-表达式：(Buffer uint) / (Map int float) / (vec T N) ──
+    (seq? type-spec)
+    (let [[head & rest] type-spec]
+      (cond
+        ;; 数组形式：(vec T N)
+        (= head 'vec)
+        (let [[t n] rest]
+          (when-not (= 2 (count rest))
+            (throw (ex-info "vec form requires 2 args: (vec T N)"
+                            {:spec type-spec})))
+          (let [n* (if (integer? n) n (value-val (parse-type n)))]
+            (t/->TVec (parse-type t) (t/->TValue n*))))
+
+        ;; 泛型应用：(ctor arg1 arg2 ...)
+        (symbol? head)
+        (make-tapp (make-tcon (normalize-type-name head))
+                   (mapv parse-type rest))
+
+        :else
+        (throw (ex-info "Invalid S-expression type form"
+                        {:spec type-spec}))))
+
     (symbol? type-spec)
-    (let [s (name type-spec)]
-      (if (or (str/includes? s "->")
-              (str/includes? s "(")
-              (str/includes? s "[")
-              (str/includes? s "<"))
+    (let [s (str type-spec)]
+      (cond
+        (str/starts-with? s "?")
+        (make-tvar (symbol (subs s 1)))
+
+        (or (str/includes? s "->")
+            (str/includes? s "(")
+            (str/includes? s "<")
+            (str/includes? s "["))
         (parse-type-symbol s)
-        (make-tcon type-spec)))
+
+        :else
+        (make-tcon (normalize-type-name type-spec))))
 
     :else type-spec))
 
