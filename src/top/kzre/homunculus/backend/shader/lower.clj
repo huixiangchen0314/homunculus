@@ -10,6 +10,11 @@
    [top.kzre.homunculus.core.irstmt.ast :as irstmt]
    [top.kzre.homunculus.backend.shader.frontend :as frontend]))
 
+(def ^:private value-expr-kind*
+  #{:variable :literal :binary-op :unary-op :member-access :cast :constructor})
+
+(defn value-expr? [node]
+  (contains? value-expr-kind* (ast/kind node)))
 
 (defn- ir-meta [node] (irstmt/node-meta node))
 (declare lower-node*)
@@ -130,7 +135,9 @@
         ret   (:ret node)
         [lowered-stmts env'] (reduce (fn [[s e] stmt]
                                        (let [[stmt' e'] (lower-node* stmt e)]
-                                         [(conj s stmt') e']))
+                                         (if (value-expr? stmt')
+                                           [s e']
+                                           [(conj s stmt') e'])))
                                      [[] env] stmts)
         [ret' env''] (if ret (lower-node* ret env') [nil env'])]
     (if (and ret'
