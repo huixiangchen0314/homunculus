@@ -48,6 +48,20 @@
     (ensure-symbol (second x))
     :else nil))
 
+(defn ensure-keyword
+  "将字符串、关键字、符号或 (quote sym) 形式统一转换为关键字。
+   若 x 是字符串或关键字，取其名称转换为关键字；
+   若 x 是关键字，直接返回；
+   若 x 是 (quote sym) 形式，提取 sym 并递归转换。
+   其他类型返回 nil。"
+  [x]
+  (cond
+    (keyword? x) x
+    (symbol? x) (keyword (name x))
+    (string? x) (keyword x)
+    (and (seq? x) (= (first x) 'quote) (= (count x) 2))
+    (ensure-keyword (second x))
+    :else nil))
 
 (def ^:private module-naming-style-handlers
   {:default    (fn [ns-name suffix]

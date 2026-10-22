@@ -142,8 +142,8 @@
                           (assoc new-subst ret-tv'
                                            (ty/fun-return-type fn-type))
                           new-subst)]
-          (println "single solve overload: "
-                   callee-name)
+          ;(println "single solve overload: "
+          ;         callee-name)
           (bind-fn-tv new-subst fn-tv' fn-type opts))
 
         ;; ── 多候选——按 cost 挑选，选中后绑一次 fn-tv ──
@@ -171,8 +171,8 @@
                         subst (if (not (ty/concrete? ret-tv'))
                                 (assoc subst ret-tv' ret)
                                 subst)]
-                    (println "solve overload: "
-                             (n/var-name (n/call-fn (:data opts))))
+                    ;(println "solve overload: "
+                    ;         (n/var-name (n/call-fn (:data opts))))
                     (bind-fn-tv subst fn-tv' fn-type opts)))))))))))
 
 (defn make-coverload

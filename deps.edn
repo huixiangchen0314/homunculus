@@ -3,7 +3,9 @@
         "target/classes"
          ]
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
-        top.kzre/krro-core {:mvn/version "0.1.0"}}
+        top.kzre/krro-core {:mvn/version "0.1.0"}
+        org.clojure/tools.cli {:mvn/version "1.1.230"}
+        }
 
  :aliases {:test {:extra-paths ["test"]
                   :extra-deps {org.clojure/test.check {:mvn/version "1.1.0"}

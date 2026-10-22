@@ -1,27 +1,28 @@
 (ns top.kzre.homunculus.backend.glsl.emitter
   (:require
-   [top.kzre.homunculus.backend.glsl.emit.api :as emit]
-   [top.kzre.homunculus.backend.glsl.lower.api :as glsl.lower]
-   [top.kzre.homunculus.backend.glsl.options :as opt]
-   [top.kzre.homunculus.backend.glsl.sematic.api :as sematic]
-   [top.kzre.homunculus.backend.shader.lower :as lower]
-   [top.kzre.homunculus.backend.shader.pass.analyze.core :as analyze]
-   [top.kzre.homunculus.backend.shader.pass.analyze.env :as env]
-   [top.kzre.homunculus.backend.shader.pass.analyze.env-impl :as env-impl]
-   [top.kzre.homunculus.backend.shader.pass.array-assign :as array-assign]
-   [top.kzre.homunculus.backend.shader.pass.liveness :as liveness]
-   [top.kzre.homunculus.backend.shader.pass.ns-strategy :as ns-strategy]
-   [top.kzre.homunculus.backend.shader.pass.split-entries :as split-entries]
-   [top.kzre.homunculus.backend.shader.semantic :as semantic]
-   [top.kzre.homunculus.core.error :as err]
-   [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
-   [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
-   [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
-   [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
-   [top.kzre.homunculus.internal.model :as m]
-   [top.kzre.homunculus.internal.module-unit :as mu]
-   [top.kzre.homunculus.internal.protocol :as ip]
-   [top.kzre.homunculus.internal.utils :as iu]))
+    [top.kzre.homunculus.backend.glsl.emit.api :as emit]
+    [top.kzre.homunculus.backend.glsl.lower.api :as glsl.lower]
+    [top.kzre.homunculus.backend.glsl.options :as opt]
+    [top.kzre.homunculus.backend.glsl.sematic.api :as sematic]
+    [top.kzre.homunculus.backend.shader.lower :as lower]
+    [top.kzre.homunculus.backend.shader.pass.analyze.core :as analyze]
+    [top.kzre.homunculus.backend.shader.pass.analyze.env :as env]
+    [top.kzre.homunculus.backend.shader.pass.analyze.env-impl :as env-impl]
+    [top.kzre.homunculus.backend.shader.pass.array-assign :as array-assign]
+    [top.kzre.homunculus.backend.shader.pass.liveness :as liveness]
+    [top.kzre.homunculus.backend.shader.pass.ns-strategy :as ns-strategy]
+    [top.kzre.homunculus.backend.shader.pass.split-entries :as split-entries]
+    [top.kzre.homunculus.backend.shader.semantic :as semantic]
+    [top.kzre.homunculus.core.error :as err]
+    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
+    [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
+    [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
+    [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
+    [top.kzre.homunculus.internal.compile-result :as compile-result]
+    [top.kzre.homunculus.internal.context-impl :as m]
+    [top.kzre.homunculus.internal.module-unit :as mu]
+    [top.kzre.homunculus.internal.protocol :as ip]
+    [top.kzre.homunculus.internal.utils :as iu]))
 
 ;; ═══════════════════════════════════════════
 ;; 路径生成
@@ -39,7 +40,7 @@
 (defn- unit-path
   [ctx unit]
   (let [cfg (ip/config ctx)
-        out-dir (ip/output-dir  cfg)]
+        out-dir (ip/output-path  cfg)]
     (str out-dir "/"
          (if unit
            (iu/ns->module-path (mu/module-ns unit)
@@ -68,7 +69,7 @@
                              sem-config)
         lowered (glsl.lower/lower lived (glsl.lower/make-env ctx) layout)
         code  (emit/emit lowered (emit/make-env ctx) analysis)]
-    (m/make-module-result path' code)))
+    (compile-result/make-module-result path' code)))
 
 ;; ═══════════════════════════════════════════
 ;; Emitter
@@ -78,7 +79,7 @@
   ip/IEmitter
   (emit [_ nodes ctx {:keys [unit]}]
     (let [cfg (ip/config ctx)
-          path (ip/output-dir  cfg)
+          path (ip/output-path  cfg)
           ;; IR2 → IRStmt → 优化 → ShaderAST
           irstmts      (irstmt.lower/lower nodes)
           sted         (statementize/statementize-nodes irstmts)

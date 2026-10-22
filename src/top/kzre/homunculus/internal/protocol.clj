@@ -1,14 +1,13 @@
 (ns top.kzre.homunculus.internal.protocol
   "编译器内部协议：配置、上下文与编译器入口。"
-  (:refer-clojure :exclude [compile])
-  (:require [clojure.java.io :as io]))
+  (:refer-clojure :exclude [compile]))
 
 (defprotocol ICompileConfig
   "一次编译指令所需的静态配置。"
   (options [this] "原始 options map")
-  (source-paths [this] "入口源文件路径列表")
+  (get-option [_ path] "返回配置选项值")
   (lib-paths    [this] "库文件的搜索路径列表")
-  (output-dir   [this] "编译输出目录")
+  (output-path   [this] "编译输出目录")
   (target       [this] "目标平台，如 :hlsl :glsl")
   (module-naming-style [this]
     "模块命名风格：:default、:flat 或 :flat-snake。
@@ -55,11 +54,3 @@
 (defprotocol ICompileResult
   (paths [this] "编译产生的文件路径")
   (content [this f] "根据编译文件路径获取该文件的内容"))
-
-(defn write-result [result]
-  (let [paths (paths result)]
-    (doseq [p paths]
-      (let [c (content result p)
-            f (io/file p)]
-        (io/make-parents f)
-        (spit f c)))))

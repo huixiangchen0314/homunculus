@@ -1,59 +1,13 @@
-(ns top.kzre.homunculus.internal.model
+(ns top.kzre.homunculus.internal.context-impl
   "编译配置和上下文的默认实现。"
   (:require
     [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.internal.module-unit :as mu]
     [top.kzre.homunculus.internal.protocol :as p]
-    [top.kzre.homunculus.internal.utils :as u]))
+    [top.kzre.homunculus.internal.utils :as util])
+  (:import (top.kzre.homunculus.internal.compile_target CompileTarget)))
 
-(defrecord ModuledResult [path content]
- p/ICompileResult
-  (paths [_] [path])
-  (content [_ f]
-    (when (= f path)
-      content)))
 
-(defn make-module-result
-  [path content]
- (->ModuledResult path content))
-
-(defrecord DividedResult [file-map]
- p/ICompileResult
-  (paths [_] (keys file-map))
-  (content [_ f]
-    (get file-map f)))
-
-(defn make-divided-result
-  [file-map]
-  (->DividedResult file-map))
-
-(defrecord CompileConfig [options target]
-  p/ICompileConfig
-  (options [_] options)
-  (source-paths [_] (or (:include options) []))
-  (lib-paths [_] (or (not-empty (:lib options)) ["."]))
-  (output-dir [_] (:output options "out"))
-  (target [_] target)
-  (module-naming-style [_] (or (:style options) :default)))
-
-(defrecord CompileTarget [frontend backend compiler emitter])
-
-(defn make-compile-target
-  [frontend backend compiler emitter]
-  (->CompileTarget frontend backend compiler emitter))
-
-(defn- uniform-keyword
-  [kw]
-  (cond
-    (keyword? kw) kw
-    (string? kw) (keyword kw)))
-
-(defn make-compile-config
-  [options]
-  (let [target (uniform-keyword
-                 (or (:target options)
-                   (throw (ex-info "target must be no nil." {})))) ]
-    (->CompileConfig options target)))
 
 
 (defrecord CompileContextState [compiling
@@ -70,10 +24,10 @@
       (try
         ;; 从 lib-paths 加载源文件，解析表单，然后调用 compile-module
         (let [lib-paths (p/lib-paths (p/config ctx))
-              src       (u/resolve-module lib-paths ns-sym)
+              src       (util/resolve-module lib-paths ns-sym)
               _         (when-not src
                           (throw (ex-info "Module not found" {:module ns-sym :paths lib-paths})))
-              forms     (u/parse-forms src)]
+              forms     (util/parse-forms src)]
           (p/compile (p/compiler ctx) forms ctx))
         (finally
           (swap! state-atom update :compiling disj ns-sym))))))
@@ -127,11 +81,10 @@
                           tp/macro-namespaces
                           (or #{}))
           extra   (set (:macro-ns (p/options config)))]
-      (into builtin extra)))
-  )
+      (into builtin extra))))
 
 (defn make-compile-context
-  [config target]
+  [config ^CompileTarget target]
   (let [init-state (->CompileContextState #{} {} {})
         state-atom (atom init-state)]
     (->DefaultCompileContext config target state-atom)))

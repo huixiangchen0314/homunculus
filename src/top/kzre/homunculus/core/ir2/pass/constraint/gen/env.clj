@@ -103,26 +103,26 @@
 ;; ═══════════════════════════════════════════════
 
 (defrecord Env [type-scope
-                symbols
                 compile-ctx
-                frontend
-                backend
-                options
                 loop-vars-list]
   IEnv
   (call-driven-inference? [_]
-    (get options :called-driven-interface? true))
+    (-> compile-ctx
+        (ip/config)
+        ;; 调用驱动接口，当使能这个时候
+        ;; 对于标记 :called-driven-interface?的多态函数，将从调用点约束其类型
+        (ip/get-option :called-driven-interface?)))
   ;; ── 类型解析 ──
   (resolve-var-type [_ name]
     (if-let [binding (lookup-local type-scope name)]
       (instantiate-if-scheme binding)
-      (sym/resolve-sym-type symbols name)))
+      (sym/resolve-sym-type (ip/symbol-table compile-ctx) name)))
 
   (resolve-callees [_ name]
     (if-let [binding (lookup-local type-scope name)]
       (let [type (instantiate-if-scheme binding)]
         (if (t/fun-type? type) [type] []))
-      (when-let [entry (sym/lookup-in-tables name symbols)]
+      (when-let [entry (sym/lookup-in-tables name (ip/symbol-table compile-ctx))]
         (when-let [function-entry (sym/entry->func entry)]
           (mapv t/arity->tfun (sym/list-arities function-entry))))))
 
@@ -143,18 +143,26 @@
 
   ;; ── 前端能力 ──
   (literal-type [_ literal-value]
-    (when frontend (tp/literal->type frontend literal-value)))
+    (-> compile-ctx
+        (ip/frontend)
+        (tp/literal->type literal-value)))
   (truthy-type [_]
-    (when frontend (tp/truly-type frontend)))
+    (-> compile-ctx
+        (ip/frontend)
+        (tp/truly-type)))
   (integer-type [_]
-    (when frontend (tp/integer-type frontend)))
-
+    (-> compile-ctx
+        (ip/frontend)
+        (tp/integer-type)))
   ;; ── 后端能力 ──
   (use-hetero-vec? [_]
-    (when backend (tp/support-hetero-vec backend)))
+    (-> compile-ctx
+        (ip/backend)
+        (tp/support-hetero-vec)))
   (conversion-cost [_ src-type dst-type]
-    (when backend
-      (tp/type-conversion backend src-type dst-type)))
+    (-> compile-ctx
+        (ip/backend)
+        (tp/type-conversion src-type dst-type)))
   ;; ── 循环状态 ──
   (loop-vars [_] loop-vars-list)
   (with-loop-vars [this vars]
@@ -168,15 +176,6 @@
   "从 compile-ctx 构造约束生成环境。
    frontend / backend 由 compile-ctx 查询，调用方只提供上下文。"
   [compile-ctx]
-  (let [frontend (ip/frontend compile-ctx)
-        backend  (ip/backend compile-ctx)
-        options (ip/options (ip/config compile-ctx))
-        symbols  (merge (tp/builtin-symbols frontend)
-                        (ip/symbol-table compile-ctx))]
-    (->Env {}
-           symbols
-           compile-ctx
-           frontend
-           backend
-           options
-           nil)))
+  (->Env {}
+         compile-ctx
+         nil))
