@@ -47,19 +47,52 @@
                          (binary-child-op child)))))
 
 (def ^:private texture-method-names
-  {'sample              "Sample"
+  "纹理方法调用名映射。
+
+   u/i 前缀的变体在 HLSL 里映射到同样的方法名——HLSL 的 Texture2D<T> /
+   Buffer<T> 通过模板参数携带 texel 类型，方法名本身不需要区分。
+   `usample` 和 `sample` 都是 `.Sample(...)`，返回类型由 texture 的
+   T 决定（Texture2D<uint4> 上 Sample 返回 uint4）。
+
+   差异由 texture-decl 的模板参数承载，不在方法名上。"
+  {;; ── float 变体 ──
+   'sample              "Sample"
    'sampleLod           "SampleLevel"
    'sampleBias          "SampleBias"
    'sampleCmp           "SampleCmp"
    'sampleCmpLevelZero  "SampleCmpLevelZero"
    'sampleGrad          "SampleGrad"
-   'load                "Load"
    'gather              "Gather"
    'gatherRed           "GatherRed"
    'gatherGreen         "GatherGreen"
    'gatherBlue          "GatherBlue"
    'gatherAlpha         "GatherAlpha"
-   'textureSize         "GetDimensions"})
+   'load                "Load"
+   'textureSize         "GetDimensions"
+
+   ;; ── uint 变体 ──
+   'usample             "Sample"
+   'usampleLod          "SampleLevel"
+   'usampleBias         "SampleBias"
+   'usampleGrad         "SampleGrad"
+   'ugather             "Gather"
+   'ugatherRed          "GatherRed"
+   'ugatherGreen        "GatherGreen"
+   'ugatherBlue         "GatherBlue"
+   'ugatherAlpha        "GatherAlpha"
+   'uload               "Load"
+
+   ;; ── int 变体 ──
+   'isample             "Sample"
+   'isampleLod          "SampleLevel"
+   'isampleBias         "SampleBias"
+   'isampleGrad         "SampleGrad"
+   'igather             "Gather"
+   'igatherRed          "GatherRed"
+   'igatherGreen        "GatherGreen"
+   'igatherBlue         "GatherBlue"
+   'igatherAlpha        "GatherAlpha"
+   'iload               "Load"})
 
 (def ^:private component-compare-ops
   {'lessThan         "<"

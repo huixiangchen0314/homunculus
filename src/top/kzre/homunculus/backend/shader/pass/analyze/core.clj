@@ -15,7 +15,8 @@
    [top.kzre.homunculus.backend.hlsl.lang :as lang]
    [top.kzre.homunculus.backend.shader.pass.analyze.env :as env]
    [top.kzre.homunculus.backend.shader.semantic :as semantic]
-   [top.kzre.homunculus.backend.shader.ast :as ast]))
+   [top.kzre.homunculus.backend.shader.ast :as ast]
+   [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]))
 
 
 ;; ═══════════════════════════════════════════
@@ -85,7 +86,7 @@
            env)])
 
       ;; 等价与 texelFetch
-      (= (name fn-name) "load")
+      (hlsl.lang/texel-fetch-fn? fn-name)
       (let [tex-name (var-name (first (:args node)))]
         [node (env/add-sample-call env tex-name nil)])
 

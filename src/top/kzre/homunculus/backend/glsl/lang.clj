@@ -60,29 +60,33 @@
 
 ;; 函数名称映射表
 (def ^:private fn-map
-  {;; ── Bit-cast（按位重解释）─────────────────────────────
-   "asfloat" "intBitsToFloat"   ; int/uint → float
-   "asint"   "floatBitsToInt"   ; float/uint → int
-   "asuint"  "floatBitsToUint"  ; float/int → uint
+  {;; ── 纹理读取：load / uload / iload 都 → texelFetch ──
+   "load"    "texelFetch"
+   "uload"   "texelFetch"
+   "iload"   "texelFetch"
+
+   ;; ── Bit-cast ──
+   "asfloat" "intBitsToFloat"
+   "asint"   "floatBitsToInt"
+   "asuint"  "floatBitsToUint"
    "f16tof32" "unpackHalf2x16"
    "f32tof16" "packHalf2x16"
 
-   ;; ── 数学函数（名称不同）────────────────────────────────
+   ;; ── 数学函数 ──
    "frac"       "fract"
    "lerp"       "mix"
-   "saturate"   "clamp"         ; 参数需补 0.0, 1.0
+   "saturate"   "clamp"
    "mad"        "fma"
    "rsqrt"      "inversesqrt"
    "ddx"        "dFdx"
    "ddy"        "dFdy"
-   "fwidth"     "fwidth"        ; 同名，但 GLSL 用 fwidth 而非 abs(ddx)+abs(ddy)
-   "clip"       "discard"       ; 特殊：HLSL 的 clip 在 GLSL 是 discard 语句
+   "fwidth"     "fwidth"
+   "clip"       "discard"
    "countbits"  "bitCount"
    "reversebits" "bitfieldReverse"
    "firstbithigh" "findMSB"
    "firstbitlow"  "findLSB"
-   "atan2"      "atan"          ; GLSL 的 atan(y, x) 即 atan2(y, x)
-   })
+   "atan2"      "atan"})
 
 (defn naming-fn
   "GLSL 的函数名/操作符映射。返回符号。
@@ -106,27 +110,71 @@
           s))))
 
 (def ^:private sample-fn-map
-  {"sample"            "texture"
+  {;; ── float 版（无前缀）──
+   "sample"             "texture"
    "sampleLod"          "textureLod"
    "sampleBias"         "texture"
+   "sampleGrad"         "textureGrad"
    "sampleCmp"          "texture"
    "sampleCmpLevelZero" "textureLod"
-   "sampleGrad "        "textureGrad"
-   "gather"             "textureGather"
-   "gatherRed"          "textureGather"
-   "gatherGreen"        "textureGather"
-   "gatherBlue"         "textureGather"
-   "gatherAlpha"        "textureGather"})
+
+   ;; ── uint 版（u 前缀）──
+   "usample"             "texture"
+   "usampleLod"          "textureLod"
+   "usampleBias"         "texture"
+   "usampleGrad"         "textureGrad"
+
+   ;; ── int 版（i 前缀）──
+   "isample"             "texture"
+   "isampleLod"          "textureLod"
+   "isampleBias"         "texture"
+   "isampleGrad"         "textureGrad"
+
+   ;; ── gather 系列（float）──
+   "gather"       "textureGather"
+   "gatherRed"    "textureGather"
+   "gatherGreen"  "textureGather"
+   "gatherBlue"   "textureGather"
+   "gatherAlpha"  "textureGather"
+
+   ;; ── gather 系列（uint）──
+   "ugather"       "textureGather"
+   "ugatherRed"    "textureGather"
+   "ugatherGreen"  "textureGather"
+   "ugatherBlue"   "textureGather"
+   "ugatherAlpha"  "textureGather"
+
+   ;; ── gather 系列（int）──
+   "igather"       "textureGather"
+   "igatherRed"    "textureGather"
+   "igatherGreen"  "textureGather"
+   "igatherBlue"   "textureGather"
+   "igatherAlpha"  "textureGather"})
 
 (defn sample-fn-str [fn-name]
   (get sample-fn-map (name fn-name)))
 
 (def ^:private sample-grater-comp-map
-  {"gather"      nil
+  {;; float
+   "gather"      nil
    "gatherRed"   0
    "gatherGreen" 1
    "gatherBlue"  2
-   "gatherAlpha" 3})
+   "gatherAlpha" 3
+
+   ;; uint —— GLSL 里 textureGather 的 comp 参数是同一组
+   "ugather"      nil
+   "ugatherRed"   0
+   "ugatherGreen" 1
+   "ugatherBlue"  2
+   "ugatherAlpha" 3
+
+   ;; int
+   "igather"      nil
+   "igatherRed"   0
+   "igatherGreen" 1
+   "igatherBlue"  2
+   "igatherAlpha" 3})
 
 (defn sample-grater-component [fn-name]
   (get sample-grater-comp-map (name fn-name)))

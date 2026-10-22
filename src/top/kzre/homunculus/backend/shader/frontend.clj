@@ -618,6 +618,24 @@
             [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3] 'float4]
             [['tex 'TextureCubeArray 'samp 'SamplerState 'uvw 'float4] 'float4]]
 
+           [:func 'usample {:io? true}
+            [['tex 'Texture1D        'samp 'SamplerState 'uv  'float]  'uint4]
+            [['tex 'Texture2D        'samp 'SamplerState 'uv  'float2] 'uint4]
+            [['tex 'Texture3D        'samp 'SamplerState 'uv  'float3] 'uint4]
+            [['tex 'TextureCube      'samp 'SamplerState 'dir 'float3] 'uint4]
+            [['tex 'Texture1DArray   'samp 'SamplerState 'uv  'float2] 'uint4]
+            [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3] 'uint4]
+            [['tex 'TextureCubeArray 'samp 'SamplerState 'uvw 'float4] 'uint4]]
+
+           [:func 'isample {:io? true}
+            [['tex 'Texture1D        'samp 'SamplerState 'uv  'float]  'int4]
+            [['tex 'Texture2D        'samp 'SamplerState 'uv  'float2] 'int4]
+            [['tex 'Texture3D        'samp 'SamplerState 'uv  'float3] 'int4]
+            [['tex 'TextureCube      'samp 'SamplerState 'dir 'float3] 'int4]
+            [['tex 'Texture1DArray   'samp 'SamplerState 'uv  'float2] 'int4]
+            [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3] 'int4]
+            [['tex 'TextureCubeArray 'samp 'SamplerState 'uvw 'float4] 'int4]]
+
            [:func 'sampleLod {:io? true}
             [['tex 'Texture1D        'samp 'SamplerState 'uv  'float  'lod 'float] 'float4]
             [['tex 'Texture2D        'samp 'SamplerState 'uv  'float2 'lod 'float] 'float4]
@@ -627,12 +645,43 @@
             [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3 'lod 'float] 'float4]
             [['tex 'TextureCubeArray 'samp 'SamplerState 'uvw 'float4 'lod 'float] 'float4]]
 
+           [:func 'usampleLod {:io? true}
+            [['tex 'Texture1D        'samp 'SamplerState 'uv  'float  'lod 'float] 'uint4]
+            [['tex 'Texture2D        'samp 'SamplerState 'uv  'float2 'lod 'float] 'uint4]
+            [['tex 'Texture3D        'samp 'SamplerState 'uv  'float3 'lod 'float] 'uint4]
+            [['tex 'TextureCube      'samp 'SamplerState 'dir 'float3 'lod 'float] 'uint4]
+            [['tex 'Texture1DArray   'samp 'SamplerState 'uv  'float2 'lod 'float] 'uint4]
+            [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3 'lod 'float] 'uint4]
+            [['tex 'TextureCubeArray 'samp 'SamplerState 'uvw 'float4 'lod 'float] 'uint4]]
+
+           [:func 'isampleLod {:io? true}
+            [['tex 'Texture1D        'samp 'SamplerState 'uv  'float  'lod 'float] 'int4]
+            [['tex 'Texture2D        'samp 'SamplerState 'uv  'float2 'lod 'float] 'int4]
+            [['tex 'Texture3D        'samp 'SamplerState 'uv  'float3 'lod 'float] 'int4]
+            [['tex 'TextureCube      'samp 'SamplerState 'dir 'float3 'lod 'float] 'int4]
+            [['tex 'Texture1DArray   'samp 'SamplerState 'uv  'float2 'lod 'float] 'int4]
+            [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3 'lod 'float] 'int4]
+            [['tex 'TextureCubeArray 'samp 'SamplerState 'uvw 'float4 'lod 'float] 'int4]]
+
            [:func 'sampleBias {:io? true}
             [['tex 'Texture2D        'samp 'SamplerState 'uv  'float2 'bias 'float] 'float4]
             [['tex 'Texture3D        'samp 'SamplerState 'uv  'float3 'bias 'float] 'float4]
             [['tex 'TextureCube      'samp 'SamplerState 'dir 'float3 'bias 'float] 'float4]
             [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3 'bias 'float] 'float4]]
 
+           [:func 'usampleBias {:io? true}
+            [['tex 'Texture2D        'samp 'SamplerState 'uv  'float2 'bias 'float] 'uint4]
+            [['tex 'Texture3D        'samp 'SamplerState 'uv  'float3 'bias 'float] 'uint4]
+            [['tex 'TextureCube      'samp 'SamplerState 'dir 'float3 'bias 'float] 'uint4]
+            [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3 'bias 'float] 'uint4]]
+
+           [:func 'isampleBias {:io? true}
+            [['tex 'Texture2D        'samp 'SamplerState 'uv  'float2 'bias 'float] 'int4]
+            [['tex 'Texture3D        'samp 'SamplerState 'uv  'float3 'bias 'float] 'int4]
+            [['tex 'TextureCube      'samp 'SamplerState 'dir 'float3 'bias 'float] 'int4]
+            [['tex 'Texture2DArray   'samp 'SamplerState 'uvw 'float3 'bias 'float] 'int4]]
+
+           ;; 无应用类型变体
            [:func 'sampleCmp {:io? true}
             [['tex 'Texture2D 'samp 'SamplerComparisonState
               'uv 'float2 'compareValue 'float] 'float]
@@ -659,11 +708,45 @@
             [['buf 'Buffer           'loc 'int 'offset 'int]    'float4]
 
             ;; StructuredBuffer —— 同 Buffer，元素类型由 struct 决定
-            [['buf 'StructuredBuffer 'loc 'int]                 'float4]
+            [['buf 'StructuredBuffer 'loc 'int]                 'float4]]
 
-            ;; ByteAddressBuffer —— 按字节偏移读取，元素类型由模板参数决定
-            ;; 其他重载会直接炸掉，不支持，后续依靠别名来完成
+           ;; 返回值类型编码进方法中
+           [:func 'uload {:io? true}
+            [['tex 'Texture1D        'loc 'int]                 'uint4]
+            [['tex 'Texture1D        'loc 'int 'lod 'int]       'uint4]
+            [['tex 'Texture2D        'loc 'int2]                'uint4]
+            [['tex 'Texture2D        'loc 'int2 'lod 'int]      'uint4]
+            [['tex 'Texture3D        'loc 'int3]                'uint4]
+            [['tex 'Texture3D        'loc 'int3 'lod 'int]      'uint4]
+            [['tex 'Texture2DArray   'loc 'int3]                'uint4]
+            [['tex 'Texture2DArray   'loc 'int3 'lod 'int]      'uint4]
+            [['tex 'Texture2DMS      'loc 'int2 'sample 'int]   'uint4]
+            [['tex 'Texture2DMSArray 'loc 'int3 'sample 'int]   'uint4]
+
+            ;; Buffer —— 元素索引，无 mip
+            [['buf 'Buffer           'loc 'int]                 'uint4]
+            [['buf 'Buffer           'loc 'int 'offset 'int]    'uint4]
+
+            ;; StructuredBuffer —— 同 Buffer，元素类型由 struct 决定
+            [['buf 'StructuredBuffer 'loc 'int]                 'uint4]
+
             [['buf 'ByteAddressBuffer 'loc 'int]                'uint4]]
+
+           [:func 'iload {:io? true}
+            [['tex 'Texture1D        'loc 'int]                 'int4]
+            [['tex 'Texture1D        'loc 'int 'lod 'int]       'int4]
+            [['tex 'Texture2D        'loc 'int2]                'int4]
+            [['tex 'Texture2D        'loc 'int2 'lod 'int]      'int4]
+            [['tex 'Texture3D        'loc 'int3]                'int4]
+            [['tex 'Texture3D        'loc 'int3 'lod 'int]      'int4]
+            [['tex 'Texture2DArray   'loc 'int3]                'int4]
+            [['tex 'Texture2DArray   'loc 'int3 'lod 'int]      'int4]
+            [['tex 'Texture2DMS      'loc 'int2 'sample 'int]   'int4]
+            [['tex 'Texture2DMSArray 'loc 'int3 'sample 'int]   'int4]
+            [['buf 'Buffer           'loc 'int]                 'int4]
+            [['buf 'Buffer           'loc 'int 'offset 'int]    'int4]
+            [['buf 'StructuredBuffer 'loc 'int]                 'int4]]
+
 
            ;; ── 纹理聚集 ────────────────────────────────
            ;; gather → GLSL textureGather
@@ -671,19 +754,64 @@
             [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'float4]
             [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'float4]
             [['tex 'TextureCube    'samp 'SamplerState 'dir 'float3] 'float4]]
+           [:func 'ugather {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'uint4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'uint4]
+            [['tex 'TextureCube    'samp 'SamplerState 'dir 'float3] 'uint4]]
+           [:func 'igather {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'int4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'int4]
+            [['tex 'TextureCube    'samp 'SamplerState 'dir 'float3] 'int4]]
+
            [:func 'gatherRed {:io? true}
             [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'float4]
             [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'float4]]
+
+           [:func 'ugatherRed {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'uint4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'uint4]]
+
+           [:func 'igatherRed {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'int4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'int4]]
+
            [:func 'gatherGreen {:io? true}
             [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'float4]
             [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'float4]]
+
+           [:func 'ugatherGreen {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'uint4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'uint4]]
+
+           [:func 'igatherGreen {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'int4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'int4]]
+
+
            [:func 'gatherBlue {:io? true}
             [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'float4]
             [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'float4]]
+
+           [:func 'ugatherBlue {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'uint4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'uint4]]
+
+           [:func 'igatherBlue {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'int4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'int4]]
+
+
            [:func 'gatherAlpha {:io? true}
             [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'float4]
             [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'float4]]
 
+           [:func 'ugatherAlpha {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'uint4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'uint4]]
+
+           [:func 'igatherAlpha {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv 'float2] 'int4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uv 'float3] 'int4]]
            ;; ── 采样变体 ────────────────────────────────
            ;; sampleGrad → GLSL textureGrad
            [:func 'sampleGrad {:io? true}
@@ -696,7 +824,28 @@
             [['tex 'Texture2DArray 'samp 'SamplerState 'uvw 'float3
               'ddx 'float3 'ddy 'float3] 'float4]]
 
+           [:func 'usampleGrad {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv  'float2
+              'ddx 'float2 'ddy 'float2] 'uint4]
+            [['tex 'Texture3D      'samp 'SamplerState 'uv  'float3
+              'ddx 'float3 'ddy 'float3] 'uint4]
+            [['tex 'TextureCube    'samp 'SamplerState 'dir 'float3
+              'ddx 'float3 'ddy 'float3] 'uint4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uvw 'float3
+              'ddx 'float3 'ddy 'float3] 'uint4]]
+
+           [:func 'isampleGrad {:io? true}
+            [['tex 'Texture2D      'samp 'SamplerState 'uv  'float2
+              'ddx 'float2 'ddy 'float2] 'int4]
+            [['tex 'Texture3D      'samp 'SamplerState 'uv  'float3
+              'ddx 'float3 'ddy 'float3] 'int4]
+            [['tex 'TextureCube    'samp 'SamplerState 'dir 'float3
+              'ddx 'float3 'ddy 'float3] 'int4]
+            [['tex 'Texture2DArray 'samp 'SamplerState 'uvw 'float3
+              'ddx 'float3 'ddy 'float3] 'int4]]
+
            ;; sampleCmpLevelZero → GLSL textureLod(sampler2DShadow, ...)
+           ;; 无应用类型变体
            [:func 'sampleCmpLevelZero {:io? true}
             [['tex 'Texture2D   'samp 'SamplerComparisonState
               'uv 'float2 'compareValue 'float] 'float]

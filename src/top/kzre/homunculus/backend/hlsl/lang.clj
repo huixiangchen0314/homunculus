@@ -67,10 +67,21 @@
   "纹理采样函数。这些调用在 GLSL 降级时翻译为 texture() / textureLod() /
    textureGrad() / textureGather() 等——均需显式 sampler 参数。
 
-   不含 load（texelFetch，不走 sampler）和 textureSize（尺寸查询，
-   也不走 sampler）。这两类由降级器另行处理。"
-  #{'sample 'sampleLod 'sampleBias 'sampleCmp 'sampleCmpLevelZero 'sampleGrad
-    'gather 'gatherRed 'gatherGreen 'gatherBlue 'gatherAlpha})
+   u/i 前缀的变体在 HLSL 里映射到同样的方法名（Sample / SampleLevel / ...），
+   但它们的 tex 参数是 uTexture* / iTexture*，需要 sampler（SamplerState），
+   因此仍归入 sample-fns。
+
+   不含 load / uload / iload（texelFetch 路径，不走 sampler）和 textureSize
+   （尺寸查询，也不走 sampler）。这两类由降级器另行处理。"
+  #{;; float 变体
+    'sample 'sampleLod 'sampleBias 'sampleCmp 'sampleCmpLevelZero 'sampleGrad
+    'gather 'gatherRed 'gatherGreen 'gatherBlue 'gatherAlpha
+    ;; uint 变体
+    'usample 'usampleLod 'usampleBias 'usampleGrad
+    'ugather 'ugatherRed 'ugatherGreen 'ugatherBlue 'ugatherAlpha
+    ;; int 变体
+    'isample 'isampleLod 'isampleBias 'isampleGrad
+    'igather 'igatherRed 'igatherGreen 'igatherBlue 'igatherAlpha})
 
 (defn sample-fn?
   "判断函数名是否为纹理采样函数。fn-name 是符号。
@@ -80,52 +91,31 @@
   [fn-name]
   (contains? sample-fns fn-name))
 
-(def ^:private scalar-types
-  '#{bool int uint float})
+(def ^:private texel-fetch-fn-map
+  "texel fetch 函数 → GLSL 对应函数名。
 
-(defn scalar-type? [type-sym]
-  (contains? scalar-types type-sym))
+   这些调用不需要 sampler——按整数坐标直接读取 texel 值，
+   走 GLSL 的 texelFetch 路径。与 sample-fns（走 texture/textureLod/
+   textureGrad/textureGather，需要 sampler）相对。
 
-(def ^:private tensor-types
-  '#{bool2 bool3 bool4
-   int2 int3 int4
-   uint2 uint3 uint4
-   float2 float3 float4
-   float2x2 float2x3 float2x4
-   float3x2 float3x3 float3x4
-   float4x2 float4x3 float4x4})
+   不带 textureSize——尺寸查询也是\"无 sampler\"路径，但它是查询
+   而非 fetch，语义不同，本 map 不涵盖。textureSize 由降级器单独
+   处理（对应 GLSL 的 textureSize）。
 
-(defn tensor-type? [type-sym]
-  (contains? tensor-types type-sym))
+   降级器用此表决定：命中的调用生成 texelFetch(tex, intCoord, lod)，
+   未命中的走 sample-fns 的 texture() 路径。"
+  {'load  'texelFetch
+   'uload 'texelFetch
+   'iload 'texelFetch})
 
-(def ^:private builtin-types
-  "HLSL 内置类型集合。struct-type? 的反面——不在这个集合里的 TCon 是用户 struct。"
-  '#{bool int uint float
-     bool2 bool3 bool4
-     int2 int3 int4
-     uint2 uint3 uint4
-     float2 float3 float4
-     float2x2 float2x3 float2x4
-     float3x2 float3x3 float3x4
-     float4x2 float4x3 float4x4
-     Texture1D Texture2D Texture3D TextureCube
-     Texture1DArray Texture2DArray TextureCubeArray
-     Texture2DMS Texture2DMSArray
-     SamplerState SamplerComparisonState
-     Buffer StructuredBuffer ByteAddressBuffer
-     cbuffer})
+(defn texel-fetch-fn?
+  "判断函数名是否为 texel fetch 函数。fn-name 是符号。
 
-(defn builtin-type?
-  "判断是否为 HLSL 内置类型。
-
-   type-sym 是符号——如 'float4 / 'Texture2D / 'MyStruct。
-   不在内置集合里的符号视为用户 struct。"
-  [type-sym]
-  (contains? builtin-types type-sym))
-
-
-
-
+   这些是 HLSL 中 .Load(...) 路径的函数——不经过 sampler，
+   按整数坐标直接取 texel。与 sample-fn? 判断的采样函数
+   （.Sample(...)，需要 SamplerState）相对。"
+  [fn-name]
+  (contains? texel-fetch-fn-map fn-name))
 
 (defn struct-type?
   "判断类型是否为给定 struct 名称集合中的成员。

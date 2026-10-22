@@ -3,7 +3,8 @@
   (:refer-clojure :exclude [float int])
   (:require
     [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
-    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]
+    [top.kzre.homunculus.core.error :as err]))
 
 ;;; ========= 类型构造器 =========================================
 ;;; 命名与 HLSL 原始拼写一致：
@@ -134,7 +135,7 @@
 
 (defmacro deftexture
   ([name register]
-   `(deftexture ~name ~register :2d float))
+   `(deftexture ~name ~register :2d float4))
   ([name register dimension]
    `(deftexture ~name ~register ~dimension float))
   ([sym register dimension element-ctor]
