@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.backend.glsl.sematic.location
+(ns top.kzre.homunculus.backend.glsl.semantic.location
   "默认的语义布局。
 
    GLSL 的 location 按空间独立：

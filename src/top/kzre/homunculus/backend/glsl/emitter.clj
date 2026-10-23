@@ -1,9 +1,9 @@
 (ns top.kzre.homunculus.backend.glsl.emitter
   (:require
+    [top.kzre.homunculus.backend.glsl.config :as cfg]
     [top.kzre.homunculus.backend.glsl.emit.api :as emit]
     [top.kzre.homunculus.backend.glsl.lower.api :as glsl.lower]
-    [top.kzre.homunculus.backend.glsl.options :as opt]
-    [top.kzre.homunculus.backend.glsl.sematic.api :as sematic]
+    [top.kzre.homunculus.backend.glsl.semantic.api :as sematic]
     [top.kzre.homunculus.backend.shader.lower :as lower]
     [top.kzre.homunculus.backend.shader.pass.analyze.core :as analyze]
     [top.kzre.homunculus.backend.shader.pass.analyze.env :as env]
@@ -19,7 +19,6 @@
     [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
     [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
     [top.kzre.homunculus.internal.compile-result :as compile-result]
-    [top.kzre.homunculus.internal.context-impl :as m]
     [top.kzre.homunculus.internal.module-unit :as mu]
     [top.kzre.homunculus.internal.protocol :as ip]
     [top.kzre.homunculus.internal.utils :as iu]))
@@ -87,8 +86,7 @@
           dced         (dce/elim ped (dce/make-env ctx))
           shader-asts  (lower/lower dced)
           vec-copied   (array-assign/expand shader-asts)
-          renamed (ns-strategy/apply vec-copied
-                                     (opt/ns-strategy (ip/options (ip/config ctx))))
+          renamed (ns-strategy/apply vec-copied (cfg/ns-strategy (ip/config ctx)))
           ;; 分析 → 分流
           {:keys [env]} (analyze/analyze renamed (env-impl/make-env))
           analysis     (env/to-analysis env)

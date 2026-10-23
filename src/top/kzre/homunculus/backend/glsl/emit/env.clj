@@ -1,19 +1,18 @@
 (ns top.kzre.homunculus.backend.glsl.emit.env
   (:require
-    [top.kzre.homunculus.backend.glsl.options :as opt]
-    [top.kzre.homunculus.internal.protocol :as ip]))
+   [top.kzre.homunculus.backend.glsl.config :as cfg]
+   [top.kzre.homunculus.internal.protocol :as ip]))
 
 (defprotocol IEnv
   (gl-version [_])
   (ns-strategy [_]))
 
-(defrecord Env [compile-ctx options]
+(defrecord Env [compile-ctx config]
   IEnv
   (gl-version [_]
-    (opt/gl-version options))
+    (cfg/gl-version config))
   (ns-strategy [_]
-    (opt/ns-strategy options)))
+    (cfg/ns-strategy config)))
 
 (defn make-env [compile-ctx]
-  (let [options (ip/options (ip/config compile-ctx))]
-    (->Env compile-ctx options)))
+  (->Env compile-ctx (ip/config compile-ctx) ))

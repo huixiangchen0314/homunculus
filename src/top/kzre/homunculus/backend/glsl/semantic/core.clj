@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.backend.glsl.sematic.core
+(ns top.kzre.homunculus.backend.glsl.semantic.core
   "语义降级规划的 lower 实现。
 
    ── 职责 ──────────────────────────────────────────────
@@ -45,8 +45,8 @@
    ▸ 名字冲突检测——假设 HLSL 变量名与 GLSL 生成名不冲突"
   (:require
     [top.kzre.homunculus.backend.glsl.lang :as lang]
-    [top.kzre.homunculus.backend.glsl.sematic.config :as config]
-    [top.kzre.homunculus.backend.glsl.sematic.layout
+    [top.kzre.homunculus.backend.glsl.semantic.config :as config]
+    [top.kzre.homunculus.backend.glsl.semantic.layout
      :refer [->EntryLayout ->IODecl ->InterfaceBlock
              ->InterfaceBlockMember ->Layout ->SamplerUniform]]
     [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
@@ -56,7 +56,7 @@
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
     [top.kzre.homunculus.core.error :as err])
   (:import
-    (top.kzre.homunculus.backend.glsl.sematic.layout
+    (top.kzre.homunculus.backend.glsl.semantic.layout
       Layout)
     (top.kzre.homunculus.backend.shader.pass.analyze.model
       SLAnalysis SLComputeEntry SLGraphicsEntry SLParam SLReturn

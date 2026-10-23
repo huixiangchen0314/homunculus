@@ -12,13 +12,13 @@
     [top.kzre.homunculus.backend.glsl.ast :as glsl]
     [top.kzre.homunculus.backend.glsl.lang :as lang]
     [top.kzre.homunculus.backend.glsl.lower.env :as env]
-    [top.kzre.homunculus.backend.glsl.sematic.layout :as layout]
+    [top.kzre.homunculus.backend.glsl.semantic.layout :as layout]
     [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
     [top.kzre.homunculus.backend.shader.ast :as ast]
     [top.kzre.homunculus.backend.shader.semantic :as semantic]
     [top.kzre.homunculus.core.ir2.pass.type :as ty])
   (:import
-    (top.kzre.homunculus.backend.glsl.sematic.layout
+    (top.kzre.homunculus.backend.glsl.semantic.layout
       EntryLayout
       IODecl
       InterfaceBlock

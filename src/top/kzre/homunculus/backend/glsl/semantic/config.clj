@@ -1,8 +1,7 @@
-(ns top.kzre.homunculus.backend.glsl.sematic.config
+(ns top.kzre.homunculus.backend.glsl.semantic.config
   (:require
-   [top.kzre.homunculus.backend.glsl.options :as opt]
-   [top.kzre.homunculus.backend.glsl.sematic.location :as location]
-   [top.kzre.homunculus.internal.protocol :as ip]))
+    [top.kzre.homunculus.backend.glsl.config :as cfg]
+    [top.kzre.homunculus.internal.protocol :as ip]))
 
 (defprotocol IConfig
   (gl-version [_])
@@ -18,35 +17,35 @@
   (interface-block-naming [_ struct-name])
   (interface-block-instance-naming [_ struct-name stage direction]))
 
-(defrecord Config [compile-ctx options]
+(defrecord Config [compile-ctx config ]
   IConfig
   (gl-version [_]
-    (opt/gl-version options))
+    (cfg/gl-version config))
 
   (out-struct-strategy [_]
-    (opt/out-struct-strategy options))
+    (cfg/out-struct-strategy config))
 
   (fragment-out-name [_]
-    (opt/fragment-out-name options))
+    (cfg/fragment-out-name config))
 
   (semantic-location-strategy [_]
-    (opt/semantic-location-strategy options))
+    (cfg/semantic-location-strategy config))
 
   (vertex-semantic-location [_ semantic]
-    (opt/vertex-semantic-location options semantic))
+    (cfg/vertex-semantic-location config semantic))
 
   (varying-semantic-location [_ semantic]
-    (opt/varying-semantic-location options semantic))
+    (cfg/varying-semantic-location config semantic))
 
   (fragment-semantic-location [_ semantic]
-    (opt/fragment-semantic-location options semantic))
+    (cfg/fragment-semantic-location config semantic))
 
   (texture-sampler-binding-strategy [_]
-    (opt/texture-sampler-binding-strategy options))
+    (cfg/texture-sampler-binding-strategy config))
   (sampler-naming-strategy [_]
-    (opt/sampler-naming-strategy options))
+    (cfg/sampler-naming-strategy config))
   (map-texture-sampler-binding [_ tex-reg sampler-reg]
-    (let [v (opt/texture-sampler-binding options)]
+    (let [v (cfg/texture-sampler-binding config)]
       (cond
         (fn? v)
         (v tex-reg sampler-reg)
@@ -68,7 +67,7 @@
                         {:type (type v) :value v})))))
 
   (interface-block-naming [_ struct-name]
-    (let [v (opt/interface-block-naming options)]
+    (let [v (cfg/interface-block-naming config)]
       (cond
         (fn? v)
         (v struct-name)
@@ -87,7 +86,7 @@
                         {:type (type v) :value v})))))
 
   (interface-block-instance-naming [_ struct-name stage direction]
-    (let [v (opt/interface-block-instance-naming options)]
+    (let [v (cfg/interface-block-instance-naming config)]
       (cond
         (fn? v)
         (v struct-name stage direction)
@@ -104,5 +103,4 @@
                         {:type (type v) :value v}))))))
 
 (defn make-config [compile-ctx]
-  (let [options (ip/options (ip/config compile-ctx))]
-    (->Config compile-ctx options)))
+  (->Config compile-ctx (ip/config compile-ctx) ))

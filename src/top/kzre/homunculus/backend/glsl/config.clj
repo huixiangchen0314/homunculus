@@ -1,20 +1,27 @@
-(ns top.kzre.homunculus.backend.glsl.options
-  "GLSL 后端配置项的统一读取入口。
-
-   所有函数接收 options map，从其中读取 `:gl-*` 键。未配置时返回
-   默认值——调用方不需要判 nil。语义 location 的三个函数在用户配置
-   未命中时回退到 location 命名空间的默认表。
-
-   这一层是「读配置」——不做编译逻辑，不依赖 compile-ctx。config
-   层（sematic.config）包装这一层，暴露给 sematic.core 消费。"
-  (:require [top.kzre.homunculus.backend.glsl.sematic.location :as location]))
+(ns top.kzre.homunculus.backend.glsl.config
+  (:require
+    [top.kzre.homunculus.backend.glsl.semantic.location :as location]
+    [top.kzre.homunculus.internal.protocol :as proto]))
 
 (defn gl-version
   "GLSL 版本号。写入 `#version <N> core`。
 
    键：:gl-version，默认 330（GLSL 3.30 core）。"
-  [options]
-  (get options :gl-version 330))
+  [config]
+  (or (proto/get-option config :gl-version)  330))
+
+
+(defn ns-strategy
+  "命名空间处理策略。在 ShaderAST 层对所有符号统一应用。
+
+   :strip  —— 去掉命名空间，只保留 name 部分。
+              如 top.kzre.../myTexture → myTexture
+   :mangle —— 全限定名整体转义，ns 的 . 和 / 都替换为 _
+              如 top.kzre.../myTexture → top_kzre_..._myTexture
+
+   键：:gl-ns-strategy，默认 :strip。"
+  [config]
+  (or (proto/get-option config :gl-ns-strategy) :strip))
 
 (defn out-struct-strategy
   "顶点着色器返回 struct 时的输出展开策略。
@@ -27,41 +34,8 @@
                        匹配，不依赖 location。
 
    键：:gl-out-struct-strategy，默认 :split。"
-  [options]
-  (get options :gl-out-struct-strategy :split))
-
-(defn ns-strategy
-  "命名空间处理策略。在 ShaderAST 层对所有符号统一应用。
-
-   :strip  —— 去掉命名空间，只保留 name 部分。
-              如 top.kzre.../myTexture → myTexture
-   :mangle —— 全限定名整体转义，ns 的 . 和 / 都替换为 _
-              如 top.kzre.../myTexture → top_kzre_..._myTexture
-
-   键：:gl-ns-strategy，默认 :strip。"
-  [options]
-  (get options :gl-ns-strategy :strip))
-
-(defn fragment-out-name
-  "fragment 单值返回时的输出变量名。
-
-   标量返回（非 struct）的 fragment entry 生成
-   `layout(location = 0) out vec4 <name>;`。
-
-   键：:gl-fragment-out-name，默认 \"fragColor\"。"
-  [options]
-  (get options :gl-fragment-out-name "fragColor"))
-
-(defn texture-sampler-binding-strategy
-  "texture + sampler 组合到 GLSL sampler uniform 的 unit 分配策略。
-
-   :sampler-first —— 按 sampler 寄存器分组排序，组内按 texture 寄存器
-   :texture-first —— 按 texture 寄存器分组排序，组内按 sampler 寄存器
-   :mapping       —— 用户通过 :gl-texture-sampler-binding 逐对指定 unit
-
-   键：:gl-texture-sampler-binding-strategy，默认 :sampler-first。"
-  [options]
-  (get options :gl-texture-sampler-binding-strategy :sampler-first))
+  [config]
+  (or (proto/get-option config :gl-out-struct-strategy) :split))
 
 (defn semantic-location-strategy
   "semantic 到 location 的分配策略。三个 location 空间各自独立调用。
@@ -71,8 +45,8 @@
    :mapping-strict —— 必须查表命中，否则抛 :gl-no-location-for-semantic
 
    键：:gl-semantic-location-strategy，默认 :mapping。"
-  [options]
-  (get options :gl-semantic-location-strategy :mapping))
+  [config]
+  (or (proto/get-option config :gl-semantic-location-strategy) :mapping))
 
 (defn vertex-semantic-location
   "vertex-input 空间的 location。按 semantic 查用户配置，未命中
@@ -81,8 +55,8 @@
    配置键：:gl-vertex-semantic-locations（map，semantic → location）
    返回 nil 表示该 semantic 在 vertex-input 空间没有默认值——
    :mapping 策略下由 assign-locations 补位，:mapping-strict 抛错。"
-  [options semantic]
-  (or (get-in options [:gl-vertex-semantic-locations semantic])
+  [config semantic]
+  (or (proto/get-option config [:gl-vertex-semantic-locations semantic])
       (location/default-vertex-input-location semantic)))
 
 (defn varying-semantic-location
@@ -94,9 +68,10 @@
 
    配置键：:gl-varying-semantic-locations（map，semantic → location）
    返回 nil 表示该 semantic 在 varying 空间没有默认值。"
-  [options semantic]
-  (or (get-in options [:gl-varying-semantic-locations semantic])
+  [config semantic]
+  (or (proto/get-option config [:gl-varying-semantic-locations semantic])
       (location/default-varying-location semantic)))
+
 
 (defn fragment-semantic-location
   "fragment-output 空间的 location。按 semantic 查用户配置，未命中
@@ -107,8 +82,8 @@
 
    配置键：:gl-fragment-semantic-locations（map，semantic → location）
    返回 nil 表示该 semantic 在 fragment-output 空间没有默认值。"
-  [options semantic]
-  (or (get-in options [:gl-fragment-semantic-locations semantic])
+  [config semantic]
+  (or (proto/get-option config [:gl-fragment-semantic-locations semantic])
       (location/default-fragment-output-location semantic)))
 
 (defn texture-sampler-binding
@@ -121,8 +96,8 @@
    ▸ nil  —— :mapping 策略下未配置，抛错
 
    键：:gl-texture-sampler-binding，无默认值（nil）。"
-  [options]
-  (:gl-texture-sampler-binding options))
+  [config]
+  (proto/get-option config :gl-texture-sampler-binding))
 
 (defn interface-block-naming
   "接口块的块名生成。在 :interface-block 策略下，vertex struct 和
@@ -134,8 +109,8 @@
    ▸ nil  —— 默认用 struct 的 name 部分
 
    键：:gl-interface-block-naming，无默认值（nil 走 name 兜底）。"
-  [options]
-  (:gl-interface-block-naming options))
+  [config]
+  (proto/get-option config :gl-interface-block-naming ))
 
 (defn interface-block-instance-naming
   "接口块的实例名生成。同名 block 在 vertex 和 fragment 两侧用不同
@@ -148,8 +123,8 @@
    stage 是 :vertex / :fragment，direction 是 :in / :out。
 
    键：:gl-interface-block-instance-naming，无默认值（nil 走内置规则）。"
-  [options]
-  (:gl-interface-block-instance-naming options))
+  [config]
+  (proto/get-option config :gl-interface-block-instance-naming))
 
 (defn sampler-naming-strategy
   "sampler uniform 的 GLSL 名生成策略。
@@ -164,5 +139,26 @@
    sampler 不存在（load-only）时一律只用纹理名——不追加后缀。
 
    键：:gl-sampler-naming-strategy，默认 :texture-sampler-simple。"
-  [options]
-  (:gl-sampler-naming-strategy options :texture-sampler-simple))
+  [config]
+  (or (proto/get-option config :gl-sampler-naming-strategy)  :texture-sampler-simple))
+
+(defn fragment-out-name
+  "fragment 单值返回时的输出变量名。
+
+   标量返回（非 struct）的 fragment entry 生成
+   `layout(location = 0) out vec4 <name>;`。
+
+   键：:gl-fragment-out-name，默认 \"fragColor\"。"
+  [config]
+  (or (proto/get-option config :gl-fragment-out-name) "fragColor"))
+
+(defn texture-sampler-binding-strategy
+  "texture + sampler 组合到 GLSL sampler uniform 的 unit 分配策略。
+
+   :sampler-first —— 按 sampler 寄存器分组排序，组内按 texture 寄存器
+   :texture-first —— 按 texture 寄存器分组排序，组内按 sampler 寄存器
+   :mapping       —— 用户通过 :gl-texture-sampler-binding 逐对指定 unit
+
+   键：:gl-texture-sampler-binding-strategy，默认 :sampler-first。"
+  [config]
+  (or (proto/get-option config :gl-texture-sampler-binding-strategy) :sampler-first))

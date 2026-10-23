@@ -1,4 +1,4 @@
-(ns top.kzre.homunculus.backend.glsl.sematic.layout
+(ns top.kzre.homunculus.backend.glsl.semantic.layout
   "语义降级规划的数据模型。只定义记录，不含逻辑。
 
    ── 规划内容 ──────────────────────────────────────────
