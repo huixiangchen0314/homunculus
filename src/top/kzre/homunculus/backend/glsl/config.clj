@@ -59,6 +59,13 @@
   (or (proto/get-option config [:gl-vertex-semantic-locations semantic])
       (location/default-vertex-input-location semantic)))
 
+(defn vertex-semantics
+  "vertex-input 空间所有已定义语义的集合。
+   默认表 key ∪ 用户配置 :gl-vertex-semantic-locations 的 key。"
+  [config]
+  (into (set (keys (location/default-vertex-input-locations)))
+        (keys (proto/get-option config :gl-vertex-semantic-locations))))
+
 (defn varying-semantic-location
   "varying 空间的 location。按 semantic 查用户配置，未命中回退到
    默认表（:normal 0 / :texcoord0 1 / ...）。
@@ -72,6 +79,12 @@
   (or (proto/get-option config [:gl-varying-semantic-locations semantic])
       (location/default-varying-location semantic)))
 
+(defn varying-semantics
+  "varying 空间所有已定义语义的集合。
+   默认表 key ∪ 用户配置 :gl-varying-semantic-locations 的 key。"
+  [config]
+  (into (set (keys (location/default-varying-locations)))
+        (keys (proto/get-option config :gl-varying-semantic-locations))))
 
 (defn fragment-semantic-location
   "fragment-output 空间的 location。按 semantic 查用户配置，未命中
@@ -85,6 +98,13 @@
   [config semantic]
   (or (proto/get-option config [:gl-fragment-semantic-locations semantic])
       (location/default-fragment-output-location semantic)))
+
+(defn fragment-semantics
+  "fragment-output 空间所有已定义语义的集合。
+   默认表 key ∪ 用户配置 :gl-fragment-semantic-locations 的 key。"
+  [config]
+  (into (set (keys (location/default-fragment-output-locations)))
+        (keys (proto/get-option config :gl-fragment-semantic-locations))))
 
 (defn texture-sampler-binding
   "逐对指定 texture + sampler 组合的 texture unit。仅在

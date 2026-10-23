@@ -1,5 +1,7 @@
 (ns top.kzre.homunculus.internal.config-impl
   (:require
+    [clojure.edn :as edn]
+    [clojure.java.io :as io]
     [top.kzre.homunculus.internal.protocol :as proto]
     [top.kzre.homunculus.internal.utils :as util]))
 
@@ -90,10 +92,59 @@
   (target [_] target)
   (module-naming-style [this] (proto/get-option this :style)))
 
+(defn- read-config-file
+  "读取单个 edn 配置文件，返回 Config record。
+   失败统一抛 ex-info，带 :path / :reason 供 CLI 打印诊断。"
+  [path]
+  (let [file (io/file path)]
+    (when-not (.exists file)
+      (throw (ex-info (str "配置文件不存在: " path)
+                      {:path (str path) :reason :not-found})))
+    (when-not (.isFile file)
+      (throw (ex-info (str "配置文件不是普通文件: " path)
+                      {:path (str path) :reason :not-file})))
+    (let [content (try
+                    (slurp file)
+                    (catch Exception e
+                      (throw (ex-info (str "读取配置文件失败: " path)
+                                      {:path (str path) :reason :read-error}
+                                      e))))
+          data    (try
+                    (edn/read-string content)
+                    (catch Exception e
+                      (throw (ex-info (str "配置文件 edn 解析失败: " path)
+                                      {:path (str path) :reason :parse-error}
+                                      e))))]
+      (when-not (map? data)
+        (throw (ex-info (str "配置文件顶层必须是 map: " path)
+                        {:path (str path) :reason :not-a-map
+                         :got (type data)})))
+      (->Config (.getAbsolutePath file) data))))
+
+(defn load-config
+  "从单个 edn 文件加载 Config。"
+  [path]
+  (read-config-file path))
+
+(defn load-configs
+  "按输入顺序加载多个 edn 配置文件，返回 Config vector。
+   paths 可以是单个路径，也可以是路径序列（匹配 -c 的两种解析形态）。"
+  [paths]
+  (let [paths (if (sequential? paths) paths [paths])]
+    (mapv read-config-file paths)))
+
+
+
 (defn make-compile-config
   [options & configs]
   (let [target (util/ensure-keyword
                  (or (:target options)
                      (throw (ex-info "target must be no nil." {}))))]
-    ;; 后指定的配置优先级高
-    (->CompileConfig options (reverse configs) target)))
+    ;; configs 是 variadic list，顺序 = 调用顺序。
+    ;; resolve-option 内部 reverse 后从列表尾部开始匹配，
+    ;; 所以列表中越靠后的 config 优先级越高——
+    ;; 对应命令行 -c a.edn -c b.edn 时 b 覆盖 a。
+    ;;
+    ;; 原实现 (reverse configs) 把顺序倒过来，实际变成“先指定优先”，
+    ;; 与 docstring 相反。这里去掉 reverse。
+    (->CompileConfig options configs target)))

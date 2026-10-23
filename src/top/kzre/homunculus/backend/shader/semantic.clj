@@ -80,12 +80,19 @@
       (:vertex-id md) :vertex-id
       (:primitive-id md) :primitive-id
 
-      ;; 用户自定义属性
+      ;; 用户自定义语义
       (:user0 md) :user0
       (:user1 md) :user1
       (:user2 md) :user2
       (:user3 md) :user3
-
+      (:user4 md) :user4
+      (:user5 md) :user5
+      (:user6 md) :user6
+      (:user7 md) :user7
+      (:user8 md) :user8
+      (:user9 md) :user9
+      ;; 任意自定义语义
+      (:semantic md) (:semantic md)
       :else nil)))
 
 

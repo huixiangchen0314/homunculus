@@ -30,7 +30,7 @@
 
    这些 semantic 由 builtin-semantic? 识别，不走 location 分配。")
 
-(def ^:private default-vertex-input-locations
+(def ^:private default-vertex-input-locations*
   {:position  0
    :normal    1
    :texcoord0 2
@@ -48,7 +48,10 @@
    :user0     14
    :user1     15})
 
-(def ^:private default-varying-locations
+(defn default-vertex-input-locations[]
+  default-vertex-input-locations*)
+
+(def ^:private default-varying-locations*
   {:normal    0
    :texcoord0 1
    :tangent   2
@@ -67,7 +70,10 @@
    :user2     15
    :user3     16})
 
-(def ^:private default-fragment-output-locations
+(defn default-varying-locations []
+  default-varying-locations*)
+
+(def ^:private default-fragment-output-locations*
   {:target0 0
    :target1 1
    :target2 2
@@ -77,15 +83,18 @@
    :target6 6
    :target7 7})
 
+(defn default-fragment-output-locations []
+  default-fragment-output-locations*)
+
 (defn default-vertex-input-location
   "vertex-input 空间的默认 location。未登记的 semantic 返回 nil。"
   [semantic]
-  (get default-vertex-input-locations semantic))
+  (get default-vertex-input-locations* semantic))
 
 (defn default-varying-location
   "varying 空间的默认 location。未登记的 semantic 返回 nil。"
   [semantic]
-  (get default-varying-locations semantic))
+  (get default-varying-locations* semantic))
 
 (defn default-fragment-output-location
   "fragment-output 空间的默认 location。未登记的 semantic 返回 nil。
@@ -94,4 +103,4 @@
    硬编码 location 0。多 render target 的 struct 返回字段标
    :target0 / :target1 等时，查这张表。"
   [semantic]
-  (get default-fragment-output-locations semantic))
+  (get default-fragment-output-locations* semantic))

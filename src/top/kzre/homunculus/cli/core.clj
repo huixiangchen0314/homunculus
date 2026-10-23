@@ -1,4 +1,5 @@
 (ns top.kzre.homunculus.cli.core
+  (:refer-clojure :exclude [compile])
   (:gen-class)
   (:require
    [top.kzre.homunculus.backend.glsl.core :as glsl]
@@ -20,6 +21,20 @@
     :glsl (glsl/target)
     (throw (ex-info (str "Unsupported target: " target) {:target target}))))
 
+(defn- load-config-files
+  "读取命令行 -c 指定的所有配置文件。
+   :config 可能是单值或 vector；失败时打印诊断并退出。"
+  [config-files]
+  (if (seq config-files)
+    (try
+      (config-impl/load-configs config-files)
+      (catch Exception e
+        (println "[ERROR]" (.getMessage e))
+        (when-let [data (ex-data e)]
+          (when-let [p (:path data)]   (println "  配置文件:" p))
+          (when-let [r (:reason data)] (println "  原因:" (name r))))
+        (System/exit 1)))
+    []))
 
 (defn- write-result [result]
   (if (sequential? result)
@@ -29,7 +44,9 @@
       (compile-result/write-result result)
       (println "no module result emitted"))))
 
-(defn -main [& args]
+(defn compile
+  "程序编译入口"
+  [args]
   (let [parsed (opt/parse-opts args)
         {:keys [options files errors]} parsed]
     (when (seq errors)
@@ -45,7 +62,8 @@
       (println "错误: 未指定输入文件")
       (println (opt/usage-string))
       (System/exit 1))
-    (let [cfg (config-impl/make-compile-config options)]
+    (let [configs (load-config-files (:config options))
+          cfg (apply config-impl/make-compile-config options configs)]
       ;; 加载用户宏命名空间——按列表顺序，在 -L 路径下逐个查找
       (when (seq (proto/get-option cfg :macro-ns))
         (try
@@ -79,3 +97,6 @@
           ;; 合并输出（单文件链接）
           (let [result (proto/link compiler context)]
             (write-result result)))))))
+
+(defn -main [& args]
+  (compile args))
