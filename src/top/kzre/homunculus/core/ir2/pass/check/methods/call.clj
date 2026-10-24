@@ -34,10 +34,10 @@
                   :arg-count arg-count
                   :fn-type   fn-type})))
       ;; 4. 取前 arg-count 个形参类型，逐实参检查
-      (let [arg-types    (subvec params 0 arg-count)
-            checked-args (mapv (fn [arg arg-type]
-                                 (check/check-node* arg arg-type env))
-                               args arg-types)
+      (let [param-types    (subvec params 0 arg-count)
+            checked-args (mapv (fn [arg param-type]
+                                 (check/check-node* arg param-type env))
+                               args param-types)
             ret-node     (n/make-call fn-node checked-args
                                       (n/attrs node)
                                       (n/node-meta node))

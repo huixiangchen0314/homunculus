@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.core.ir2.pass.lambda-elim.env
   (:require
-    [top.kzre.homunculus.internal.protocol :as ip]))
+    [top.kzre.homunculus.internal.protocol :as proto]))
 
 (defprotocol IEnv
   (inline-all-lambda? [_]
@@ -18,10 +18,11 @@
   (bind-var [this var-name] "绑定变量名"))
 
 
-(defrecord Env [vars options]
+(defrecord Env [vars compile-ctx config]
   IEnv
   (inline-all-lambda? [_]
-    (get options :inline-all-lambda? false))
+    (or (proto/get-option config :inline-all-lambda?)
+         false))
   (max-iterations [_] 1000)
   (strict-mode? [_] true)
   (on-unresolved [_ lambda _reason]
@@ -32,4 +33,4 @@
   (bind-var [this var-name] (assoc this :vars (conj vars var-name))))
 
 (defn make-env [compile-ctx]
-  (->Env #{} (ip/options (ip/config compile-ctx))))
+  (->Env #{} compile-ctx (proto/config compile-ctx)))

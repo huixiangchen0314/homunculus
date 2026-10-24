@@ -4,6 +4,8 @@
    [top.kzre.homunculus.backend.hlsl.emit :as emit]
    [top.kzre.homunculus.backend.shader.lower :as lower]
    [top.kzre.homunculus.backend.shader.pass.array-assign :as  array-assign]
+   [top.kzre.homunculus.core.cfg.build :as build]
+   [top.kzre.homunculus.core.cfg.irstmt.build :as irstmt.build]
    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
    [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
    [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
@@ -29,11 +31,13 @@
                  ".hlsl")
           irstmts (irstmt.lower/lower nodes)
           sted (statementize/statementize-nodes irstmts)
-          ped          (propagate/propagate sted (propagate/make-env ctx))
+          ped  (propagate/propagate sted (propagate/make-env ctx))
           dced (dce/elim ped (dce/make-env ctx))
           shader-asts (lower/lower dced)
           vec-copied (array-assign/expand shader-asts)
           emitted (emit/emit vec-copied)]
+
+
       (println "ir-stmts " irstmts)
       (println "stmted" sted)
       (println "shader-asts" shader-asts)

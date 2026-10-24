@@ -66,3 +66,9 @@
         :ns              ['name 'requires 'docstring 'attrs]
         :try             [:block 'body {:optional true} :catches 'catches :block 'finally {:optional true} 'attrs]
         :throw           [:expr 'expr 'attrs])
+
+
+(defn irstmt?
+        "是否是 IRStmt 协议实例。"
+        [x]
+        (when x (satisfies? IRStmt x)))

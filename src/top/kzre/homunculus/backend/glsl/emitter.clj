@@ -13,6 +13,8 @@
     [top.kzre.homunculus.backend.shader.pass.ns-strategy :as ns-strategy]
     [top.kzre.homunculus.backend.shader.pass.split-entries :as split-entries]
     [top.kzre.homunculus.backend.shader.semantic :as semantic]
+    [top.kzre.homunculus.core.cfg.build :as build]
+    [top.kzre.homunculus.core.cfg.irstmt.build :as irstmt.build]
     [top.kzre.homunculus.core.error :as err]
     [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
     [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
@@ -82,6 +84,7 @@
           ;; IR2 → IRStmt → 优化 → ShaderAST
           irstmts      (irstmt.lower/lower nodes)
           sted         (statementize/statementize-nodes irstmts)
+          cfgs         (mapv #(build/build-cfg (:body %) (irstmt.build/builder)) sted)
           ped          (propagate/propagate sted (propagate/make-env ctx))
           dced         (dce/elim ped (dce/make-env ctx))
           shader-asts  (lower/lower dced)
@@ -91,7 +94,7 @@
           {:keys [env]} (analyze/analyze renamed (env-impl/make-env))
           analysis     (env/to-analysis env)
           groups       (split-entries/split renamed)]
-
+      (println "cfg: \n" (last cfgs))
       (when (empty? groups)
         (throw (err/compile-error :no-entry-point
                                   "GLSL shader must have one or more entry points.")))
