@@ -1,5 +1,11 @@
-(ns top.kzre.homunculus.core.cfg.pass.ssa.copy-prop
+(ns top.kzre.homunculus.core.cfg.irstmt.pass.copy-prop
   "SSA copy propagation——消除 'x = y' 形式的复制赋值。
+
+   ── 为什么在 irstmt 包下 ──
+
+   copy-assign? 直接判断 IRStmt 的 :assign 节点结构（ast/kind、
+   :var/:val 字段、:variable 节点），不是协议无关的 CFG 变换。
+   放在 irstmt/pass/ 下表明它是 IRStmt 适配层的实现。
 
    ── 目标 ──
 
@@ -14,10 +20,12 @@
    3. 删除 'x = y' 本身
    4. 迭代到不动点——替换可能产生新 copy 链
 
-   ── phi 输入的替换 ──
+   ── 与 phi-raise 的关系 ──
 
-   phi [p1: x] 且 x = y——替换成 phi [p1: y] 等价。
-   通过 adapt/make-var-ref 从 phi 的 template 继承 attrs。"
+   phi-raise 在 destruct 之后把 phi-var 的 move 上浮到 def——
+   phi-var 的 move 消失。copy-prop 运行时 phi-var-set 通常为
+   空，phi-var 跳过条件不生效。保留该条件是为了 phi-raise 未
+   覆盖的场景（如多个 move 目标不一致时 phi-var 残留）。"
   (:require
     [top.kzre.homunculus.core.cfg.adapt :as adapt]
     [top.kzre.homunculus.core.cfg.phi :as phi]

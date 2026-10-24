@@ -13,7 +13,6 @@
    [top.kzre.homunculus.backend.shader.pass.ns-strategy :as ns-strategy]
    [top.kzre.homunculus.backend.shader.pass.split-entries :as split-entries]
    [top.kzre.homunculus.backend.shader.semantic :as semantic]
-   [top.kzre.homunculus.core.cfg.irstmt.opt :as opt]
    [top.kzre.homunculus.core.error :as err]
    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
    [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
@@ -71,8 +70,8 @@
           ;; IR2 → IRStmt → 优化 → ShaderAST
           irstmts      (irstmt.lower/lower nodes)
           sted         (statementize/statementize-nodes irstmts)
-          cfged        (opt/optimize sted)
-          ped          (propagate/propagate cfged (propagate/make-env ctx))
+          ;cfged        (opt/optimize sted (irstmt-adapt/make-adapter ctx))
+          ped          (propagate/propagate sted (propagate/make-env ctx))
           dced         (dce/elim ped (dce/make-env ctx))
           shader-asts  (lower/lower dced)
           vec-copied   (array-assign/expand shader-asts)

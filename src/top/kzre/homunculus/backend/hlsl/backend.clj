@@ -11,7 +11,10 @@
     ;; HLSL 隐式转换规则，返回代价（nil 表示不允许）
     (cast/conversion-cost src-ty dst-ty false))
   (support-hetero-vec [_] false)
-  (folder [_] (folder/folder)))
+  (folder [_] (folder/folder))
+  (mutable-vector? [_] true)
+  (vector-copy-assign? [_] true)
+  (copy-on-assign? [_] true))
 
 
 (defonce ^:private backend* (->HLSLBackend))

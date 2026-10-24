@@ -6,7 +6,11 @@
     [top.kzre.homunculus.core.cfg.analysis.dominator :as dom]
     [top.kzre.homunculus.core.cfg.analysis.liveness :as live]
     [top.kzre.homunculus.core.cfg.model :as cfg]
-    [top.kzre.homunculus.core.cfg.phi :as phi]))
+    [top.kzre.homunculus.core.cfg.phi :as phi])
+  (:import (top.kzre.homunculus.core.cfg.model CFG)))
+
+(defonce ^:private ^:const version-separator* "$$")
+(defn version-separator [] version-separator*)
 
 ;; ═══════════════════════════════════════════
 ;; 版本命名
@@ -16,12 +20,12 @@
   [counters var]
   (let [n (get @counters var 0)]
     (swap! counters assoc var (inc n))
-    (symbol (str (name var) "$$" (inc n)))))
+    (symbol (str (name var) (version-separator) (inc n)))))
 
 (defn strip-versions
   [sym]
   (let [s (name sym)
-        i (str/index-of s "$$")]
+        i (str/last-index-of s (version-separator))]
     (if i (symbol (subs s 0 i)) sym)))
 
 ;; ═══════════════════════════════════════════
@@ -185,8 +189,8 @@
 ;; ═══════════════════════════════════════════
 
 (defn construct
-  [cfg adapter]
-  (let [liveness              (live/compute-liveness cfg adapter)
+  [^CFG cfg adapter]
+  (let [liveness              (live/cfg-liveness cfg adapter)
         {:keys [df dom-tree]} (dom/analyze cfg)
         cfg-phis              (insert-phi-nodes cfg adapter df liveness)]
     (rename-variables cfg-phis dom-tree adapter)))

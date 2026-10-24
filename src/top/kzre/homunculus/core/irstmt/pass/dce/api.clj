@@ -7,7 +7,7 @@
 
 (re-export
   [top.kzre.homunculus.core.irstmt.pass.dce.core
-   :refer [elim]])
+   :refer [elim fx?]])
 
 (re-export
   [top.kzre.homunculus.core.irstmt.pass.dce.env

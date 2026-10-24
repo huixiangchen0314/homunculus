@@ -23,9 +23,14 @@
    ast/rreduce-children——不依赖 clojure.walk。IRStmt 的
    自定义子节点结构只有协议知道。"
   (:require
-    [top.kzre.homunculus.core.cfg.adapt :as adapt]
-    [top.kzre.homunculus.core.cfg.protocol :as proto]
-    [top.kzre.homunculus.core.irstmt.ast :as ast]))
+   [top.kzre.homunculus.core.cfg.adapt :as adapt]
+   [top.kzre.homunculus.core.cfg.protocol :as proto]
+   [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
+   [top.kzre.homunculus.core.ir2.pass.type :as ty]
+   [top.kzre.homunculus.core.irstmt.ast :as ast]
+   [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
+   [top.kzre.homunculus.core.symbol :as sym]
+   [top.kzre.homunculus.internal.protocol :as ip]))
 
 ;; ═══════════════════════════════════════════
 ;; 内部辅助
@@ -67,11 +72,33 @@
                                 nil))
     :else                   expr))
 
+(defn- copy-construct?
+  "node 的赋值是否涉及拷贝构造（分配 + 复制）。
+
+   ▸ vector 类型：后端 mutable 且 copy-assign 时是拷贝构造
+   ▸ record 类型：符号表里注册的 record，赋值是拷贝
+   ▸ 无类型 / 其他类型：不是拷贝构造"
+  [node compile-ctx]
+  (if-let [t (ty/get-type node)]
+    (let [backend (ip/backend compile-ctx)]
+      (if (tp/copy-on-assign? backend)
+        (cond
+          (ty/vec-type? t)
+          (and (tp/mutable-vector? backend)
+               (tp/vector-copy-assign? backend))
+
+          :else
+          (boolean
+            (sym/lookup-record (ip/symbol-table compile-ctx)
+                               (ty/type-sym t))))
+        false))
+    false))
+
 ;; ═══════════════════════════════════════════
 ;; IAdapter 实现
 ;; ═══════════════════════════════════════════
 
-(defrecord IRStmtAdapter []
+(defrecord IRStmtAdapter [compile-ctx]
   adapt/IAdapter
 
   ;; ── 表达式级 ──
@@ -118,7 +145,12 @@
 
       ;; aset / call 不定义——原样返回
       stmt))
-
+  (stmt-fx? [_ stmt]
+    (let [fx? (get-in stmt [:attrs :fx?])]
+      (if (boolean? fx?)
+        fx?
+        (let [fxed (dce/elim stmt (dce/make-env compile-ctx))]
+          (dce/fx? fxed)))))
   ;; ── 终结指令级 ──
   (term-uses [_ term]
     (case (proto/term-kind term)
@@ -140,21 +172,23 @@
                 term)
       term)
     )
-
+  (simple-move?
+    [_ stmt]
+    (and (= :assign (ast/kind stmt))
+         (if-let [rhs (:val stmt)]
+           (not (copy-construct? rhs compile-ctx))
+           false)))
   ;; ── 节点构造——直接复制 attrs ──
   (make-var-ref [_ template sym]
     (when-not template
       (throw (ex-info "make-var-ref: template cannot be nil" {:sym sym})))
     (ast/->Variable sym (:attrs template) (ast/node-meta template)))
 
-  (make-move [_ template var-sym value]
-    (when-not template
-      (throw (ex-info "make-move: template cannot be nil" {:var var-sym})))
+  (make-move [_ var-sym value]
     (ast/->Assign
-      (ast/->Variable var-sym (:attrs template) (ast/node-meta template))
-      value
-      (:attrs template)
-      (ast/node-meta template)))
+      (ast/->Variable
+        var-sym (:attrs value) (ast/node-meta value))
+      value (:attrs value) (ast/node-meta value)))
 
   ;; ── 节点构造（bake 用）──
   (make-block [_ stmts ret]
@@ -184,6 +218,5 @@
 ;; 单例
 ;; ═══════════════════════════════════════════
 
-(defonce ^:private adapter* (->IRStmtAdapter))
-
-(defn adapter [] adapter*)
+(defn make-adapter [compile-ctx]
+  (->IRStmtAdapter compile-ctx))

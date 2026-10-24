@@ -25,4 +25,7 @@
 (defprotocol IBackendInfo
   (type-conversion     [this src-ty dst-ty] "两个内置类型间的转换代价")
   (support-hetero-vec [this] "支持异构向量吗")
-  (folder [this] "返回常量折叠器函数，接收一个表达式节点，返回折叠后的节点或原节点"))
+  (folder [this] "返回常量折叠器函数，接收一个表达式节点，返回折叠后的节点或原节点")
+  (mutable-vector? [this] "tvec 是否是生成可变的结构，如翻译成 定长数组")
+  (vector-copy-assign? [this] "vector 赋值是否是拷贝语义")
+  (copy-on-assign? [this] "该后端是否支持拷贝构造，当面向宿主类型时候需要这个判断"))

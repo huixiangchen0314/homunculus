@@ -15,38 +15,34 @@
    这不是开关——是 pass 的确定性边界。同一输入永远同一输出。
    bake 支持 while / 汇合 if 后，边界自然收窄。"
   (:require
-    [top.kzre.homunculus.core.cfg.bake :as bake]
-    [top.kzre.homunculus.core.cfg.build :as build]
-    [top.kzre.homunculus.core.cfg.irstmt.adapt :as irstmt-adapt]
-    [top.kzre.homunculus.core.cfg.irstmt.build :as irstmt-build]
-    [top.kzre.homunculus.core.cfg.pass.ssa.core :as ssa-core]
-    [top.kzre.homunculus.core.irstmt.ast :as ast])
-  (:import (clojure.lang ExceptionInfo)))
+   [top.kzre.homunculus.core.cfg.build :as build]
+   [top.kzre.homunculus.core.cfg.irstmt.build :as irstmt-build]
+   [top.kzre.homunculus.core.cfg.irstmt.pass.copy-prop :as copy-prop]
+   [top.kzre.homunculus.core.cfg.irstmt.varversion :as varversion]
+   [top.kzre.homunculus.core.cfg.pass.ssa.construct :as construct]
+   [top.kzre.homunculus.core.cfg.pass.ssa.destruct :as destruct]
+   [top.kzre.homunculus.core.cfg.pass.ssa.raise-phi :as raise-phi]
+   [top.kzre.homunculus.core.irstmt.ast :as ast]))
 
 (defn- optimize-function
-  "单个 function/method 的 CFG 优化。
-
-   body 不是 :block 时直接返回。bake 抛异常时返回原 node——
-   这个 function 不做 CFG 优化，保留上游优化结果。"
-  [node]
+  [node adapter]
   (let [body (:body node)]
     (if (or (nil? body) (not= :block (ast/kind body)))
       node
-      (try
-        (let [cfg (build/build-cfg body (irstmt-build/builder))
-              opt-cfg  (ssa-core/run cfg (irstmt-adapt/adapter))
-              baked    (bake/bake cfg (irstmt-adapt/adapter))]
-          (assoc node :body baked))
-        (catch ExceptionInfo e
-          (println "cfg opt failed: " e)
-          ;; bake 不支持的结构（while / 汇合 if）——保留原 node
-          node)))))
+      (let [builder  (irstmt-build/builder)
+            cfg      (build/build-cfg body builder)
+            ssa      (construct/construct cfg adapter)
+            restored (destruct/elim-phi ssa adapter)      ; 方法 2 产生 move
+            raised   (raise-phi/raise-phi restored adapter) ; phi-var 上浮 ← 插这里
+            propped   (copy-prop/copy-prop raised adapter)   ; 剩余拷贝
+            cleaned  (varversion/lower propped)]             ; strip + 自赋值
+        (assoc node :body cleaned)))))
 
 (defn optimize
   "对 nodes 里所有 function/method 做 CFG 优化。"
-  [nodes]
+  [nodes adapter]
   (mapv (fn [node]
           (case (ast/kind node)
-            (:function :method) (optimize-function node)
+            (:function :method) (optimize-function node adapter)
             node))
         nodes))

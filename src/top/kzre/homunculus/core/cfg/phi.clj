@@ -8,7 +8,11 @@
                 由 collect-defs 收集，phi 构造时传入。
                 约定非 nil——nil 在 make-var-ref/make-move 处抛异常。")
 
-(defrecord Phi [var template inputs])
+(defrecord Phi
+  [var                                                      ;; phi 变量
+   template                                                 ;; 变量源声明
+   inputs                                                   ;; 前驱块id
+   ])
 
 (defn make-phi
   [var template preds]

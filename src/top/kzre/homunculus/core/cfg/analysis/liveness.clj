@@ -25,7 +25,10 @@
    x ∈ live-in[d]。"
   (:require
     [top.kzre.homunculus.core.cfg.adapt :as adapt]
-    [top.kzre.homunculus.core.cfg.model :as cfg]))
+    [top.kzre.homunculus.core.cfg.model :as cfg])
+  (:import (top.kzre.homunculus.core.cfg.model CFG)))
+
+(defrecord Liveness [live-in live-out])
 
 ;; ═══════════════════════════════════════════
 ;; 逆后序
@@ -36,7 +39,7 @@
 
    与 dominator.clj 的 dfs-postorder 独立——两者都需要此遍历，
    但计算目的不同。"
-  [cfg]
+  [^CFG cfg]
   (let [visited (atom #{})
         post    (atom [])]
     (letfn [(visit [id]
@@ -52,7 +55,7 @@
 ;; 主计算
 ;; ═══════════════════════════════════════════
 
-(defn compute-liveness
+(defn cfg-liveness
   "计算后向活跃性。
 
    cfg     —— CFG（普通，无 phi）
@@ -60,7 +63,7 @@
 
    返回 {:live-in  {block-id → #{var...}}
          :live-out {block-id → #{var...}}}"
-  [cfg adapter]
+  [^CFG cfg adapter]
   (let [order      (rpo cfg)
         preds      (cfg/cfg-build-preds cfg)
         succs      (cfg/cfg-build-succs cfg)
@@ -74,7 +77,7 @@
            lo       init-lo
            worklist order]
       (if (empty? worklist)
-        {:live-in li :live-out lo}
+        (->Liveness li lo)
         (let [b         (peek worklist)
               worklist  (pop worklist)
               new-lo    (reduce (fn [acc s]
@@ -91,28 +94,60 @@
                    (into worklist (get preds b [])))
             (recur li lo worklist)))))))
 
+(defn stmts-liveness
+  "逐语句级别的活跃分析。
+
+   从最后一条语句往前：
+   ▸ 最后一条语句的 live-out 是 ∅（块内局部分析，不跨块）
+   ▸ 每条语句 live-in = use ∪ (live-out - def)
+   ▸ 前一条语句的 live-out = 当前语句的 live-in
+
+   返回与 stmts 等长的向量，第 i 个元素是 stmts[i] 执行前
+   （:live-in）和执行后（:live-out）的活跃变量集。
+
+   ── 注意 ──
+
+   这是块内局部分析——初始 live-out 是 ∅。块出口的 term
+   （:return 等）里的 use 不在此函数范围内。若 phi_var 在
+   term 里被 use，phi-raise 的 collect-uses 已经能检测到
+   term use 并跳过上浮，所以本函数只需要处理 stmts 内部的
+   下游 use。"
+  [stmts adapter]
+  (let [n   (count stmts)
+        acc (object-array n)]
+    (loop [i        (dec n)
+           live-out #{}]
+      (if (neg? i)
+        (vec acc)
+        (let [stmt    (nth stmts i)
+              uses    (adapt/stmt-uses adapter stmt)
+              defs    (adapt/stmt-defs adapter stmt)
+              live-in (into uses (remove defs live-out))]
+          (aset acc i (->Liveness live-in live-out))
+          (recur (dec i) live-in))))))
+
 ;; ═══════════════════════════════════════════
 ;; 查询辅助
 ;; ═══════════════════════════════════════════
 
 (defn live-in?
-  [liveness b var]
-  (contains? (get-in liveness [:live-in b] #{}) var))
+  [^Liveness liveness block-id var]
+  (contains? (get-in liveness [:live-in block-id] #{}) var))
 
 (defn live-out?
-  [liveness b var]
-  (contains? (get-in liveness [:live-out b] #{}) var))
+  [^Liveness liveness block-id var]
+  (contains? (get-in liveness [:live-out block-id] #{}) var))
 
 (defn live-in-set
-  [liveness b]
-  (get-in liveness [:live-in b] #{}))
+  [^Liveness liveness block-id]
+  (get-in liveness [:live-in block-id] #{}))
 
 (defn live-out-set
-  [liveness b]
-  (get-in liveness [:live-out b] #{}))
+  [^Liveness liveness block-id]
+  (get-in liveness [:live-out block-id] #{}))
 
 (defn var-live-blocks
-  [liveness var]
+  [^Liveness liveness var]
   (->> (:live-in liveness)
        (filter (fn [[_ vars]] (contains? vars var)))
        (map first)

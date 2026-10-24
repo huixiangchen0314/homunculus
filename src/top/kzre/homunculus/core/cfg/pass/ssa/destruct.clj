@@ -12,7 +12,8 @@
     [top.kzre.homunculus.core.cfg.model :as cfg]
     [top.kzre.homunculus.core.cfg.phi :as phi]
     [top.kzre.homunculus.core.cfg.protocol :as proto]
-    [top.kzre.homunculus.core.irstmt.ast :as ast]))
+    [top.kzre.homunculus.core.irstmt.ast :as ast])
+  (:import (top.kzre.homunculus.core.cfg.model CFG)))
 
 ;; ═══════════════════════════════════════════
 ;; 方法 1：return 中转消除
@@ -95,30 +96,26 @@
         c
         (recur (reduce eliminate-via-return c candidates))))))
 
-;; ═══════════════════════════════════════════
-;; 方法 2：并行复制
-;; ═══════════════════════════════════════════
 
-(defn- eliminate-phi-block
-  "各前驱末尾插入 move。move 构造走 adapt/make-move——
-   template 从 phi 继承，保证新 assign 的 var 带 attrs。"
-  [cfg id adapter]
-  (let [block (cfg/cfg-block cfg id)
+(defn- transform-phi-to-move-inst
+  "使用移动指令，替换 phi语义"
+  [^CFG cfg block-id adapter]
+  (let [block (cfg/cfg-block cfg block-id)
         phis  (:phis block)]
-    (if (empty? phis)
-      cfg
+    (if (seq phis)
       (reduce
-        (fn [c p]
-          (let [var  (phi/phi-var p)
-                tmpl (phi/phi-template p)]
+        (fn [cfg-acc phi]
+          (let [var  (phi/phi-var phi)]
             (reduce
               (fn [c {:keys [value pred]}]
-                (let [move (adapt/make-move adapter tmpl var value)]
-                  (update-in c [:blocks pred :stmts] conj move)))
-              c
-              (phi/phi-inputs p))))
+                (let [move-inst (adapt/make-move adapter var value)]
+                  ;; 前驱块末尾插入phi 移动指令
+                  (update-in c [:blocks pred :stmts] conj move-inst)))
+              cfg-acc
+              (phi/phi-inputs phi))))
         cfg
-        phis))))
+        phis)
+      cfg)))
 
 ;; ═══════════════════════════════════════════
 ;; 入口
@@ -131,22 +128,19 @@
 
    方法 1（return 中转消除）暂不启用——它产生\"if 分支各自 return\"
    的 CFG 形态，emit 层不支持（if 的 then/else Block 的 ret 被
-   emit-block-body 在非 top-level 时忽略）。方法 2 保留 merge 块，
+   emit-block-body 在非 top-level 时忽略，这个启用会大幅度增加ir的复杂度，
+   且这个优化在后端语言编译一般能完成，至于解释语言，一般不在乎这个分配开销）。
+   方法 2 保留 merge 块，
    phi 消除转 move——bake 出汇合 if，emit 正确。
 
    方法 1 相关函数（trace-return-to-phi / eligible-for-return-
    elimination? / eliminate-via-return / eliminate-method-1-fixpoint）
    保留，将来 emit 层支持 if 分支 return 后可以重新启用。"
   [ssa-cfg adapter]
-  (let [after-method-2 (reduce
-                         (fn [c id]
-                           (if (:phis (cfg/cfg-block c id))
-                             (eliminate-phi-block c id adapter)
-                             c))
-                         ssa-cfg
-                         (keys (:blocks ssa-cfg)))]
-    (update after-method-2 :blocks
-            (fn [blocks]
-              (into {}
-                    (map (fn [[id b]] [id (assoc b :phis nil)]))
-                    blocks)))))
+  (reduce
+    (fn [c id]
+      (if (:phis (cfg/cfg-block c id))
+        (transform-phi-to-move-inst c id adapter)
+        c))
+    ssa-cfg
+    (keys (:blocks ssa-cfg))))
