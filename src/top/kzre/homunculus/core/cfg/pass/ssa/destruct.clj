@@ -60,27 +60,60 @@
 ;; 方法 1：前驱直连 return
 ;; ═══════════════════════════════════════════
 
-(defn- eligible-for-return-elimination?
-  "块 B 是否满足方法 1 的条件：
+(defn- trace-return-to-phi
+  "从 B 的 return 值追溯到 phi。返回 {:phi p :alias-assign stmt|nil} 或 nil。
 
-   ▸ B 的 stmts 为空
-   ▸ B 的 term 是 :return value
-   ▸ value 是 :variable
-   ▸ value 的 name 是 B 某个 phi 的 var
-   ▸ B 的所有前驱的 term 是 :jump B"
+   ▸ return 直接是 phi-var            → {:phi p :alias-assign nil}
+   ▸ return 是 v，且 stmts 里有 v = phi-var → {:phi p :alias-assign 那条 assign}
+   ▸ 其他                              → nil"
+  [block]
+  (let [term     (:term block)
+        stmts    (:stmts block)
+        phis     (:phis block)
+        phi-vars (set (map phi/phi-var phis))
+        v-name   (when (= :return (proto/term-kind term))
+                   (let [v (:value term)]
+                     (when (and v (= :variable (ast/kind v)))
+                       (:name v))))]
+    (when v-name
+      (cond
+        ;; return 直接是 phi-var
+        (contains? phi-vars v-name)
+        {:phi (some #(when (= v-name (phi/phi-var %)) %) phis)
+         :alias-assign nil}
+
+        ;; 检查 v = phi-var 的别名 assign
+        :else
+        (when-let [alias-assign
+                   (some (fn [stmt]
+                           (when (and (= :assign (ast/kind stmt))
+                                      (= v-name (:name (:var stmt)))
+                                      (= :variable (ast/kind (:val stmt)))
+                                      (contains? phi-vars (:name (:val stmt))))
+                             stmt))
+                         stmts)]
+          (let [alias-var (:name (:val alias-assign))]
+            {:phi (some #(when (= alias-var (phi/phi-var %)) %) phis)
+             :alias-assign alias-assign}))))))
+
+(defn- eligible-for-return-elimination?
+  "B 满足方法 1 的条件：
+
+   ▸ B 的 term 是 :return
+   ▸ return 值追溯到某个 phi（直接或通过一个别名 assign）
+   ▸ B 的所有前驱的 term 是 :jump B
+   ▸ B 的 stmts 只包含追溯到的别名 assign（最多 1 条）"
   [ssa-cfg id]
-  (let [block (cfg/cfg-block ssa-cfg id)
-        phis  (:phis block)
-        term  (:term block)
-        stmts (:stmts block)
-        preds (get (cfg/cfg-build-preds ssa-cfg) id [])]
-    (and (empty? stmts)
-         (seq phis)
-         (= :return (proto/term-kind term))
-         (let [v (:value term)]
-           (and v (= :variable (ast/kind v))))
-         (let [v-name (:name (:value term))]
-           (some #(= v-name (phi/phi-var %)) phis))
+  (let [block  (cfg/cfg-block ssa-cfg id)
+        term   (:term block)
+        stmts  (:stmts block)
+        preds  (get (cfg/cfg-build-preds ssa-cfg) id [])
+        traced (trace-return-to-phi block)]
+    (and traced
+         (let [alias-count (count stmts)]
+           (or (zero? alias-count)
+               (and (= 1 alias-count)
+                    (some? (:alias-assign traced)))))
          (every? #(= :jump (proto/term-kind (:term (cfg/cfg-block ssa-cfg %))))
                  preds))))
 
@@ -88,15 +121,13 @@
   "方法 1：各前驱的 term 改成 :return phi-input，删除 B。"
   [ssa-cfg id]
   (let [block      (cfg/cfg-block ssa-cfg id)
-        phis       (:phis block)
-        term       (:term block)
-        v-name     (:name (:value term))
-        target-phi (some #(when (= v-name (phi/phi-var %)) %) phis)
+        traced     (trace-return-to-phi block)
+        target-phi (:phi traced)
         preds      (get (cfg/cfg-build-preds ssa-cfg) id [])]
     (reduce
       (fn [cfg' pred]
-        (let [input    (some (fn [{input-pred :pred :keys [value]}]   ; ← 重命名
-                               (when (= pred input-pred) value))       ; ← pred 是外层参数
+        (let [input    (some (fn [{input-pred :pred :keys [value]}]
+                               (when (= pred input-pred) value))
                              (phi/phi-inputs target-phi))
               new-term (cfg/->Return input)]
           (cfg/cfg-replace-term cfg' pred new-term)))
