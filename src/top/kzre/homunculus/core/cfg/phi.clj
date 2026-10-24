@@ -1,85 +1,40 @@
 (ns top.kzre.homunculus.core.cfg.phi
-  "phi 节点的规范形式——SSA 的通用数据结构。
+  "phi 节点——SSA 的通用数据结构。
 
-   ── 结构 ────────────────────────────────────────────
+   {:var sym :template stmt-or-var :inputs [{:value expr :pred id}]}
 
-   var    —— phi 定义的变量
-   inputs —— [{:value expr :pred block-id} ...]
-             按前驱块顺序；:value 初始 nil，rename-variables 阶段
-             按前驱块的末尾版本填入。
-")
+   :template —— 定义该 phi var 的原始 stmt 或 variable 节点，
+                用于 SSA 重命名和 phi 消除时构造新节点（带 attrs）。
+                由 collect-defs 收集，phi 构造时传入。
+                约定非 nil——nil 在 make-var-ref/make-move 处抛异常。")
 
-(defrecord Phi
-  [var
-   inputs]
-  ;; var    —— symbol
-  ;; inputs —— [{:value expr|nil :pred block-id} ...]
-  )
-
-;; ═══════════════════════════════════════════
-;; 构造
-;; ═══════════════════════════════════════════
+(defrecord Phi [var template inputs])
 
 (defn make-phi
-  "构造 phi。inputs 的 :value 初始为 nil，rename 阶段填入。
+  [var template preds]
+  (when (nil? template)
+    (throw (ex-info "phi requires non-nil template"
+                    {:var var})))
+  (->Phi var template
+         (mapv (fn [pred] {:value nil :pred pred}) preds)))
 
-   var   —— 变量名符号
-   preds —— 前驱块 id 列表（按 CFG 的 preds 顺序）
-   ——"
-  [var preds]
-  (->Phi var (mapv (fn [pred] {:value nil :pred pred}) preds)))
+(defn phi? [x] (instance? Phi x))
+(defn phi-var [^Phi p] (:var p))
+(defn phi-template [^Phi p] (:template p))
+(defn phi-inputs [^Phi p] (:inputs p))
+(defn phi-preds [^Phi p] (mapv :pred (:inputs p)))
 
-;; ═══════════════════════════════════════════
-;; 访问
-;; ═══════════════════════════════════════════
+(defn rename-phi-var [^Phi p new-var]
+  (assoc p :var new-var))
 
-(defn phi-var
-  [^Phi phi]
-  (:var phi))
-
-(defn phi-inputs
-  [^Phi phi]
-  (:inputs phi))
-
-(defn phi-preds
-  "phi 的前驱块 id 列表。"
-  [^Phi phi]
-  (mapv :pred (:inputs phi)))
-
-;; ═══════════════════════════════════════════
-;; 修改
-;; ═══════════════════════════════════════════
-
-(defn rename-phi-var
-  "重命名 phi 的 var。返回新 Phi。"
-  [^Phi phi new-var]
-  (assoc phi :var new-var))
-
-(defn update-phi-input
-  "更新 pred 对应的输入 value。返回新 Phi。
-
-   pred 不在 phi 的 inputs 里时抛异常——rename-variables 阶段按
-   CFG 前驱填 phi 输入，正常不会不匹配。不匹配说明 CFG 结构在
-   phi 构造之后被某个 pass 改了但没有同步 phi——这是 bug，
-   早点暴露比静默产生错误结果好。"
-  [^Phi phi pred new-value]
-  (when-not (some #(= (:pred %) pred) (:inputs phi))
+(defn update-phi-input [^Phi p pred new-value]
+  (when-not (some #(= (:pred %) pred) (:inputs p))
     (throw (ex-info "phi input pred not found"
-                    {:phi   phi
-                     :pred  pred
-                     :preds (phi-preds phi)})))
-  (update phi :inputs
+                    {:phi p :pred pred :preds (phi-preds p)})))
+  (update p :inputs
           (fn [inputs]
             (mapv (fn [input]
                     (if (= (:pred input) pred)
                       (assoc input :value new-value)
                       input))
                   inputs))))
-
-;; ═══════════════════════════════════════════
-;; 谓词
-;; ═══════════════════════════════════════════
-
-(defn phi?
-  [x]
-  (instance? Phi x))

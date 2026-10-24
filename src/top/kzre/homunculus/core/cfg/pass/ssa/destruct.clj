@@ -1,71 +1,30 @@
 (ns top.kzre.homunculus.core.cfg.pass.ssa.destruct
   "Phi 消除——SSA-CFG → 普通 CFG。
 
-   ── 两种方法 ────────────────────────────────────────
+   ▸ 方法 1（return 中转消除）：块 B 的 term 是 :return，值追溯到
+     某个 phi（直接或通过别名 assign），B 的所有前驱是 :jump B，
+     B 的 stmts 只含别名 assign（最多 1 条）——各前驱 term 改成
+     :return phi-input，删除 B。迭代到不动点。
 
-   方法 1（前驱直连 return）：
-     块 B 的 term 是 :return value，且 value 直接引用 phi var，
-     且 B 的 stmts 为空，且 B 的所有前驱的 term 是 :jump B——
-     各前驱的 term 改成 :return phi-input，删除 B。
-     收益：B 消失，phi var 消失，直接 return 实际值。
-
-   方法 2（并行复制，fallback）：
-     各前驱末尾插入 phi-var = phi-input 的 move，保留 B。
-     用于方法 1 不满足条件的 phi（循环头、有 stmts 的合并块等）。
-
-   ── 迭代到不动点 ────────────────────────────────────
-
-   方法 1 的消除可能导致新的块满足方法 1 条件——比如 B 的前驱
-   P 原本 term 是 :jump B，删除 B 后 P 的 term 变成 :return，
-   如果 P 自己也有 phi 且 stmts 空，P 现在也满足方法 1。
-
-   迭代到没有新的块满足方法 1 为止，然后剩下的 phi 走方法 2。
-
-   ── 方法 1 的简化条件 ──────────────────────────────
-
-   只处理\"B 的 return 直接是单个 phi var\"的情况。
-   `return (+ x$$1 y$$1)` 这类复合表达式不走方法 1——需要把
-   整个 return 表达式下推到每个前驱并替换所有 phi var，复杂
-   且收益低。走方法 2 保持保守。"
+   ▸ 方法 2（并行复制 fallback）：剩余 phi 各前驱末尾插入 move。"
   (:require
+    [top.kzre.homunculus.core.cfg.adapt :as adapt]
     [top.kzre.homunculus.core.cfg.model :as cfg]
-    [top.kzre.homunculus.core.cfg.protocol :as proto]
     [top.kzre.homunculus.core.cfg.phi :as phi]
+    [top.kzre.homunculus.core.cfg.protocol :as proto]
     [top.kzre.homunculus.core.irstmt.ast :as ast]))
 
 ;; ═══════════════════════════════════════════
-;; 方法 2：并行复制
-;; ═══════════════════════════════════════════
-
-(defn- eliminate-phi-block
-  "对单个块的 phis 执行方法 2——各前驱末尾插入 move。"
-  [cfg id make-move-fn]
-  (let [block (cfg/cfg-block cfg id)
-        phis  (:phis block)]
-    (if (empty? phis)
-      cfg
-      (reduce
-        (fn [c p]
-          (let [var (phi/phi-var p)]
-            (reduce
-              (fn [c {:keys [value pred]}]
-                (let [move (make-move-fn var value)]
-                  (update-in c [:blocks pred :stmts] conj move)))
-              c
-              (phi/phi-inputs p))))
-        cfg
-        phis))))
-
-;; ═══════════════════════════════════════════
-;; 方法 1：前驱直连 return
+;; 方法 1：return 中转消除
 ;; ═══════════════════════════════════════════
 
 (defn- trace-return-to-phi
-  "从 B 的 return 值追溯到 phi。返回 {:phi p :alias-assign stmt|nil} 或 nil。
+  "从 B 的 return 值追溯到 phi。
 
-   ▸ return 直接是 phi-var            → {:phi p :alias-assign nil}
-   ▸ return 是 v，且 stmts 里有 v = phi-var → {:phi p :alias-assign 那条 assign}
-   ▸ 其他                              → nil"
+   返回 {:phi p :alias-assign stmt|nil} 或 nil：
+   ▸ return 直接是 phi-var                   → {:phi p :alias-assign nil}
+   ▸ return 是 v，且 stmts 有 v = phi-var    → {:phi p :alias-assign 那条}
+   ▸ 其他                                      → nil"
   [block]
   (let [term     (:term block)
         stmts    (:stmts block)
@@ -77,12 +36,10 @@
                        (:name v))))]
     (when v-name
       (cond
-        ;; return 直接是 phi-var
         (contains? phi-vars v-name)
         {:phi (some #(when (= v-name (phi/phi-var %)) %) phis)
          :alias-assign nil}
 
-        ;; 检查 v = phi-var 的别名 assign
         :else
         (when-let [alias-assign
                    (some (fn [stmt]
@@ -97,28 +54,23 @@
              :alias-assign alias-assign}))))))
 
 (defn- eligible-for-return-elimination?
-  "B 满足方法 1 的条件：
-
-   ▸ B 的 term 是 :return
-   ▸ return 值追溯到某个 phi（直接或通过一个别名 assign）
-   ▸ B 的所有前驱的 term 是 :jump B
-   ▸ B 的 stmts 只包含追溯到的别名 assign（最多 1 条）"
   [ssa-cfg id]
   (let [block  (cfg/cfg-block ssa-cfg id)
-        term   (:term block)
         stmts  (:stmts block)
         preds  (get (cfg/cfg-build-preds ssa-cfg) id [])
         traced (trace-return-to-phi block)]
     (and traced
-         (let [alias-count (count stmts)]
-           (or (zero? alias-count)
-               (and (= 1 alias-count)
-                    (some? (:alias-assign traced)))))
+         (let [cnt (count stmts)]
+           (or (zero? cnt)
+               (and (= 1 cnt) (some? (:alias-assign traced)))))
          (every? #(= :jump (proto/term-kind (:term (cfg/cfg-block ssa-cfg %))))
                  preds))))
 
 (defn- eliminate-via-return
-  "方法 1：各前驱的 term 改成 :return phi-input，删除 B。"
+  "方法 1：各前驱的 term 改成 :return phi-input，删除 B。
+
+   ⚠️ lambda 里 :pred 解构必须改名 input-pred——外层 pred 是参数，
+   被 :keys 解构遮蔽会导致 (= pred pred) 恒 true。"
   [ssa-cfg id]
   (let [block      (cfg/cfg-block ssa-cfg id)
         traced     (trace-return-to-phi block)
@@ -134,15 +86,7 @@
       (cfg/cfg-remove-block ssa-cfg id)
       preds)))
 
-;; ═══════════════════════════════════════════
-;; 入口
-;; ═══════════════════════════════════════════
-
 (defn- eliminate-method-1-fixpoint
-  "迭代走方法 1，直到没有新的块满足条件。
-
-   每次迭代至少删除一个块（方法 1 必然删除被消除的块）——
-   最多迭代 (count blocks) 次，不会无限循环。"
   [ssa-cfg]
   (loop [c ssa-cfg]
     (let [candidates (filterv #(eligible-for-return-elimination? c %)
@@ -151,25 +95,49 @@
         c
         (recur (reduce eliminate-via-return c candidates))))))
 
+;; ═══════════════════════════════════════════
+;; 方法 2：并行复制
+;; ═══════════════════════════════════════════
+
+(defn- eliminate-phi-block
+  "各前驱末尾插入 move。move 构造走 adapt/make-move——
+   template 从 phi 继承，保证新 assign 的 var 带 attrs。"
+  [cfg id adapter]
+  (let [block (cfg/cfg-block cfg id)
+        phis  (:phis block)]
+    (if (empty? phis)
+      cfg
+      (reduce
+        (fn [c p]
+          (let [var  (phi/phi-var p)
+                tmpl (phi/phi-template p)]
+            (reduce
+              (fn [c {:keys [value pred]}]
+                (let [move (adapt/make-move adapter tmpl var value)]
+                  (update-in c [:blocks pred :stmts] conj move)))
+              c
+              (phi/phi-inputs p))))
+        cfg
+        phis))))
+
+;; ═══════════════════════════════════════════
+;; 入口
+;; ═══════════════════════════════════════════
+
 (defn elim-phi
-  "消除所有 phi 节点。
-
-   1. 迭代走方法 1——能直连 return 的 phi 全部消除
-   2. 剩余 phi 走方法 2——各前驱插入 move
-
-   返回普通 CFG——:phis 置 nil（不是 dissoc——dissoc record 字段
-   会降级为普通 map，破坏 bb-* 协议）。"
-  [ssa-cfg make-move-fn]
-  (let [after-method-1  (eliminate-method-1-fixpoint ssa-cfg)
-        after-method-2  (reduce
-                          (fn [c id]
-                            (if (:phis (cfg/cfg-block c id))
-                              (eliminate-phi-block c id make-move-fn)
-                              c))
-                          after-method-1
-                          (keys (:blocks after-method-1)))]
+  [ssa-cfg adapter]
+  (let [after-method-1 (eliminate-method-1-fixpoint ssa-cfg)
+        after-method-2 (reduce
+                         (fn [c id]
+                           (if (:phis (cfg/cfg-block c id))
+                             (eliminate-phi-block c id adapter)
+                             c))
+                         after-method-1
+                         (keys (:blocks after-method-1)))]
     (update after-method-2 :blocks
             (fn [blocks]
+              ;; ⚠️ 用 assoc :phis nil，不能用 dissoc——dissoc record
+              ;; 字段会把 BasicBlock 降级为普通 map，破坏 bb-* 协议
               (into {}
                     (map (fn [[id b]] [id (assoc b :phis nil)]))
                     blocks)))))
