@@ -35,18 +35,32 @@
   (term-replace-uses [this term subst])
 
   ;; ── 节点构造 ──
-  (make-var-ref [this template sym]
-    "构造变量引用节点。template 非 nil——直接复制 template 的
+  (make-var-ref [this origin sym]
+    "构造变量引用节点。origin 非 nil——直接复制 origin 的
      :attrs / :meta，只替换 :name 为 sym。
 
      分析结果前向传播——语句节点的 attrs 描述其产生值的类型，
      即被定义变量的类型。不需要提取内部 variable 节点。")
 
-  (make-move [this template var-sym value]
-    "构造 move 语句：var-sym = value。
+  (make-move [this origin var-sym value]
+    "构造 move 语句：var-sym = expr。
 
-     template 非 nil——var 节点和 assign 节点都从 template 复制
-     :attrs / :meta。"))
+     origin 非 nil——var 节点和 assign 节点都从 origin 复制
+     :attrs / :meta。")
+
+  ;; ── 节点构造（bake 用）──
+  (make-block [this stmts ret]
+    "构造 block 节点。origin 非 nil 时从 origin 继承 :attrs / :meta。
+     origin 为 nil 时用空 attrs / meta。")
+
+  (make-if [this test then-block else-block]
+    "构造 if 节点。origin 非 nil 时从 origin 继承 :attrs / :meta。")
+
+  (make-throw [this expr]
+    "构造 throw 语句。origin 非 nil 时从 origin 继承 :attrs / :meta。")
+  (make-while [this test body-block]
+    "构造 while 节点。IRStmt 定义：[:expr 'test :block 'body 'attrs]。
+     origin 非 nil 时从 origin 继承 :attrs / :meta。"))
 
 ;; ═══════════════════════════════════════════
 ;; 通用辅助

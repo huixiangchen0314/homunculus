@@ -138,7 +138,8 @@
       :throw  (if-let [v (:value term)]
                 (assoc term :value (replace-expr-vars v subst))
                 term)
-      term))
+      term)
+    )
 
   ;; ── 节点构造——直接复制 attrs ──
   (make-var-ref [_ template sym]
@@ -153,7 +154,31 @@
       (ast/->Variable var-sym (:attrs template) (ast/node-meta template))
       value
       (:attrs template)
-      (ast/node-meta template))))
+      (ast/node-meta template)))
+
+  ;; ── 节点构造（bake 用）──
+  (make-block [_ stmts ret]
+    (ast/->Block (vec stmts)
+                 ret
+                 {}
+                 {}))
+
+  (make-if [_ test then-block else-block ]
+    (ast/->If test
+              then-block
+              else-block
+              {}
+              {}))
+
+  (make-throw [_ value ]
+    (ast/->Throw value
+                 {}
+                 {}))
+
+  (make-while [_ test body-block ]
+    (ast/->While test body-block
+                 {}
+                 {})))
 
 ;; ═══════════════════════════════════════════
 ;; 单例

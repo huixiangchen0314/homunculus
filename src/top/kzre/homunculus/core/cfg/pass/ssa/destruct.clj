@@ -125,19 +125,28 @@
 ;; ═══════════════════════════════════════════
 
 (defn elim-phi
+  "消除所有 phi 节点。
+
+   只用方法 2——保留 merge 块，phi 消除转 move。
+
+   方法 1（return 中转消除）暂不启用——它产生\"if 分支各自 return\"
+   的 CFG 形态，emit 层不支持（if 的 then/else Block 的 ret 被
+   emit-block-body 在非 top-level 时忽略）。方法 2 保留 merge 块，
+   phi 消除转 move——bake 出汇合 if，emit 正确。
+
+   方法 1 相关函数（trace-return-to-phi / eligible-for-return-
+   elimination? / eliminate-via-return / eliminate-method-1-fixpoint）
+   保留，将来 emit 层支持 if 分支 return 后可以重新启用。"
   [ssa-cfg adapter]
-  (let [after-method-1 (eliminate-method-1-fixpoint ssa-cfg)
-        after-method-2 (reduce
+  (let [after-method-2 (reduce
                          (fn [c id]
                            (if (:phis (cfg/cfg-block c id))
                              (eliminate-phi-block c id adapter)
                              c))
-                         after-method-1
-                         (keys (:blocks after-method-1)))]
+                         ssa-cfg
+                         (keys (:blocks ssa-cfg)))]
     (update after-method-2 :blocks
             (fn [blocks]
-              ;; ⚠️ 用 assoc :phis nil，不能用 dissoc——dissoc record
-              ;; 字段会把 BasicBlock 降级为普通 map，破坏 bb-* 协议
               (into {}
                     (map (fn [[id b]] [id (assoc b :phis nil)]))
                     blocks)))))

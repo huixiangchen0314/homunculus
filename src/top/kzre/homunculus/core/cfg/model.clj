@@ -10,7 +10,8 @@
    这个设计保证\"边索引\"和\"终结指令\"永远一致——
    不可能出现\"边存在但 term 不指向\"或\"term 指向但边不存在\"。"
   (:require
-    [top.kzre.homunculus.core.cfg.protocol :as proto]))
+    [top.kzre.homunculus.core.cfg.protocol :as proto])
+  (:import (clojure.lang PersistentQueue)))
 
 ;; ═══════════════════════════════════════════
 ;; 终结指令
@@ -54,7 +55,7 @@
 ;; CFG
 ;; ═══════════════════════════════════════════
 
-(defrecord CFG [entry blocks]
+(defrecord CFG [entry blocks  loop-heads]
   ;; entry  —— 入口块 id（必在 blocks 里）
   ;; blocks —— {id → BasicBlock}
   ;;
@@ -75,7 +76,7 @@
 
 (defn make-cfg
   "从 entry 和块序列构造 CFG。块 id 必须唯一。"
-  [entry blocks]
+  [entry blocks loop-heads]
   (let [m (into {} (map (fn [b] [(proto/bb-id b) b]) blocks))]
     (when (not= (count m) (count blocks))
       (throw (ex-info "duplicate block id in CFG"
@@ -83,40 +84,81 @@
     (when-not (contains? m entry)
       (throw (ex-info "entry block id not in blocks"
                       {:entry entry :ids (keys m)})))
-    (->CFG entry m)))
+    (->CFG entry m  loop-heads)))
 
 ;; ═══════════════════════════════════════════
 ;; 访问
 ;; ═══════════════════════════════════════════
 
 (defn cfg-block
-  [cfg id]
+  [^CFG cfg id]
   (get (:blocks cfg) id))
 
 (defn cfg-entry-block
-  [cfg]
+  [^CFG cfg]
   (cfg-block cfg (:entry cfg)))
 
+(defn cfg-loop-head?
+  "head 是否是 while 循环头。build 时记录在 CFG 的 :loop-heads 里。
+   精确信息——不需要回边检测。"
+  [^CFG cfg block-id]
+  (contains? (:loop-heads cfg #{}) block-id))
+
 (defn cfg-block-ids
-  [cfg]
+  [^CFG cfg]
   (keys (:blocks cfg)))
 
 (defn cfg-successors-of
-  [cfg id]
+  [^CFG cfg id]
   (some-> (cfg-block cfg id) proto/bb-successors))
 
 (defn cfg-predecessors-of
   "遍历所有块计算前驱。O(n) per call。
    频繁调用时用 cfg-build-preds 一次构建索引。"
-  [cfg id]
+  [^CFG cfg id]
   (->> (:blocks cfg)
        vals
        (filter (fn [b] (some #{id} (proto/bb-successors b))))
        (mapv proto/bb-id)))
 
+(defn reachable-clojure
+  "从 seed-block-id 开始的可达闭包"
+  [^CFG cfg seed-block-id]
+  (loop [seen #{} work [seed-block-id]]
+    (if (empty? work)
+      seen
+      (let [cur (first work)]
+        (if (contains? seen cur)
+          (recur seen (rest work))
+          (recur (conj seen cur)
+                 (into (rest work) (cfg-successors-of cfg cur))))))))
+
+(defn cfg-join-block-id
+  "从 then 的 successors 严格 BFS（FIFO），找第一个在 else-closure 里的块。
+
+   用 PersistentQueue 保证 FIFO——into 对 queue 是尾插。
+   seen 在入队时维护——每个块只入队一次。
+   else-closure 排除 else-id 自己——then 直接到 else 时不算汇合点。"
+  [^CFG cfg {:keys [then else] :as _branch}]
+  (let [else-closure (-> (reachable-clojure cfg else)
+                         (disj else))]
+    (when (seq else-closure)
+      (let [init-succs (vec (cfg-successors-of cfg then))]
+        (loop [queue (into PersistentQueue/EMPTY init-succs)
+               seen  (set init-succs)]
+          (if (seq queue)
+            (let [cur    (peek queue)
+                  queue' (pop queue)]
+              (if (contains? else-closure cur)
+                cur
+                (let [new-succs (remove seen (cfg-successors-of cfg cur))]
+                  (recur (into queue' new-succs)
+                         (into seen new-succs)))))
+            nil))))))
+
 (defn cfg-build-preds
   "构建 {id → [pred-id ...]} 索引。一次性 O(n+m)。"
-  [cfg]
+  [^CFG cfg]
   (reduce (fn [acc b]
             (let [from (proto/bb-id b)]
               (reduce (fn [a to]
@@ -128,7 +170,7 @@
 
 (defn cfg-build-succs
   "构建 {id → [succ-id ...]} 索引。"
-  [cfg]
+  [^CFG cfg]
   (into {}
         (map (fn [[id b]]
                [id (vec (proto/bb-successors b))]))
@@ -137,7 +179,7 @@
 (defn cfg-terminators
   "所有终止块（:return / :throw）的 id 集合。
    数据流分析的后向起点。"
-  [cfg]
+  [^CFG cfg]
   (->> (:blocks cfg)
        vals
        (filter (fn [b] (contains? #{:return :throw}
@@ -147,7 +189,7 @@
 
 (defn cfg-reachable?
   "id 是否从 entry 可达。BFS。"
-  [cfg id]
+  [^CFG cfg id]
   (loop [seen #{}
          work [( :entry cfg)]]
     (cond
@@ -166,7 +208,7 @@
 
 (defn cfg-add-block
   "添加块。同 id 已存在时抛异常。"
-  [cfg block]
+  [^CFG cfg block]
   (let [id (proto/bb-id block)]
     (when (contains? (:blocks cfg) id)
       (throw (ex-info "block id already exists"
@@ -178,12 +220,12 @@
 
    ⚠️ 不检查边的完整性——调用方负责处理指向此块的边
    （重定向到 other 或一并删除）。"
-  [cfg id]
+  [^CFG cfg id]
   (update cfg :blocks dissoc id))
 
 (defn cfg-replace-block
   "替换块（同 id，内容不同）。"
-  [cfg block]
+  [^CFG cfg block]
   (let [id (proto/bb-id block)]
     (when-not (contains? (:blocks cfg) id)
       (throw (ex-info "block id not found" {:id id})))
@@ -191,13 +233,13 @@
 
 (defn cfg-replace-term
   "替换块的终结指令。"
-  [cfg id new-term]
+  [^CFG cfg id new-term]
   (update-in cfg [:blocks id]
              (fn [b] (assoc b :term new-term))))
 
 (defn cfg-update-stmts
   "替换块的语句序列。stmts 会被 vec 化。"
-  [cfg id new-stmts]
+  [^CFG cfg id new-stmts]
   (update-in cfg [:blocks id]
              (fn [b] (assoc b :stmts (vec new-stmts)))))
 
@@ -206,7 +248,7 @@
 
    用于块删除 / 块合并时的边重定向。
    :jump 的 target 或 :branch 的 then/else 匹配 old-succ 时替换。"
-  [cfg id old-succ new-succ]
+  [^CFG cfg id old-succ new-succ]
   (update-in cfg [:blocks id :term]
              (fn [term]
                (case (proto/term-kind term)

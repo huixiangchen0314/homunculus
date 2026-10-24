@@ -1,29 +1,26 @@
 (ns top.kzre.homunculus.backend.glsl.emitter
   (:require
-    [top.kzre.homunculus.backend.glsl.config :as cfg]
-    [top.kzre.homunculus.backend.glsl.emit.api :as emit]
-    [top.kzre.homunculus.backend.glsl.lower.api :as glsl.lower]
-    [top.kzre.homunculus.backend.glsl.semantic.api :as sematic]
-    [top.kzre.homunculus.backend.shader.lower :as lower]
-    [top.kzre.homunculus.backend.shader.pass.analyze.core :as analyze]
-    [top.kzre.homunculus.backend.shader.pass.analyze.env :as env]
-    [top.kzre.homunculus.backend.shader.pass.analyze.env-impl :as env-impl]
-    [top.kzre.homunculus.backend.shader.pass.array-assign :as array-assign]
-    [top.kzre.homunculus.backend.shader.pass.liveness :as liveness]
-    [top.kzre.homunculus.backend.shader.pass.ns-strategy :as ns-strategy]
-    [top.kzre.homunculus.backend.shader.pass.split-entries :as split-entries]
-    [top.kzre.homunculus.backend.shader.semantic :as semantic]
-    [top.kzre.homunculus.core.cfg.build :as build]
-    [top.kzre.homunculus.core.cfg.irstmt.build :as irstmt.build]
-    [top.kzre.homunculus.core.error :as err]
-    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
-    [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
-    [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
-    [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
-    [top.kzre.homunculus.internal.compile-result :as compile-result]
-    [top.kzre.homunculus.internal.module-unit :as mu]
-    [top.kzre.homunculus.internal.protocol :as ip]
-    [top.kzre.homunculus.internal.utils :as iu]))
+   [top.kzre.homunculus.backend.glsl.config :as cfg]
+   [top.kzre.homunculus.backend.glsl.emit.api :as emit]
+   [top.kzre.homunculus.backend.glsl.lower.api :as glsl.lower]
+   [top.kzre.homunculus.backend.glsl.semantic.api :as sematic]
+   [top.kzre.homunculus.backend.shader.lower :as lower]
+   [top.kzre.homunculus.backend.shader.pass.analyze.core :as analyze]
+   [top.kzre.homunculus.backend.shader.pass.analyze.env :as env]
+   [top.kzre.homunculus.backend.shader.pass.analyze.env-impl :as env-impl]
+   [top.kzre.homunculus.backend.shader.pass.array-assign :as array-assign]
+   [top.kzre.homunculus.backend.shader.pass.liveness :as liveness]
+   [top.kzre.homunculus.backend.shader.pass.ns-strategy :as ns-strategy]
+   [top.kzre.homunculus.backend.shader.pass.split-entries :as split-entries]
+   [top.kzre.homunculus.backend.shader.semantic :as semantic]
+   [top.kzre.homunculus.core.cfg.irstmt.opt :as opt]
+   [top.kzre.homunculus.core.error :as err]
+   [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
+   [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
+   [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
+   [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
+   [top.kzre.homunculus.internal.compile-result :as compile-result]
+   [top.kzre.homunculus.internal.protocol :as ip]))
 
 ;; ═══════════════════════════════════════════
 ;; 路径生成
@@ -37,16 +34,6 @@
     :compute  ".comp"
     (throw (err/compile-error :unknown-shader-stage
                               (str "Unknown shader stage: " stage)))))
-
-(defn- unit-path
-  [ctx unit]
-  (let [cfg (ip/config ctx)
-        out-dir (ip/output-path  cfg)]
-    (str out-dir "/"
-         (if unit
-           (iu/ns->module-path (mu/module-ns unit)
-                               (ip/module-naming-style cfg))
-           "out"))))
 
 ;; ═══════════════════════════════════════════
 ;; 单个入口点的发射
@@ -84,8 +71,8 @@
           ;; IR2 → IRStmt → 优化 → ShaderAST
           irstmts      (irstmt.lower/lower nodes)
           sted         (statementize/statementize-nodes irstmts)
-          cfgs         (mapv #(build/build-cfg (:body %) (irstmt.build/builder)) sted)
-          ped          (propagate/propagate sted (propagate/make-env ctx))
+          cfged        (opt/optimize sted)
+          ped          (propagate/propagate cfged (propagate/make-env ctx))
           dced         (dce/elim ped (dce/make-env ctx))
           shader-asts  (lower/lower dced)
           vec-copied   (array-assign/expand shader-asts)
@@ -94,11 +81,6 @@
           {:keys [env]} (analyze/analyze renamed (env-impl/make-env))
           analysis     (env/to-analysis env)
           groups       (split-entries/split renamed)]
-      (println "cfg: \n" (last cfgs))
-      (when (empty? groups)
-        (throw (err/compile-error :no-entry-point
-                                  "GLSL shader must have one or more entry points.")))
-
       (if (= 1 (count groups))
         ;; 单入口——返回单个 module-result
         (emit-entry ctx path (first groups) analysis)
