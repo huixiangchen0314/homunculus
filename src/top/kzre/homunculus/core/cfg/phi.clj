@@ -1,31 +1,13 @@
 (ns top.kzre.homunculus.core.cfg.phi
   "phi 节点的规范形式——SSA 的通用数据结构。
 
-   phi 不是 IRStmt 节点——它只存在于 SSA-CFG 的 BasicBlock 的
-   :phis 字段里。:value 是前端的表达式节点（IRStmt 的 variable /
-   literal / call），但 phi 结构本身是通用的——所有前端一致，
-   不需要协议。
-
    ── 结构 ────────────────────────────────────────────
 
-   var    —— phi 定义的变量名（symbol）
+   var    —— phi 定义的变量
    inputs —— [{:value expr :pred block-id} ...]
              按前驱块顺序；:value 初始 nil，rename-variables 阶段
              按前驱块的末尾版本填入。
-
-   ── 为什么用 record 而非 map ────────────────────────
-
-   ▸ 类型可辨识——(phi? x) 判断，不会与普通 map 混淆
-   ▸ 字段名拼写错误时——(:varr phi) 返回 nil，但 (assoc phi :varr ...)
-     进入 extmap，读 :var 拿不到——record 的字段访问是明确定义的，
-     拼错容易发现
-   ▸ 打印友好——#Phi{:var x$$1 :inputs [...]} 比裸 map 清晰
-
-   ── 不放在 IType / IRStmt 体系里 ────────────────────
-
-   phi 是 SSA 中间产物——construct 后存在，destruct 后消失。
-   它不是 IRStmt 节点，不参与 AST 遍历；也不是 IType，不参与
-   类型推导。只是 CFG 层的一个数据结构。")
+")
 
 (defrecord Phi
   [var
