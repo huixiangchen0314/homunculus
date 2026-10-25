@@ -110,8 +110,8 @@
     (case (ast/kind stmt)
       ;; assign 的 use 只有 :val——:var 是简单变量，被定义不算 use
       :assign   (expr-uses* (:val stmt))
-      ;:var-decl
-      ;(throw (ex-info "var-decl is unsupported in irstmt cfg" {}))
+      :var-decl
+      (throw (ex-info "var-decl is unsupported in irstmt cfg" {}))
       ;; var-decl / aset / call / 其他——走一般路径
       ;; var-decl 的 ast/children 只返回 :val
       ;; aset 的 target / idx / val 都是 use
@@ -122,8 +122,8 @@
       ;; assign 定义简单变量——约定 :var 一定是 variable
       :assign   #{(:name (:var stmt))}
       :var-decl
-      ;(throw (ex-info "var-decl is unsupported in irstmt cfg" {}))
-      #{(:name stmt)}
+      (throw (ex-info "var-decl is unsupported in irstmt cfg" {}))
+      ;#{(:name stmt)}
       ;; aset / call / 其他——不定义
       #{}))
 
@@ -131,8 +131,8 @@
     (case (ast/kind stmt)
       ;; assign——只替换 :val 里的 uses
       :assign (assoc stmt :val (replace-expr-vars (:val stmt) subst))
-      ;:var-decl
-      ;(throw (ex-info "var-decl is unsupported in irstmt cfg" {}))
+      :var-decl
+      (throw (ex-info "var-decl is unsupported in irstmt cfg" {}))
       ;; var-decl / aset / call / 其他——深度替换所有子表达式
       (replace-expr-vars stmt subst)))
 

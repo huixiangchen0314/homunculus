@@ -73,10 +73,7 @@
           irstmts      (irstmt.lower/lower nodes (irstmt.lower/make-env))
           sted         (statementize/statementize-nodes irstmts)
           cfged        (opt/optimize sted (cfg-adapt/make-adapter ctx))
-          ;declared     (declare/decl cfged)
-          ped          (propagate/propagate cfged (propagate/make-env ctx))
-          dced         (dce/elim ped (dce/make-env ctx))
-          shader-asts  (lower/lower dced)
+          shader-asts  (lower/lower cfged)
           vec-copied   (array-assign/expand shader-asts)
           renamed (ns-strategy/apply vec-copied (cfg/ns-strategy (ip/config ctx)))
           ;; 分析 → 分流

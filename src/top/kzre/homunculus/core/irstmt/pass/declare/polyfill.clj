@@ -76,26 +76,21 @@
 
 (defmethod polyfill-node :block
   [block env-in]
-  (let [[ret' env-with-ret] (if-let [ret (:ret block)]
-                              (polyfill-node ret env-in)
-                              [nil env-in])
-        [stmts' env-out]    (ast/rreduce-children
-                              block
-                              (fn [stmt env]
-                                (polyfill-node stmt env))
-                              env-with-ret)
-        need-decl-names     (set/difference (set (keys env-out))
-                                            (set (keys env-in)))
-        decl-stmts          (mapv (fn [var-name]
-                                    (ast/->VarDecl var-name
-                                                   nil nil
-                                                   (get env-out var-name)
-                                                   nil))
-                                  (sort-by str need-decl-names))
-        block'              (-> block
-                                (assoc :stmts (into decl-stmts stmts'))
-                                (assoc :ret ret'))]
-    [block' env-out]))
+  (let [[block' env-out] (ast/rreduce-children
+                           block
+                           (fn [child env]
+                             (polyfill-node child env))
+                           env-in)
+        need-decl-names  (set/difference (set (keys env-out))
+                                         (set (keys env-in)))
+        decl-stmts       (mapv (fn [var-name]
+                                 (ast/->VarDecl var-name
+                                                nil nil
+                                                (get env-out var-name)
+                                                nil))
+                               (sort-by str need-decl-names))]
+    [(update block' :stmts #(into decl-stmts %))
+     env-out]))
 
 (defmethod polyfill-node :throw
   [stmt env]
