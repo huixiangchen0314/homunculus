@@ -18,6 +18,8 @@
    [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
    [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
    [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
+   [top.kzre.homunculus.core.cfg.irstmt.opt :as opt]
+   [top.kzre.homunculus.core.cfg.irstmt.adapt :as cfg-adapt]
    [top.kzre.homunculus.internal.compile-result :as compile-result]
    [top.kzre.homunculus.internal.protocol :as ip]))
 
@@ -70,8 +72,8 @@
           ;; IR2 → IRStmt → 优化 → ShaderAST
           irstmts      (irstmt.lower/lower nodes)
           sted         (statementize/statementize-nodes irstmts)
-          ;cfged        (opt/optimize sted (irstmt-adapt/make-adapter ctx))
-          ped          (propagate/propagate sted (propagate/make-env ctx))
+          cfged        (opt/optimize sted (cfg-adapt/make-adapter ctx))
+          ped          (propagate/propagate cfged (propagate/make-env ctx))
           dced         (dce/elim ped (dce/make-env ctx))
           shader-asts  (lower/lower dced)
           vec-copied   (array-assign/expand shader-asts)

@@ -5,11 +5,12 @@
 
    边不是独立对象——由 terminator 的 target / then / else 隐含表达。
    `:jump` 有一条出边，`:branch` 有两条，`:return` / `:throw` 无出边。
-   前驱关系通过遍历所有块构建（cfg-build-preds）。
+   前驱关系通过遍历所有块构建（cfg-build-predecessors）。
 
    这个设计保证\"边索引\"和\"终结指令\"永远一致——
    不可能出现\"边存在但 term 不指向\"或\"term 指向但边不存在\"。"
   (:require
+    [top.kzre.homunculus.core.cfg.phi :as phi]
     [top.kzre.homunculus.core.cfg.protocol :as proto])
   (:import (clojure.lang PersistentQueue)))
 
@@ -42,8 +43,7 @@
 ;; ═══════════════════════════════════════════
 
 (defrecord BasicBlock
-  [id stmts term origin
-   phis]
+  [id stmts term origin phis]
   proto/IBasicBlock
   (bb-id [_] id)
   (bb-stmts [_] stmts)
@@ -55,7 +55,7 @@
 ;; CFG
 ;; ═══════════════════════════════════════════
 
-(defrecord CFG [entry blocks  loop-heads]
+(defrecord CFG [entry blocks loop-heads]
   ;; entry  —— 入口块 id（必在 blocks 里）
   ;; blocks —— {id → BasicBlock}
   ;;
@@ -77,14 +77,14 @@
 (defn make-cfg
   "从 entry 和块序列构造 CFG。块 id 必须唯一。"
   [entry blocks loop-heads]
-  (let [m (into {} (map (fn [b] [(proto/bb-id b) b]) blocks))]
-    (when (not= (count m) (count blocks))
+  (let [block-map (into {} (map (fn [block] [(proto/bb-id block) block]) blocks))]
+    (when (not= (count block-map) (count blocks))
       (throw (ex-info "duplicate block id in CFG"
                       {:blocks (mapv proto/bb-id blocks)})))
-    (when-not (contains? m entry)
+    (when-not (contains? block-map entry)
       (throw (ex-info "entry block id not in blocks"
-                      {:entry entry :ids (keys m)})))
-    (->CFG entry m  loop-heads)))
+                      {:entry entry :ids (keys block-map)})))
+    (->CFG entry block-map loop-heads)))
 
 ;; ═══════════════════════════════════════════
 ;; 访问
@@ -99,7 +99,7 @@
   (cfg-block cfg (:entry cfg)))
 
 (defn cfg-loop-head?
-  "head 是否是 while 循环头。build 时记录在 CFG 的 :loop-heads 里。
+  "block-id 是否是 while 循环头。build 时记录在 CFG 的 :loop-heads 里。
    精确信息——不需要回边检测。"
   [^CFG cfg block-id]
   (contains? (:loop-heads cfg #{}) block-id))
@@ -114,11 +114,11 @@
 
 (defn cfg-predecessors-of
   "遍历所有块计算前驱。O(n) per call。
-   频繁调用时用 cfg-build-preds 一次构建索引。"
+   频繁调用时用 cfg-build-predecessors 一次构建索引。"
   [^CFG cfg id]
   (->> (:blocks cfg)
        vals
-       (filter (fn [b] (some #{id} (proto/bb-successors b))))
+       (filter (fn [block] (some #{id} (proto/bb-successors block))))
        (mapv proto/bb-id)))
 
 (defn reachable-clojure
@@ -127,11 +127,11 @@
   (loop [seen #{} work [seed-block-id]]
     (if (empty? work)
       seen
-      (let [cur (first work)]
-        (if (contains? seen cur)
+      (let [current (first work)]
+        (if (contains? seen current)
           (recur seen (rest work))
-          (recur (conj seen cur)
-                 (into (rest work) (cfg-successors-of cfg cur))))))))
+          (recur (conj seen current)
+                 (into (rest work) (cfg-successors-of cfg current))))))))
 
 (defn cfg-join-block-id
   "从 then 的 successors 严格 BFS（FIFO），找第一个在 else-closure 里的块。
@@ -143,38 +143,62 @@
   (let [else-closure (-> (reachable-clojure cfg else)
                          (disj else))]
     (when (seq else-closure)
-      (let [init-succs (vec (cfg-successors-of cfg then))]
-        (loop [queue (into PersistentQueue/EMPTY init-succs)
-               seen  (set init-succs)]
+      (let [initial-successors (vec (cfg-successors-of cfg then))]
+        (loop [queue (into PersistentQueue/EMPTY initial-successors)
+               seen  (set initial-successors)]
           (if (seq queue)
-            (let [cur    (peek queue)
-                  queue' (pop queue)]
-              (if (contains? else-closure cur)
-                cur
-                (let [new-succs (remove seen (cfg-successors-of cfg cur))]
-                  (recur (into queue' new-succs)
-                         (into seen new-succs)))))
+            (let [current   (peek queue)
+                  remaining (pop queue)]
+              (if (contains? else-closure current)
+                current
+                (let [new-successors (remove seen (cfg-successors-of cfg current))]
+                  (recur (into remaining new-successors)
+                         (into seen new-successors)))))
             nil))))))
 
-(defn cfg-build-preds
-  "构建 {id → [pred-id ...]} 索引。一次性 O(n+m)。"
+(defn cfg-build-predecessors
+  "构建 {block-id → [predecessor-id ...]} 索引。一次性 O(n+m)。"
   [^CFG cfg]
-  (reduce (fn [acc b]
-            (let [from (proto/bb-id b)]
-              (reduce (fn [a to]
-                        (update a to (fnil conj []) from))
+  (reduce (fn [acc block]
+            (let [predecessor-id (proto/bb-id block)]
+              (reduce (fn [acc successor-id]
+                        (update acc
+                                successor-id (fnil conj []) predecessor-id))
                       acc
-                      (proto/bb-successors b))))
+                      (proto/bb-successors block))))
           {}
           (vals (:blocks cfg))))
 
-(defn cfg-build-succs
-  "构建 {id → [succ-id ...]} 索引。"
+
+
+(defn cfg-build-successors
+  "构建 {block-id → [successor-id ...]} 索引。"
   [^CFG cfg]
   (into {}
-        (map (fn [[id b]]
-               [id (vec (proto/bb-successors b))]))
+        (map (fn [[id block]]
+               [id (vec (proto/bb-successors block))]))
         (:blocks cfg)))
+
+
+
+(defn all-successors
+  "获取 block-id 的所有后继块 id 序列——传递闭包，不含自身。
+
+   BFS 顺序——直接后继在前，间接后继在后。去重。"
+  [^CFG cfg block-id]
+  (loop [visited #{block-id}
+         result  []
+         queue   (vec (cfg-successors-of cfg block-id))]
+    (if (empty? queue)
+      result
+      (let [current (first queue)
+            rest    (subvec queue 1)]
+        (if (contains? visited current)
+          (recur visited result rest)
+          (recur (conj visited current)
+                 (conj result current)
+                 (into rest (cfg-successors-of cfg current))))))))
+
 
 (defn cfg-terminators
   "所有终止块（:return / :throw）的 id 集合。
@@ -182,8 +206,8 @@
   [^CFG cfg]
   (->> (:blocks cfg)
        vals
-       (filter (fn [b] (contains? #{:return :throw}
-                                  (proto/term-kind (proto/bb-term b)))))
+       (filter (fn [block] (contains? #{:return :throw}
+                                      (proto/term-kind (proto/bb-term block)))))
        (map proto/bb-id)
        set))
 
@@ -191,16 +215,16 @@
   "id 是否从 entry 可达。BFS。"
   [^CFG cfg id]
   (loop [seen #{}
-         work [( :entry cfg)]]
+         work [(:entry cfg)]]
     (cond
-      (empty? work)          false
-      (contains? seen id)    true
-      (contains? seen (first work)) (recur seen (rest work))
+      (empty? work)                  false
+      (contains? seen id)            true
+      (contains? seen (first work))  (recur seen (rest work))
       :else
-      (let [cur (first work)
-            seen' (conj seen cur)
-            succs (cfg-successors-of cfg cur)]
-        (recur seen' (into (rest work) succs))))))
+      (let [current     (first work)
+            seen'       (conj seen current)
+            successors  (cfg-successors-of cfg current)]
+        (recur seen' (into (rest work) successors))))))
 
 ;; ═══════════════════════════════════════════
 ;; 修改
@@ -235,28 +259,40 @@
   "替换块的终结指令。"
   [^CFG cfg id new-term]
   (update-in cfg [:blocks id]
-             (fn [b] (assoc b :term new-term))))
+             (fn [block] (assoc block :term new-term))))
 
 (defn cfg-update-stmts
   "替换块的语句序列。stmts 会被 vec 化。"
   [^CFG cfg id new-stmts]
   (update-in cfg [:blocks id]
-             (fn [b] (assoc b :stmts (vec new-stmts)))))
+             (fn [block] (assoc block :stmts (vec new-stmts)))))
 
 (defn cfg-replace-successor
-  "在 id 块的 terminator 里，把 old-succ 替换成 new-succ。
+  "在 id 块的 terminator 里，把 old-successor 替换成 new-successor。
 
    用于块删除 / 块合并时的边重定向。
-   :jump 的 target 或 :branch 的 then/else 匹配 old-succ 时替换。"
-  [^CFG cfg id old-succ new-succ]
+   :jump 的 target 或 :branch 的 then/else 匹配 old-successor 时替换。"
+  [^CFG cfg id old-successor new-successor]
   (update-in cfg [:blocks id :term]
              (fn [term]
                (case (proto/term-kind term)
-                 :jump   (if (= (:target term) old-succ)
-                           (assoc term :target new-succ)
+                 :jump   (if (= (:target term) old-successor)
+                           (assoc term :target new-successor)
                            term)
                  :branch (cond-> term
-                                 (= (:then term) old-succ) (assoc :then new-succ)
-                                 (= (:else term) old-succ) (assoc :else new-succ))
+                                 (= (:then term) old-successor) (assoc :then new-successor)
+                                 (= (:else term) old-successor) (assoc :else new-successor))
                  ;; :return / :throw 无后继
                  term))))
+
+(defn collect-phi-substs
+  [^CFG cfg]
+  (reduce
+    (fn [substs block]
+      (if-let [phis (:phis block)]
+        (apply merge substs
+               (mapv phi/phi-substs phis))
+        substs))
+    {}
+    (vals (:blocks cfg))))
+

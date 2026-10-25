@@ -15,14 +15,13 @@
    这不是开关——是 pass 的确定性边界。同一输入永远同一输出。
    bake 支持 while / 汇合 if 后，边界自然收窄。"
   (:require
-   [top.kzre.homunculus.core.cfg.build :as build]
-   [top.kzre.homunculus.core.cfg.irstmt.build :as irstmt-build]
-   [top.kzre.homunculus.core.cfg.irstmt.pass.copy-prop :as copy-prop]
-   [top.kzre.homunculus.core.cfg.irstmt.varversion :as varversion]
-   [top.kzre.homunculus.core.cfg.pass.ssa.construct :as construct]
-   [top.kzre.homunculus.core.cfg.pass.ssa.destruct :as destruct]
-   [top.kzre.homunculus.core.cfg.pass.ssa.raise-phi :as raise-phi]
-   [top.kzre.homunculus.core.irstmt.ast :as ast]))
+    [top.kzre.homunculus.core.cfg.bake :as bake]
+    [top.kzre.homunculus.core.cfg.build :as build]
+    [top.kzre.homunculus.core.cfg.irstmt.build :as irstmt-build]
+    [top.kzre.homunculus.core.cfg.pass.ssa.construct :as construct]
+    [top.kzre.homunculus.core.cfg.pass.ssa.destruct :as destruct]
+    [top.kzre.homunculus.core.cfg.pass.ssa.raise-phi :as raise-phi]
+    [top.kzre.homunculus.core.irstmt.ast :as ast]))
 
 (defn- optimize-function
   [node adapter]
@@ -32,11 +31,11 @@
       (let [builder  (irstmt-build/builder)
             cfg      (build/build-cfg body builder)
             ssa      (construct/construct cfg adapter)
-            restored (destruct/elim-phi ssa adapter)      ; 方法 2 产生 move
-            raised   (raise-phi/raise-phi restored adapter) ; phi-var 上浮 ← 插这里
-            propped   (copy-prop/copy-prop raised adapter)   ; 剩余拷贝
-            cleaned  (varversion/lower propped)]             ; strip + 自赋值
-        (assoc node :body cleaned)))))
+            raised   (raise-phi/raise-phi ssa adapter)     ; SSA：改 phi 的 var-name
+            ;propped  (copy-prop/copy-prop raised adapter)   ; SSA：处理非 phi 变量的拷贝
+            restored (destruct/elim-phi raised adapter)   ; 解构：phi 下推 + 版本化消除
+            baked    (bake/bake restored adapter)]
+        (assoc node :body baked)))))
 
 (defn optimize
   "对 nodes 里所有 function/method 做 CFG 优化。"

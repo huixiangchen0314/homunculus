@@ -237,7 +237,8 @@
           uniform? [(ast/->Uniform   var-name var-ty attrs meta) env']
           static?  [(ast/->StaticVar var-name var-ty init attrs meta) env']
           :else    (if (shader.env/local-var? env' var-name)
-                     [(ast/->Assign (ast/->Variable var-name nil) init attrs meta) env']
+                     [(ast/->Assign (ast/->Variable var-name (:attrs node) (:meta node))
+                                    init attrs meta) env']
                      [(ast/->VarDecl var-name var-ty init attrs meta)
                       (shader.env/bind-var env' var-name)]))))))
 

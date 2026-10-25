@@ -86,18 +86,21 @@
 (defmethod lower-node* :let [node env]
   (let [bindings (n/let-bindings node)
         [decls env1] (reduce (fn [[stmts e] b]
-                               (let [[init-expr e1] (lower-node* (:val b) e)
-                                     [var-node e2] (lower-node* (:var b) e1)
-                                     var-name (:name var-node)]
-                                 (if (env-contains? e2 var-name)
-                                   [(conj stmts
-                                          (ast/->Assign var-node init-expr (ast/attrs var-node) (ast/node-meta var-node)))
-                                    e2]
-                                   [(conj stmts
-                                          (ast/->VarDecl var-name init-expr
-                                                         "Variable generated from let binding"
-                                                         (ast/attrs var-node) (ast/node-meta var-node)))
-                                    (env-add-local e2 var-name)])))
+                               (if-let [init-node (:val b)]
+                                 (let [[init-expr e1] (lower-node* init-node e)
+                                       [var-node e2] (lower-node* (:var b) e1)
+                                       var-name (:name var-node)]
+                                   (if (env-contains? e2 var-name)
+                                     [(conj stmts
+                                            (ast/->Assign var-node init-expr (ast/attrs var-node) (ast/node-meta var-node)))
+                                      e2]
+                                     [(conj stmts
+                                            (ast/->VarDecl var-name init-expr
+                                                           "Variable generated from let binding"
+                                                           (ast/attrs var-node) (ast/node-meta var-node)))
+                                      (env-add-local e2 var-name)]))
+                                 ;; 无初始值的 let 绑定等于无效
+                                 [stmts e]))
                              [[] env] bindings)
         [body-expr _] (lower-node* (n/let-body node) env1)]
     [(ast/->Block decls body-expr (n/attrs node) (n/node-meta node)) env1]))

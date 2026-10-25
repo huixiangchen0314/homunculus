@@ -18,7 +18,10 @@
    aset(arr, i, v) 和有副作用的 call 一样——不定义简单变量，
    uses 是 {arr, i, v}，defs 是 ∅。数组不做 SSA，不产生新版本。
    这和 call 完全一致：有副作用但不改变变量身份。"
-  )
+  (:require
+    [top.kzre.homunculus.core.cfg.model :as cfg])
+  (:import
+   (top.kzre.homunculus.core.cfg.model CFG)))
 (defprotocol IAdapter
   ;; ── 表达式级 ──
   (expr-uses [this expr])
@@ -30,6 +33,10 @@
   (stmt-replace-uses [this stmt subst])
   (stmt-replace-defs [this stmt subst])
   (stmt-fx? [this stmt] "语句是否携带副作用")
+  (assign-stmt?
+    [this stmt]
+    "stmt 是否是 assign（有 def 的赋值语句）。var-decl 不算——
+     声明不是捕获。")
   ;; ── 终结指令级 ──
   (term-uses [this term])
   (term-replace-uses [this term subst])
@@ -60,9 +67,7 @@
      origin 非 nil 时从 origin 继承 :attrs / :meta。")
   (simple-move?
     [this stmt]
-    "是否是单纯移动指令，首先必须是移动指令，
-    当变量为可变值类型且该移动指令为拷贝赋值时候为false，
-    我们前端是 lisp 语义，基本上不会有问题。")
+    "是否是简单的移动指令，即变量->变量的移动指令")
   )
 
 ;; ═══════════════════════════════════════════
@@ -95,3 +100,49 @@
                      (if (contains? defs u) s (conj s u)))
                    uses term-u)
      :defs defs}))
+
+
+
+(defn subtitle [adapter ^CFG cfg substs]
+  (reduce
+    (fn [cfg-acc block-id]
+      (update-in cfg-acc [:blocks block-id :stmts]
+                 (fn [stmts]
+                   (mapv
+                     (fn [stmt]
+                       (let [stmt1 (stmt-replace-defs
+                                     adapter stmt substs)
+                             stmt2
+                             (stmt-replace-uses
+                               adapter stmt1 substs)]
+                         stmt2))
+                     stmts))))
+    cfg
+    (keys (:blocks cfg))))
+
+
+
+(defn declare-block-id
+  "获取 var-name 第一次出现 def 的块 id。
+
+   从 entry 做 DFS，第一个定义 var-name 的块立即返回——短路。
+   SSA 下每个 var-name 只有一个 def，找到即唯一。
+
+   var-name 是精确匹配——SSA 版本化后 def 带版本号（a$$1），
+   调用方需要传带版本号的名字，或在 SSA 之前调用（此时 def
+   是 base name）。
+
+   var-name 不在任何块里被定义时返回 nil。"
+  [adapter ^CFG cfg var-name]
+  (letfn [(search [block-id visited]
+            (when-not (contains? visited block-id)
+              (let [block     (cfg/cfg-block cfg block-id)
+                    visited'  (conj visited block-id)]
+                (if (some (fn [stmt]
+                            (contains? (stmt-defs adapter stmt) var-name))
+                          (:stmts block))
+                  block-id
+                  (some (fn [successor-id]
+                          (search successor-id visited'))
+                        (cfg/cfg-successors-of cfg block-id))))))]
+    (search (:entry cfg) #{})))

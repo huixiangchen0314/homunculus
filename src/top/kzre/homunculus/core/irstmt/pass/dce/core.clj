@@ -46,6 +46,8 @@
   (assoc-in node [:attrs :fx?] (or (fx? node) (boolean b))))
 
 (defmulti eliminate-node (fn [node _env] (ast/kind node)))
+(defn elim-node [node env]
+  (eliminate-node node env))
 
 (defn walk
   [node env]

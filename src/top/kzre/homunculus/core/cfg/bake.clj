@@ -35,7 +35,7 @@
 (defrecord BakeCtx [cfg adapter loop-head-id stop-at-id])
 
 (defn- make-ctx
-  [cfg adapter]
+  [^CFG cfg adapter]
   (->BakeCtx cfg adapter nil nil))
 
 ;; ═══════════════════════════════════════════
@@ -181,7 +181,7 @@
 ;; ═══════════════════════════════════════════
 
 (defn bake
-  [cfg adapter]
+  [^CFG cfg adapter]
   (let [ctx             (make-ctx cfg adapter)
         [stmts ret _ _] (bake-block* ctx (:entry cfg) #{})]
     (adapt/make-block adapter stmts ret)))

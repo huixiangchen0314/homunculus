@@ -6,19 +6,19 @@
 
    终止块无后继——live-out 是 ∅。
 
-   ── worklist 算法 ────────────────────────────────────
+   ── 算法 ──
 
-   按逆后序初始化 worklist——后向数据流与逆后序方向一致。
-   当某块的 live-in / live-out 变化时，把前驱加入 worklist。
+   按逆后序初始化待处理块——后向数据流与逆后序方向一致。
+   当某块的 live-in / live-out 变化时，把前驱加入待处理块。
    队列可以重复——不影响正确性，变化量单调递减。
 
-   ── 初始状态 ─────────────────────────────────────────
+   ── 初始状态 ──
 
    live-in[B] 初始化为 use[B]——下界（块内 use 不需要块外提供）。
    live-out[B] 初始化为 ∅。
    初始用 use 而非 ∅ 是收敛加速。
 
-   ── 与 phi 的关系 ────────────────────────────────────
+   ── 与 phi 的关系 ──
 
    本实现**在 phi 插入之前**计算——CFG 无 phi。
    用作 pruned SSA 判据：变量 x 在块 d 处需要 phi，当且仅当
@@ -34,22 +34,27 @@
 ;; 逆后序
 ;; ═══════════════════════════════════════════
 
-(defn- rpo
+(defn- visit-postorder
+  "DFS 后序访问。返回 [visited postorder]."
+  [cfg block-id visited postorder]
+  (if (contains? visited block-id)
+    [visited postorder]
+    (let [[visited' postorder']
+          (reduce (fn [[visited-acc postorder-acc] successor-id]
+                    (visit-postorder cfg successor-id
+                                     visited-acc postorder-acc))
+                  [(conj visited block-id) postorder]
+                  (cfg/cfg-successors-of cfg block-id))]
+      [visited' (conj postorder' block-id)])))
+
+(defn- reverse-postorder
   "从 entry 做 DFS，返回 reverse postorder。
 
    与 dominator.clj 的 dfs-postorder 独立——两者都需要此遍历，
    但计算目的不同。"
   [^CFG cfg]
-  (let [visited (atom #{})
-        post    (atom [])]
-    (letfn [(visit [id]
-              (when-not (contains? @visited id)
-                (swap! visited conj id)
-                (doseq [succ (cfg/cfg-successors-of cfg id)]
-                  (visit succ))
-                (swap! post conj id)))]
-      (visit (:entry cfg)))
-    (vec (reverse @post))))
+  (let [[_ postorder] (visit-postorder cfg (:entry cfg) #{} [])]
+    (vec (reverse postorder))))
 
 ;; ═══════════════════════════════════════════
 ;; 主计算
@@ -61,38 +66,42 @@
    cfg     —— CFG（普通，无 phi）
    adapter —— IAdapter 实例
 
-   返回 {:live-in  {block-id → #{var...}}
-         :live-out {block-id → #{var...}}}"
+   返回 {:live-in  {block-id → #{var-name ...}}
+         :live-out {block-id → #{var-name ...}}}"
   [^CFG cfg adapter]
-  (let [order      (rpo cfg)
-        preds      (cfg/cfg-build-preds cfg)
-        succs      (cfg/cfg-build-succs cfg)
-        block-info (into {}
-                         (map (fn [[id b]]
-                                [id (adapt/block-uses-defs adapter b)]))
-                         (:blocks cfg))
-        init-li    (into {} (map (fn [[id info]] [id (:uses info)])) block-info)
-        init-lo    (into {} (map (fn [[id _]] [id #{}])) block-info)]
-    (loop [li       init-li
-           lo       init-lo
-           worklist order]
-      (if (empty? worklist)
-        (->Liveness li lo)
-        (let [b         (peek worklist)
-              worklist  (pop worklist)
-              new-lo    (reduce (fn [acc s]
-                                  (into acc (get li s #{})))
-                                #{}
-                                (get succs b []))
-              {:keys [uses defs]} (get block-info b)
-              new-li    (into uses (remove defs new-lo))
-              changed?  (or (not= new-li (get li b))
-                            (not= new-lo (get lo b)))]
+  (let [visit-order     (reverse-postorder cfg)
+        predecessors    (cfg/cfg-build-predecessors cfg)
+        successors      (cfg/cfg-build-successors cfg)
+        block-uses-defs (into {}
+                              (map (fn [[block-id block]]
+                                     [block-id (adapt/block-uses-defs adapter block)]))
+                              (:blocks cfg))
+        initial-live-in  (into {} (map (fn [[block-id info]]
+                                         [block-id (:uses info)]))
+                               block-uses-defs)
+        initial-live-out (into {} (map (fn [[block-id _]]
+                                         [block-id #{}]))
+                               block-uses-defs)]
+    (loop [live-ins       initial-live-in
+           live-outs      initial-live-out
+           pending-blocks visit-order]
+      (if (empty? pending-blocks)
+        (->Liveness live-ins live-outs)
+        (let [block-id     (peek pending-blocks)
+              pending-blocks' (pop pending-blocks)
+              new-live-out (reduce (fn [acc successor-id]
+                                     (into acc (get live-ins successor-id #{})))
+                                   #{}
+                                   (get successors block-id []))
+              {:keys [uses defs]} (get block-uses-defs block-id)
+              new-live-in  (into uses (remove defs new-live-out))
+              changed?     (or (not= new-live-in (get live-ins block-id))
+                               (not= new-live-out (get live-outs block-id)))]
           (if changed?
-            (recur (assoc li b new-li)
-                   (assoc lo b new-lo)
-                   (into worklist (get preds b [])))
-            (recur li lo worklist)))))))
+            (recur (assoc live-ins block-id new-live-in)
+                   (assoc live-outs block-id new-live-out)
+                   (into pending-blocks' (get predecessors block-id [])))
+            (recur live-ins live-outs pending-blocks')))))))
 
 (defn stmts-liveness
   "逐语句级别的活跃分析。
@@ -108,35 +117,32 @@
    ── 注意 ──
 
    这是块内局部分析——初始 live-out 是 ∅。块出口的 term
-   （:return 等）里的 use 不在此函数范围内。若 phi_var 在
+   （:return 等）里的 use 不在此函数范围内。若 phi-var 在
    term 里被 use，phi-raise 的 collect-uses 已经能检测到
    term use 并跳过上浮，所以本函数只需要处理 stmts 内部的
    下游 use。"
   [stmts adapter]
-  (let [n   (count stmts)
-        acc (object-array n)]
-    (loop [i        (dec n)
-           live-out #{}]
-      (if (neg? i)
-        (vec acc)
-        (let [stmt    (nth stmts i)
-              uses    (adapt/stmt-uses adapter stmt)
-              defs    (adapt/stmt-defs adapter stmt)
-              live-in (into uses (remove defs live-out))]
-          (aset acc i (->Liveness live-in live-out))
-          (recur (dec i) live-in))))))
+  (let [[_ reversed-result]
+        (reduce (fn [[live-out acc] stmt]
+                  (let [uses    (adapt/stmt-uses adapter stmt)
+                        defs    (adapt/stmt-defs adapter stmt)
+                        live-in (into uses (remove defs live-out))]
+                    [live-in (conj acc (->Liveness live-in live-out))]))
+                [#{} []]
+                (reverse stmts))]
+    (vec (reverse reversed-result))))
 
 ;; ═══════════════════════════════════════════
 ;; 查询辅助
 ;; ═══════════════════════════════════════════
 
 (defn live-in?
-  [^Liveness liveness block-id var]
-  (contains? (get-in liveness [:live-in block-id] #{}) var))
+  [^Liveness liveness block-id var-name]
+  (contains? (get-in liveness [:live-in block-id] #{}) var-name))
 
 (defn live-out?
-  [^Liveness liveness block-id var]
-  (contains? (get-in liveness [:live-out block-id] #{}) var))
+  [^Liveness liveness block-id var-name]
+  (contains? (get-in liveness [:live-out block-id] #{}) var-name))
 
 (defn live-in-set
   [^Liveness liveness block-id]
@@ -147,8 +153,9 @@
   (get-in liveness [:live-out block-id] #{}))
 
 (defn var-live-blocks
-  [^Liveness liveness var]
+  [^Liveness liveness var-name]
   (->> (:live-in liveness)
-       (filter (fn [[_ vars]] (contains? vars var)))
+       (filter (fn [[_ vars]] (contains? vars var-name)))
        (map first)
        set))
+

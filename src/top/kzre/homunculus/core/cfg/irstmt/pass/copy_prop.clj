@@ -10,52 +10,62 @@
    ── 目标 ──
 
    ▸ x、y 都是 :variable
-   ▸ x 不是 phi 输出（phi 输出多路径合并，不能替换）
-   ▸ y 不是 phi 输出（同——替换 phi 输出引入跨路径错误）
+   ▸ x 的 base name 不是 phi-var-name（phi 变量不能替换）
+   ▸ y 的 base name 不是 phi-var-name
+
+   SSA 环境下 x/y 带版本号（`a$$1`）——phi-var-name-set 里是
+   base name（`a`）。用 strip-versions 后比较。
 
    ── 算法 ──
 
    1. 找所有满足条件的 'x = y'
    2. 全 CFG 替换 use(x) → use(y)——stmts、terms、phi 输入
    3. 删除 'x = y' 本身
-   4. 迭代到不动点——替换可能产生新 copy 链
+   4. 迭代到不动点
 
-   ── 与 phi-raise 的关系 ──
+   ── 与 raise-phi 的关系 ──
 
-   phi-raise 在 destruct 之后把 phi-var 的 move 上浮到 def——
-   phi-var 的 move 消失。copy-prop 运行时 phi-var-set 通常为
-   空，phi-var 跳过条件不生效。保留该条件是为了 phi-raise 未
-   覆盖的场景（如多个 move 目标不一致时 phi-var 残留）。"
+   raise-phi 在 construct 之后、destruct 之前——phi 还在 :phis
+   里，phi-var-name 是 base name。copy-prop 在 raise-phi 之后
+   跑——phi-var-name-set 非空，跳过 phi 涉及的变量。"
   (:require
     [top.kzre.homunculus.core.cfg.adapt :as adapt]
     [top.kzre.homunculus.core.cfg.phi :as phi]
+    [top.kzre.homunculus.core.cfg.pass.ssa.construct :as construct]
     [top.kzre.homunculus.core.irstmt.ast :as ast]))
 
 ;; ═══════════════════════════════════════════
 ;; 候选识别
 ;; ═══════════════════════════════════════════
 
-(defn- phi-vars
+(defn- phi-var-names
+  "当前 CFG 里所有 phi 的 var-name 集合（base name）。"
   [ssa-cfg]
   (into #{}
-        (map phi/phi-var)
+        (map phi/phi-var-name)
         (mapcat :phis (vals (:blocks ssa-cfg)))))
 
 (defn- copy-assign?
-  [stmt phi-var-set]
+  "x = y 形式的拷贝赋值。
+
+   x/y 的 base name（strip 版本号）不在 phi-var-name-set 里——
+   跳过 phi 涉及的变量。"
+  [stmt phi-var-name-set]
   (and (= :assign (ast/kind stmt))
        (let [v (:var stmt) r (:val stmt)]
          (and v r
               (= :variable (ast/kind v))
               (= :variable (ast/kind r))
-              (not (contains? phi-var-set (:name v)))
-              (not (contains? phi-var-set (:name r)))))))
+              (not (contains? phi-var-name-set
+                              (construct/strip-versions (:name v))))
+              (not (contains? phi-var-name-set
+                              (construct/strip-versions (:name r))))))))
 
 (defn- collect-copy-assigns
-  [ssa-cfg phi-var-set]
+  [ssa-cfg phi-var-name-set]
   (->> (for [[bid block] (:blocks ssa-cfg)
              [idx stmt]  (map-indexed vector (:stmts block))
-             :when       (copy-assign? stmt phi-var-set)]
+             :when       (copy-assign? stmt phi-var-name-set)]
          {:block-id bid
           :stmt-idx idx
           :x        (:name (:var stmt))
@@ -76,15 +86,20 @@
   (adapt/term-replace-uses adapter term {x y}))
 
 (defn- replace-in-phi
+  "替换 phi input 的 origin 和 var-name。
+
+   防御性代码——copy-assign? 跳过 phi 涉及的变量，phi input
+   的 origin/var-name 的 base name 在 phi-var-name-set 里——
+   实际不会触发。保留以应对未来放松跳过条件。"
   [p x y adapter]
-  (let [ref-y (adapt/make-var-ref adapter (phi/phi-template p) y)]
+  (let [ref-y (adapt/make-var-ref adapter (phi/phi-origin p) y)]
     (update p :inputs
             (fn [inputs]
-              (mapv (fn [{:keys [value] :as input}]
-                      (if (and value
-                               (= :variable (ast/kind value))
-                               (= x (:name value)))
-                        (assoc input :value ref-y)
+              (mapv (fn [input]
+                      (if (and (:origin input)
+                               (= :variable (ast/kind (:origin input)))
+                               (= x (:name (:origin input))))
+                        (assoc input :origin ref-y :var-name y)
                         input))
                     inputs)))))
 
@@ -119,8 +134,8 @@
   (loop [cfg ssa-cfg n 0]
     (when (> n 1000)
       (throw (ex-info "copy-prop did not converge" {:iterations n})))
-    (let [pvars  (phi-vars cfg)
-          copies (collect-copy-assigns cfg pvars)]
+    (let [phi-var-name-set (phi-var-names cfg)
+          copies           (collect-copy-assigns cfg phi-var-name-set)]
       (if (empty? copies)
         cfg
         (let [cfg' (reduce (fn [c {:keys [block-id stmt-idx x y]}]

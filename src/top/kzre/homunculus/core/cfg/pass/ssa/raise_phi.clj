@@ -1,195 +1,154 @@
 (ns top.kzre.homunculus.core.cfg.pass.ssa.raise-phi
-  "phi 提升。
+  "phi 提升——逐个 phi 独立分析。
 
-   ── 结构（以 ifval8779 为例）──
+   ── 结构 ──
 
      head:   branch c → then, else
-     then:   ifval8779 = texture12
-     else:   ifval8779 = vec4(0)
-     after:  ifval8778 = ifval8779       ← 捕获
+     then:   ifval8779$$1 = texture12
+     else:   ifval8779$$2 = vec4(0)
+     after:  ifval8778 = ifval8779       ← 逃逸
 
-   ── 流程 ──
-
-   1. 扫描全 CFG，找所有捕获 `target = phi_var`（simple-move，
-      uses 恰好一个 phi-var）
-   2. 按 phi-var 分组，过滤掉被捕获多次的（提升价值不大）
-   3. 对每个单捕获，检查：
-      ▸ phi-var 有 def，def 块有共同后继 after
-      ▸ 捕获块不是 def 块（跨路径）
-      ▸ target 的其他 def 不在 def 块 / after 块（改名不冲突）
-      ▸ 三步判断（捕获之后无 use / 捕获是 simple-move / 无副作用）
-   4. 变换：phi-var 的 def lhs → target，所有 use → target
-
-   ── 依赖 ──
-
-   只用 cfg.adapt / cfg.model——不依赖 irstmt.ast。"
+   "
   (:require
     [top.kzre.homunculus.core.cfg.adapt :as adapt]
+    [top.kzre.homunculus.core.cfg.analysis.dominator :as dom]
     [top.kzre.homunculus.core.cfg.model :as cfg]
-    [clojure.set :as set]))
+    [top.kzre.homunculus.core.cfg.phi :as phi])
+  (:import (top.kzre.homunculus.core.cfg.model CFG)
+           (top.kzre.homunculus.core.cfg.phi Phi)))
 
 ;; ═══════════════════════════════════════════
-;; 收集
+;; 遍历辅助
 ;; ═══════════════════════════════════════════
 
-(defn- phi-var-set
+(defn- all-stmts
   [ssa-cfg]
-  (into #{} (map :var) (mapcat :phis (vals (:blocks ssa-cfg)))))
+  (mapcat (fn [[block-id block]]
+            (map (fn [stmt]
+                   [block-id stmt])
+                 (:stmts block)))
+          (:blocks ssa-cfg)))
 
-(defn- find-captures
-  "扫描全 CFG，找所有捕获 `target = phi_var`。
+(defn- escape-targets*
+  [^CFG cfg var-name adapter]
+  (reduce (fn [acc [block-id stmt]]
+            (if (and (adapt/simple-move? adapter stmt)
+                     (contains? (adapt/stmt-uses adapter stmt) var-name))
+              (let [defs (adapt/stmt-defs adapter stmt)]
+                (if (= 1 (count defs))
+                  (conj acc
+                        {:block-id block-id      ; ← 加回来
+                         :target   (first defs)
+                         :stmt     stmt})
+                  acc))
+              acc))
+          #{}
+          (all-stmts cfg)))
 
-   simple-move 且 uses 恰好一个变量，且该变量是 phi-var。
-   返回 [{:block-id :stmt :phi-var :target}]。"
-  [ssa-cfg adapter]
-  (let [pvars (phi-var-set ssa-cfg)]
-    (vec
-      (for [[bid block] (:blocks ssa-cfg)
-            stmt (:stmts block)
-            :when (adapt/simple-move? adapter stmt)
-            :let [target (first (adapt/stmt-defs adapter stmt))
-                  uses   (adapt/stmt-uses adapter stmt)]
-            :when (and target (= 1 (count uses)))
-            :let [phi-var (first uses)]
-            :when (contains? pvars phi-var)]
-        {:block-id bid
-         :stmt     stmt
-         :phi-var  phi-var
-         :target   target}))))
+(defn find-escape
+  [^CFG cfg var-name phi-block-id adapter]
+  (let [targets (escape-targets* cfg var-name adapter)]
+    (when (= 1 (count targets))
+      (let [candidate     (first targets)
+            decl-block-id (adapt/declare-block-id
+                            adapter cfg
+                            (:target candidate))
+            idom          (dom/compute-dominators cfg)]
+        (when (and decl-block-id
+                   (dom/dominates? idom decl-block-id phi-block-id))
+          candidate)))))
 
-(defn- def-blocks
-  [ssa-cfg phi-var adapter]
-  (into #{}
-        (for [[bid block] (:blocks ssa-cfg)
-              stmt (:stmts block)
-              :when (contains? (adapt/stmt-defs adapter stmt) phi-var)]
-          bid)))
+(defn phi-raisable-escape
+  "phi-var 的 escape 只有一处，且在 check-block-ids 内 phi-var 的
+   全部 use 就是这条 escape 语句——可以提升。
 
-(defn- other-uses
-  "phi-var 在 capture-stmt 之外的所有 use。"
-  [ssa-cfg phi-var capture-stmt adapter]
-  (vec
-    (concat
-      (for [[_ block] (:blocks ssa-cfg)
-            stmt (:stmts block)
-            :when (and (not (identical? stmt capture-stmt))
-                       (contains? (adapt/stmt-uses adapter stmt) phi-var))]
-        {:kind :stmt :stmt stmt})
-      (for [[_ block] (:blocks ssa-cfg)
-            :when (contains? (adapt/term-uses adapter (:term block)) phi-var)]
-        {:kind :term :term (:term block)}))))
+   check-block-ids = phi 块 + 所有后继可达块。phi-var 只支配这些
+   块——use 只可能在这里。任何 term use、额外 stmt use 都让条件
+   失败——保守但正确。"
+  [^Phi phi ^CFG cfg block-id adapter]
+  (let [phi-var-name  (phi/phi-var-name phi)]
+    (when-let [{:keys [stmt target] :as escape}
+               (find-escape cfg phi-var-name block-id adapter)]
+      (let [check-block-ids (into #{block-id}
+                                  (cfg/all-successors cfg block-id))
+            stmt-uses       (reduce (fn [acc [bid s]]
+                                      (if (and (contains? check-block-ids bid)
+                                               (contains? (adapt/stmt-uses adapter s)
+                                                          phi-var-name))
+                                        (conj acc {:kind :stmt :block-id bid :stmt s})
+                                        acc))
+                                    []
+                                    (all-stmts cfg))
+            term-uses       (reduce (fn [acc [bid block]]
+                                      (if (and (contains? check-block-ids bid)
+                                               (contains? (adapt/term-uses adapter (:term block))
+                                                          phi-var-name))
+                                        (conj acc {:kind :term :block-id bid :term (:term block)})
+                                        acc))
+                                    []
+                                    (:blocks cfg))
+            all-uses        (into stmt-uses term-uses)]
+        ;; phi-var 的全部 use 恰好是 escape 这一条——没有 term use，
+        ;; 没有额外的 stmt use
+        (when (and (= 1 (count all-uses))
+                   (identical? stmt (:stmt (first all-uses))))
+          {:phi      phi
+           :target   target
+           :escape   escape
+           :block-id block-id})))))
 
-(defn- after-block
-  "def 块的共同后继。不存在时返回 nil。"
-  [ssa-cfg dbs]
-  (when (seq dbs)
-    (let [succ-sets (map (fn [bid]
-                           (set (cfg/cfg-successors-of ssa-cfg bid)))
-                         dbs)]
-      (when (every? seq succ-sets)
-        (first (apply set/intersection succ-sets))))))
+(defn find-escape-phi
+  "找到一个逃逸的 phi"
+  [^CFG cfg adapter]
+  (some (fn [[block-id block]]
+          (some (fn [phi]
+                  (phi-raisable-escape phi cfg block-id adapter))
+                (:phis block)))
+        (:blocks cfg)))
 
-(defn- target-def-in-branch-or-after?
-  [ssa-cfg target capture-stmt dbs ab adapter]
-  (boolean
-    (some (fn [[bid block]]
-            (when (or (contains? dbs bid) (= bid ab))
-              (some (fn [stmt]
-                      (and (not (identical? stmt capture-stmt))
-                           (contains? (adapt/stmt-defs adapter stmt) target)))
-                    (:stmts block))))
-          (:blocks ssa-cfg))))
-
-;; ═══════════════════════════════════════════
-;; 三步判断
-;; ═══════════════════════════════════════════
-
-(defn- use-side-effect?
-  [{:keys [kind stmt]} adapter]
-  (case kind
-    :stmt (adapt/stmt-fx? adapter stmt)
-    :term false))
-
-(defn- can-raise-capture?
-  "三步判断。返回布尔。"
-  [ssa-cfg phi-var capture-stmt adapter]
-  (let [others (other-uses ssa-cfg phi-var capture-stmt adapter)]
-    (or (empty? others)
-        (adapt/simple-move? adapter capture-stmt)
-        (and (not (adapt/stmt-fx? adapter capture-stmt))
-             (not-any? #(use-side-effect? % adapter) others)))))
-
-;; ═══════════════════════════════════════════
-;; 变换
-;; ═══════════════════════════════════════════
-
-(defn- raise-defs
-  [ssa-cfg phi-var target adapter]
-  (update ssa-cfg :blocks
+(defn- rename-phi
+  "只改目标 phi 对象——identical? 避免改到同名 phi。"
+  [cfg target-phi target]
+  (update cfg :blocks
           (fn [blocks]
-            (into {}
-                  (map (fn [[bid b]]
-                         [bid (update b :stmts
-                                      (fn [ss]
-                                        (mapv #(adapt/stmt-replace-defs
-                                                 adapter % {phi-var target})
-                                              ss)))]))
-                  blocks))))
+            (reduce-kv (fn [m block-id block]
+                         (assoc m block-id
+                                  (update block :phis
+                                          (fn [phis]
+                                            (mapv (fn [p]
+                                                    (if (identical? p target-phi)
+                                                      (phi/rename-phi-var-name p target)
+                                                      p))
+                                                  phis)))))
+                       {}
+                       blocks))))
 
-(defn- replace-uses
-  [ssa-cfg phi-var target adapter]
-  (update ssa-cfg :blocks
-          (fn [blocks]
-            (into {}
-                  (map (fn [[bid b]]
-                         [bid (-> b
-                                  (update :stmts
-                                          (fn [ss]
-                                            (mapv #(adapt/stmt-replace-uses
-                                                     adapter % {phi-var target})
-                                                  ss)))
-                                  (update :term
-                                          #(adapt/term-replace-uses
-                                             adapter % {phi-var target})))]))
-                  blocks))))
+(defn- apply-raise-escape
+  "提升一个 escape phi——两件事：
 
-;; ═══════════════════════════════════════════
-;; 入口
-;; ═══════════════════════════════════════════
+   1. 删 escape 语句——phi-var 的唯一 use
+   2. phi 的 var-name 改成 target——destruct 下推时 input 的
+      var-name 被替换成 target，分支块的 def 自然变成 target
 
-(defn- candidate-for-capture
-  "对单个捕获检查所有条件。返回 [phi-var target] 或 nil。"
-  [ssa-cfg {:keys [block-id stmt phi-var target]} adapter]
-  (let [dbs (def-blocks ssa-cfg phi-var adapter)
-        ab  (after-block ssa-cfg dbs)]
-    (when (and (seq dbs)
-               ab
-               (not (contains? dbs block-id))
-               (not (target-def-in-branch-or-after?
-                      ssa-cfg target stmt dbs ab adapter))
-               (can-raise-capture? ssa-cfg phi-var stmt adapter))
-      [phi-var target])))
-
-(defn- find-candidate
-  "找所有捕获，按 phi-var 分组，过滤多捕获，返回第一个
-   通过全部检查的 [phi-var target]。"
-  [ssa-cfg adapter]
-  (let [captures (find-captures ssa-cfg adapter)
-        by-phi   (group-by :phi-var captures)]
-    (some (fn [[_ cs]]
-            (when (= 1 (count cs))
-              (candidate-for-capture ssa-cfg (first cs) adapter)))
-          by-phi)))
+   不删 phi——destruct 的 transform-phi-to-version-def 需要它
+   来下推。不 push inputs——下推由 destruct 负责，重复会出错。"
+  [cfg {:keys [phi target escape]} adapter]
+  (let [escape-stmt  (:stmt escape)
+        escape-block (:block-id escape)]
+    (-> cfg
+        ;; 删除逃逸语句
+        (update-in [:blocks escape-block :stmts]
+                   (fn [stmts]
+                     (vec (remove #(identical? % escape-stmt) stmts))))
+        ;; phi 重命名
+        (rename-phi phi target))))
 
 (defn raise-phi
-  "迭代提升到不动点。"
-  [ssa-cfg adapter]
-  (loop [cfg ssa-cfg n 0]
-    (when (> n 10000)
-      (throw (ex-info "raise-phi did not converge" {:iterations n})))
-    (if-let [[phi-var target] (find-candidate cfg adapter)]
-      (recur (-> cfg
-                 (raise-defs phi-var target adapter)
-                 (replace-uses phi-var target adapter))
-             (inc n))
+  [cfg adapter ]
+  (loop [cfg       cfg
+         iteration 0]
+    (when (> iteration 10000)
+      (throw (ex-info "raise-phi did not converge" {:iterations iteration})))
+    (if-let [candidate (find-escape-phi cfg adapter)]
+      (recur (apply-raise-escape cfg candidate adapter) (inc iteration))
       cfg)))

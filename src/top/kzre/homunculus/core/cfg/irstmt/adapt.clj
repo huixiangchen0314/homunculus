@@ -136,7 +136,9 @@
       :assign
       (let [v (:var stmt)
             n (get subst (:name v))]
-        (if n (assoc stmt :var (assoc v :name n)) stmt))
+        (if n
+          (assoc stmt :var (assoc v :name n))
+          stmt))
 
       :var-decl
       (if-let [n (get subst (:name stmt))]
@@ -149,8 +151,11 @@
     (let [fx? (get-in stmt [:attrs :fx?])]
       (if (boolean? fx?)
         fx?
-        (let [fxed (dce/elim stmt (dce/make-env compile-ctx))]
+        (let [fxed (first (dce/elim-node stmt (dce/make-env compile-ctx)))]
           (dce/fx? fxed)))))
+  (assign-stmt? [_ stmt]
+    (= :assign (ast/kind stmt)))
+
   ;; ── 终结指令级 ──
   (term-uses [_ term]
     (case (proto/term-kind term)
@@ -176,7 +181,7 @@
     [_ stmt]
     (and (= :assign (ast/kind stmt))
          (if-let [rhs (:val stmt)]
-           (not (copy-construct? rhs compile-ctx))
+           (= :variable (ast/kind rhs))
            false)))
   ;; ── 节点构造——直接复制 attrs ──
   (make-var-ref [_ template sym]

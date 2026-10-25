@@ -16,39 +16,65 @@
 ;; 版本命名
 ;; ═══════════════════════════════════════════
 
-(defn- next-version
-  [counters var]
-  (let [n (get @counters var 0)]
-    (swap! counters assoc var (inc n))
-    (symbol (str (name var) (version-separator) (inc n)))))
+(defn- new-version
+  "返回 [version-symbol counters']。
+
+   保留原符号的命名空间——foo/bar → foo/bar$$1。"
+  [counters var-name]
+  (let [n (inc (get counters var-name 0))]
+    [(symbol (namespace var-name)
+             (str (name var-name) (version-separator) n))
+     (assoc counters var-name n)]))
 
 (defn strip-versions
+  "去掉版本后缀，保留原符号的命名空间——foo/bar$$1 → foo/bar。"
   [sym]
   (let [s (name sym)
         i (str/last-index-of s (version-separator))]
-    (if i (symbol (subs s 0 i)) sym)))
+    (if i
+      (symbol (namespace sym) (subs s 0 i))
+      sym)))
 
 ;; ═══════════════════════════════════════════
-;; collect-defs——收集定义块 + template
+;; 版本栈
+;; ═══════════════════════════════════════════
+
+(defn- push-version
+  [stacks var-name v]
+  (update stacks var-name (fnil conj []) v))
+
+(defn- pop-version
+  [stacks var-name]
+  (update stacks var-name
+          (fnil #(if (seq %) (pop %) []) [])))
+
+(defn- top-version
+  [stacks var-name]
+  (or (peek (get stacks var-name [])) var-name))
+
+(defn- uses-substitution
+  [stacks adapter stmt]
+  (into {}
+        (map (fn [v] [v (top-version stacks v)]))
+        (adapt/stmt-uses adapter stmt)))
+
+;; ═══════════════════════════════════════════
+;; collect-defs
 ;; ═══════════════════════════════════════════
 
 (defn- collect-defs
-  "返回 {var → {:blocks #{block-id ...} :template def-stmt}}。
-
-   template 是**第一次定义该变量的 stmt**——保证非 nil
-   （因为 stmt 来自 :stmts block）。"
   [cfg adapter]
   (reduce
     (fn [acc [id block]]
       (reduce
         (fn [acc stmt]
           (reduce
-            (fn [acc v]
-              (update acc v
+            (fn [acc var-name]
+              (update acc var-name
                       (fn [entry]
-                        (let [e (or entry {:blocks #{} :template nil})]
-                          {:blocks   (conj (:blocks e) id)
-                           :template (or (:template e) stmt)}))))
+                        (let [e (or entry {:blocks #{} :origin nil})]
+                          {:blocks (conj (:blocks e) id)
+                           :origin (or (:origin e) stmt)}))))
             acc
             (adapt/stmt-defs adapter stmt)))
         acc
@@ -60,129 +86,148 @@
 ;; Phi 插入（pruned SSA）
 ;; ═══════════════════════════════════════════
 
-(defn- insert-phi-nodes
-  [cfg adapter df liveness]
-  (let [preds (cfg/cfg-build-preds cfg)
-        defs  (collect-defs cfg adapter)]
+(defn- make-phis
+  [^CFG cfg adapter dominance-frontier liveness]
+  (let [definitions   (collect-defs cfg adapter)]
     (reduce
-      (fn [cfg [var {:keys [blocks template]}]]
-        (let [def-blocks blocks]
-          (loop [worklist (vec def-blocks)
-                 cfg      cfg
-                 has-phi  #{}]
-            (if (empty? worklist)
+      (fn [cfg [var-name {:keys [blocks origin]}]]
+        (let [definition-blocks blocks]
+          (loop [pending-blocks  (vec definition-blocks)
+                 cfg             cfg
+                 blocks-with-phi #{}]
+            (if (empty? pending-blocks)
               cfg
-              (let [b         (peek worklist)
-                    worklist' (pop worklist)
-                    df-blocks (get df b #{})
-                    [cfg' worklist'' has-phi']
+              (let [current-block    (peek pending-blocks)
+                    remaining-blocks (pop pending-blocks)
+                    frontier-blocks  (get dominance-frontier current-block #{})
+                    [cfg' pending-blocks' blocks-with-phi']
                     (reduce
-                      (fn [[c w h] d]
+                      (fn [[c pending with-phi] frontier-block]
                         (cond
-                          (contains? h d)
-                          [c w h]
+                          (contains? with-phi frontier-block)
+                          [c pending with-phi]
 
-                          (not (live/live-in? liveness d var))
-                          [c w h]
+                          (not (live/live-in? liveness frontier-block var-name))
+                          [c pending with-phi]
 
                           :else
-                          (let [p  (phi/make-phi var template (get preds d []))
-                                c' (update-in c [:blocks d :phis]
-                                              (fnil conj []) p)
-                                w' (if (contains? def-blocks d)
-                                     w
-                                     (conj w d))]
-                            [c' w' (conj h d)])))
-                      [cfg worklist' has-phi]
-                      df-blocks)]
-                (recur worklist'' cfg' has-phi'))))))
+                          (let [phi-node (phi/make-phi var-name origin)   ; ← 不传 predecessors
+                                c'       (update-in c [:blocks frontier-block :phis]
+                                                    (fnil conj []) phi-node)
+                                pending' (if (contains? definition-blocks frontier-block)
+                                           pending
+                                           (conj pending frontier-block))]
+                            [c' pending' (conj with-phi frontier-block)])))
+                      [cfg remaining-blocks blocks-with-phi]
+                      frontier-blocks)]
+                (recur pending-blocks' cfg' blocks-with-phi'))))))
       cfg
-      defs)))
+      definitions)))
 
 ;; ═══════════════════════════════════════════
-;; 变量重命名（DFS 支配树）
+;; 重命名——每块的处理
 ;; ═══════════════════════════════════════════
 
-(defn- rename-variables
-  [cfg dom-tree adapter]
-  (let [stacks   (atom {})
-        counters (atom {})
-        cfg-atom (atom cfg)]
-    (letfn [(push! [var v] (swap! stacks update var (fnil conj []) v))
-            (pop!  [var]   (swap! stacks update var
-                                  (fnil #(if (seq %) (pop %) []) [])))
-            (top   [var]   (or (peek (get @stacks var [])) var))
+(defn- push-phi-vars
+  "phi-var 用 base name——push 到栈。
+   返回 [versioned-var-names stacks']。"
+  [cfg stacks block-id]
+  (reduce (fn [[versioned stack] phi]
+            (let [vn (phi/phi-var-name phi)]
+              [(conj versioned vn) (push-version stack vn vn)]))
+          [[] stacks]
+          (:phis (cfg/cfg-block cfg block-id))))
 
-            (uses-subst [stmt]
-              (into {}
-                    (map (fn [v] [v (top v)]))
-                    (adapt/stmt-uses adapter stmt)))
+(defn- rename-stmt
+  "对单条 stmt 做 uses-subst 和 def 版本化。
 
-            (rename-block [id]
-              (let [pushed (atom [])
-                    block  (cfg/cfg-block @cfg-atom id)
-                    phis   (:phis block)]
+   var-decl 不版本化——声明不是 def。只有 assign 的 lhs 版本化。"
+  [stmt stacks counters adapter phi-var-names]
+  (let [stmt' (adapt/stmt-replace-uses
+                adapter stmt
+                (uses-substitution stacks adapter stmt))]
+    (if (adapt/assign-stmt? adapter stmt')
+      (let [defs (adapt/stmt-defs adapter stmt')]
+        (reduce
+          (fn [[s versioned st ct] d]
+            (if (contains? phi-var-names d)
+              (let [[v ct'] (new-version ct d)]
+                [(adapt/stmt-replace-defs adapter s {d v})
+                 (conj versioned d)
+                 (push-version st d v)
+                 ct'])
+              [s versioned st ct]))
+          [stmt' [] stacks counters]
+          defs))
+      [stmt' [] stacks counters])))
 
-                ;; ── 1. phis：压新版本，重命名 phi var ──
-                (when (seq phis)
-                  (let [new-vars (mapv (fn [p]
-                                         (let [var (phi/phi-var p)
-                                               v   (next-version counters var)]
-                                           (push! var v)
-                                           (swap! pushed conj var)
-                                           v))
-                                       phis)]
-                    (swap! cfg-atom update-in [:blocks id :phis]
-                           (fn [old-phis]
-                             (mapv (fn [p v] (phi/rename-phi-var p v))
-                                   old-phis new-vars)))))
+(defn- rename-stmts
+  "返回 [stmts' versioned-var-names stacks' counters']。"
+  [stmts stacks counters adapter phi-var-names]
+  (reduce
+    (fn [[acc versioned st ct] stmt]
+      (let [[stmt' versioned' st' ct']
+            (rename-stmt stmt st ct adapter phi-var-names)]
+        [(conj acc stmt') (into versioned versioned') st' ct']))
+    [[] [] stacks counters]
+    stmts))
 
-                ;; ── 2. stmts ──
-                (let [block (cfg/cfg-block @cfg-atom id)
-                      new-stmts
-                      (mapv (fn [stmt]
-                              (let [stmt' (adapt/stmt-replace-uses
-                                            adapter stmt (uses-subst stmt))
-                                    defs  (adapt/stmt-defs adapter stmt')]
-                                (reduce
-                                  (fn [s d]
-                                    (let [v (next-version counters d)]
-                                      (push! d v)
-                                      (swap! pushed conj d)
-                                      (adapt/stmt-replace-defs
-                                        adapter s {d v})))
-                                  stmt' defs)))
-                            (:stmts block))]
-                  (swap! cfg-atom assoc-in [:blocks id :stmts] new-stmts))
+(defn- rename-term
+  [term stacks adapter]
+  (adapt/term-replace-uses
+    adapter term
+    (into {} (map (fn [v] [v (top-version stacks v)]))
+          (adapt/term-uses adapter term))))
 
-                ;; ── 3. term ──
-                (let [term  (:term (cfg/cfg-block @cfg-atom id))
-                      subst (into {} (map (fn [v] [v (top v)]))
-                                  (adapt/term-uses adapter term))
-                      term' (adapt/term-replace-uses adapter term subst)]
-                  (swap! cfg-atom assoc-in [:blocks id :term] term'))
+(defn- fill-successor-phi-inputs
+  "对 block 的每个后继 phi，填充当前前驱的 input。"
+  [^CFG cfg stacks block-id adapter]
+  (reduce
+    (fn [c successor-id]
+      (update-in c [:blocks successor-id :phis]
+                 (fn [phis]
+                   (mapv (fn [p]
+                           (let [var-name (top-version stacks (phi/phi-var-name p))
+                                 ref      (adapt/make-var-ref
+                                            adapter (phi/phi-origin p) var-name)]
+                             (phi/update-phi-input p block-id ref var-name)))
+                         phis))))
+    cfg
+    (cfg/cfg-successors-of cfg block-id)))
 
-                ;; ── 4. 后继 phi 输入——从 template 继承 attrs ──
-                (doseq [s (cfg/cfg-successors-of @cfg-atom id)]
-                  (swap! cfg-atom update-in [:blocks s :phis]
-                         (fn [phis]
-                           (mapv (fn [p]
-                                   (let [tmpl (phi/phi-template p)
-                                         base (strip-versions (phi/phi-var p))
-                                         v    (top base)
-                                         ref  (adapt/make-var-ref adapter tmpl v)]
-                                     (phi/update-phi-input p id ref)))
-                                 phis))))
+;; ═══════════════════════════════════════════
+;; 重命名——DFS 支配树
+;; ═══════════════════════════════════════════
 
-                ;; ── 5. 递归支配树 ──
-                (doseq [child (get dom-tree id)]
-                  (rename-block child))
+(defn- version-rename
+  "DFS 重命名 block 及其支配树。
+   返回 [cfg' stacks' counters']。"
+  [^CFG cfg stacks counters dom-tree adapter phi-var-names id]
+  (let [block                          (cfg/cfg-block cfg id)
+        [versioned-phi stacks1]        (push-phi-vars cfg stacks id)
+        [new-stmts versioned-stmts stacks2 counters1]
+        (rename-stmts (:stmts block) stacks1 counters adapter phi-var-names)
+        term'                          (rename-term (:term block) stacks2 adapter)
+        cfg1                           (-> cfg
+                                           (assoc-in [:blocks id :stmts] new-stmts)
+                                           (assoc-in [:blocks id :term] term'))
+        cfg2                           (fill-successor-phi-inputs cfg1 stacks2 id adapter)
+        [cfg3 stacks3 counters2]
+        (reduce (fn [[c st ct] child]
+                  (version-rename c st ct dom-tree adapter phi-var-names child))
+                [cfg2 stacks2 counters1]
+                (get dom-tree id))
+        versioned-all                  (into versioned-phi versioned-stmts)
+        stacks4                        (reduce pop-version stacks3 (reverse versioned-all))]
+    [cfg3 stacks4 counters2]))
 
-                ;; ── 6. 弹出本块版本 ──
-                (doseq [var (reverse @pushed)]
-                  (pop! var))))]
-      (rename-block (:entry cfg))
-      @cfg-atom)))
+(defn- make-versioned
+  [^CFG cfg dom-tree adapter]
+  (let [phi-var-names (set (map phi/phi-var-name
+                                (mapcat :phis (vals (:blocks cfg)))))
+        [cfg' _ _]    (version-rename cfg {} {} dom-tree adapter
+                                    phi-var-names (:entry cfg))]
+    cfg'))
 
 ;; ═══════════════════════════════════════════
 ;; 入口
@@ -190,7 +235,8 @@
 
 (defn construct
   [^CFG cfg adapter]
-  (let [liveness              (live/cfg-liveness cfg adapter)
-        {:keys [df dom-tree]} (dom/analyze cfg)
-        cfg-phis              (insert-phi-nodes cfg adapter df liveness)]
-    (rename-variables cfg-phis dom-tree adapter)))
+  (let [liveness (live/cfg-liveness cfg adapter)
+        {:keys [dominance-frontier
+                dom-tree]} (dom/analyze cfg)
+        cfg-phis (make-phis cfg adapter dominance-frontier liveness)]
+    (make-versioned cfg-phis dom-tree adapter)))
