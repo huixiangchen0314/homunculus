@@ -1,7 +1,8 @@
 (ns top.kzre.homunculus.backend.glsl.config
   (:require
     [top.kzre.homunculus.backend.glsl.semantic.location :as location]
-    [top.kzre.homunculus.internal.protocol :as proto]))
+    [top.kzre.homunculus.internal.protocol :as proto]
+    [top.kzre.homunculus.core.error :as err]))
 
 (defn gl-version
   "GLSL 版本号。写入 `#version <N> core`。
@@ -65,6 +66,18 @@
   [config]
   (into (set (keys (location/default-vertex-input-locations)))
         (keys (proto/get-option config :gl-vertex-semantic-locations))))
+
+(defn varying-location-enabled?
+  [config]
+  (let [enabled? (or (proto/get-option config :gl-varying-location-enabled?) false)]
+    (when enabled?
+      (let [ver (gl-version config)]
+        (when (< ver 410)
+          (throw (err/compile-error
+                   :gl-unsupported-capability
+                   "varying-location-enabled? is not supported in current version, at least 410."
+                   {:gl-version ver})))))
+    enabled?))
 
 (defn varying-semantic-location
   "varying 空间的 location。按 semantic 查用户配置，未命中回退到

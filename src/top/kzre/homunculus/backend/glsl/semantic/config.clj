@@ -9,6 +9,7 @@
   (fragment-out-name [_])
   (semantic-location-strategy [_])
   (vertex-semantic-location [_ semantic])
+  (varying-location-enabled? [_])
   (varying-semantic-location [_ semantic])
   (fragment-semantic-location [_ semantic])
   (texture-sampler-binding-strategy [_])
@@ -33,7 +34,8 @@
 
   (vertex-semantic-location [_ semantic]
     (cfg/vertex-semantic-location config semantic))
-
+  (varying-location-enabled? [_]
+    (cfg/varying-location-enabled? config))
   (varying-semantic-location [_ semantic]
     (cfg/varying-semantic-location config semantic))
 

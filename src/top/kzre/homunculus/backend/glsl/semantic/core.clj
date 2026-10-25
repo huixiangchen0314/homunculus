@@ -24,6 +24,14 @@
    同 semantic 在不同空间占不同槽位——:normal 在 vertex-input 是 1，
    在 varying 是 0。
 
+   ── varying-location-enabled? ────────────────────────
+   GLSL 330 的 varying 不支持 layout(location)——需要 GLSL 410
+   或 ARB_separate_shader_objects。配置的 varying-location-enabled?
+   为 false 时：
+   ▸ varying 空间的 IODecl 的 :location 是 nil
+   ▸ emit 层不输出 layout(location)——链接按名称匹配
+   ▸ vertex-input / fragment-output 空间不受影响——330 支持
+
    ── 跨阶段联动 ────────────────────────────────────────
    vertex 用 :interface-block 策略返回 struct 时，fragment 输入必须
    用同名 block 接收（GLSL 链接规则）。即使 fragment 声明为离散参数，
@@ -351,7 +359,10 @@
 (defn- plan-vertex-inputs
   "顶点输入——全部走 vertex-input 空间的 location 分配。
    vertex 的 :position 是普通属性，不是内置变量——gl_Position
-   是输出侧的映射，由 plan-vertex-return 处理。"
+   是输出侧的映射，由 plan-vertex-return 处理。
+
+   vertex-input 空间的 location 在所有 GLSL 版本都支持——不需要
+   varying-location-enabled? 判断。"
   [params cfg]
   (let [sems (mapv :semantic params)
         locs (assign-locations sems cfg
@@ -366,10 +377,10 @@
   "展开 struct 的字段。
 
    :split           —— 每个字段一个 IODecl，location 从 locations 查。
+                       locations 为 nil 时不输出 location——
+                       varying-location-enabled? 为 false 时的
+                       varying 场景——链接按名称匹配。
                        var-name 从 names 查——nil 时用字段原名。
-                       names 是 semantic → var-name 的映射，由
-                       plan-vertex-return 传入（VS out 用 varying
-                       命名规则）或 nil（fragment out 用原名）。
    :interface-block —— 内置字段 IODecl + 自定义字段打包成 InterfaceBlock。
                        block 按块名 + 成员名匹配，不用 location。"
   [stage struct-decl cfg direction locations names]
@@ -389,13 +400,14 @@
                   (->IODecl (lang/builtin-var-name stage sem)
                             type sem nil
                             (lang/flat-required? type) true)
-                  (let [loc      (get locations sem)
+                  (let [loc      (when locations (get locations sem))
                         var-name (or (get names sem) name)]
-                    (when (nil? loc)
+                    (when (and locations (nil? loc))
                       (throw (err/compile-error
                                :gl-no-location-for-field
                                "no location assigned for struct field"
-                               {:field name :semantic sem :stage stage :direction direction})))
+                               {:field name :semantic sem
+                                :stage stage :direction direction})))
                     (->IODecl var-name type sem loc
                               (lang/flat-required? type) false)))))
             (:members struct-decl))
@@ -483,7 +495,7 @@
                  {:param (:name p) :semantic sem})))
       (into builtin-ios [block]))
 
-    ;; ── 无 vertex block——varying 空间统一分配 location，名字查 VS out ──
+    ;; ── 无 vertex block——varying 空间分配 location（如果支持）──
     (let [v-names  (vertex-varying-names analysis cfg struct-names asts)
           all-sems (into []
                          (mapcat (fn [^SLParam p]
@@ -499,8 +511,9 @@
                                        :else
                                        [sem]))))
                          params)
-          locs     (assign-locations all-sems cfg
-                                     #(config/varying-semantic-location cfg %))]
+          locs     (when (config/varying-location-enabled? cfg)
+                     (assign-locations all-sems cfg
+                                       #(config/varying-semantic-location cfg %)))]
       (into []
             (mapcat (fn [^SLParam p]
                       (let [sem  (:semantic p)
@@ -516,13 +529,19 @@
                             (plan-struct-fields :fragment sd cfg :in locs v-names))
 
                           :else
-                          (let [var-name (or (get v-names sem) (:name p))]
-                            [(->IODecl var-name type sem (get locs sem)
+                          (let [var-name (or (get v-names sem) (:name p))
+                                loc      (when locs (get locs sem))]
+                            [(->IODecl var-name type sem loc
                                        (lang/flat-required? type) false)])))))
             params))))
 
 (defn- plan-vertex-return
   "vertex 返回——:split 走 varying 空间 location 分配。
+
+   varying-location-enabled? 为 false 时（GLSL 330 的 varying），
+   locations 传 nil——plan-struct-fields 不输出 layout(location)。
+   链接依靠名称匹配（fragment 侧查同一 varying 名映射）。
+
    varying 名用 resolve-varying-name 和 params 名去冲突——加
    _<inc> 后缀。struct 字段的 :position 映射 gl_Position（builtin），
    其余字段是 varying out。"
@@ -531,8 +550,9 @@
     (if (hlsl.lang/struct-type? type struct-names)
       (let [sd      (find-struct asts (ty/type-sym type))
             sems    (collect-field-semantics :vertex sd)
-            locs    (assign-locations sems cfg
-                                      #(config/varying-semantic-location cfg %))
+            locs    (when (config/varying-location-enabled? cfg)
+                      (assign-locations sems cfg
+                                        #(config/varying-semantic-location cfg %)))
             exclude (set (map :name params))
             names   (into {}
                           (keep (fn [f]
@@ -546,9 +566,11 @@
 
 (defn- plan-fragment-return
   "fragment 返回——struct 走 fragment-output 空间 location 分配。
-   fragment out 是 render target，不涉及 varying 名一致性——names
-   传 nil，用字段原名。单值 fragColor 硬编码 location 0；:depth
-   映射 gl_FragDepth。"
+
+   fragment out 是 render target——所有 GLSL 版本都支持
+   layout(location)——不需要 varying-location-enabled? 判断。
+   不涉及 varying 名一致性——names 传 nil，用字段原名。
+   单值 fragColor 硬编码 location 0；:depth 映射 gl_FragDepth。"
   [^SLReturn return cfg struct-names asts]
   (let [type (:type return)
         sem  (:semantic return)]
@@ -641,7 +663,7 @@
 
    返回 Layout——含全局 sampler 规划和当前 stage 的入口点规划。"
   ^Layout [asts ^SLAnalysis analysis stage cfg]
-  (let [entry        (model/find-entry analysis stage)
+  (let [entry (model/find-entry analysis stage)
         struct-names (collect-struct-names asts)]
     (->Layout
       (plan-samplers analysis cfg)
