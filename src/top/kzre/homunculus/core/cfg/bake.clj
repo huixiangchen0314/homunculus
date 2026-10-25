@@ -142,7 +142,8 @@
           ;; 外层是汇合 if 的 then 时，exit 后续到外层 join 能正确停止。
           [exit-stmts exit-ret exit-stopped visited2]
           (bake-block* ctx exit-id visited1)]
-      [(into (vec (:stmts block)) (into [while-node] exit-stmts))
+      [(into (vec (:stmts block))
+             (into [while-node] exit-stmts))
        exit-ret
        exit-stopped
        visited2])))

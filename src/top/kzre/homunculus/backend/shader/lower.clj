@@ -27,16 +27,28 @@
           [[] env] nodes))
 
 
-(defn- strip-block-ret
+
+(defn- normalize-block
   "清空 Block 的 :ret。
    用于语句位置的 Block（while body、if 语句的 then/else）。
    语义：Block 的 :ret 只在表达式位置（函数体顶层、赋值 RHS、
    call 参数等）有意义。语句位置没有返回值。"
   [node]
   (if (= :block (ast/kind node))
-    (ast/->Block (vec (:stmts node)) nil
-                 (:attrs node)
-                 (:meta node))
+    (let [stmts
+          (reduce
+          (fn [stmt-acc stmt]
+            (if (some? stmt)
+              (if (= :block (ast/kind stmt))
+                (let [norm-block (normalize-block stmt)]
+                  (into stmt-acc (:stmts norm-block)))
+                (conj stmt-acc stmt))
+              stmt-acc))
+            []
+            (:stmts node))]
+      (ast/->Block stmts nil
+                   (:attrs node)
+                   (:meta node)))
     (ast/->Block [node] nil
                  (:attrs node)
                  (:meta node))))
@@ -57,11 +69,7 @@
     [(ast/->Literal val
                     (:attrs node)
                     (ir-meta node)) env]
-    (try
-      (throw (ex-info "" {}))
-      (catch Throwable t
-        [nil env])))
-  )
+    [nil env]))
 
 (defmethod lower-node* :variable [node env]
   [(ast/->Variable (:name node) (:attrs node) (ir-meta node)) env])
@@ -161,12 +169,15 @@
                                      {}
                                      (ir-meta node))
             ret-var   (ast/->Variable ret-name nil (ir-meta node))]
-        [(ast/->Block (conj lowered-stmts var-decl)
-                      ret-var
-                      (:attrs node)
-                      (ir-meta node))
+        [(normalize-block
+           (ast/->Block (conj lowered-stmts var-decl)
+                        ret-var
+                        (:attrs node)
+                        (ir-meta node)))
          env''])
-      [(ast/->Block lowered-stmts ret' (:attrs node) (ir-meta node)) env''])))
+      [(normalize-block
+         (ast/->Block lowered-stmts ret' (:attrs node) (ir-meta node)))
+       env''])))
 
 (defmethod lower-node* :if [node env]
   (let [[test env1] (lower-node* (:test node) env)
@@ -198,7 +209,7 @@
 (defmethod lower-node* :while [node env]
   (let [[test env1] (lower-node* (n/while-test node) env)
         [body env2] (lower-node* (n/while-body node) env1)
-        body-block  (strip-block-ret body)]
+        body-block  (normalize-block body)]
     [(ast/->Block [(ast/->While test body-block (:attrs node) (ir-meta node))]
                   nil {} (ir-meta node))
      env2]))
@@ -283,4 +294,4 @@
                             (let [[node new-env] (lower-node* n env)]
                               [(conj stmts node) new-env]))
                           [[] (shader.env/make-env)] nodes)]
-    (keep stmts)))
+    (keep identity stmts)))
