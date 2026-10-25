@@ -273,7 +273,7 @@
 ;; ═══════════════════════════════════════════
 
 (defn- rename-entry [name]
-  (str "__entry_" name))
+  (str "cljh_entry_" name))
 
 (defn- require-struct-def
   [struct-def return-type]

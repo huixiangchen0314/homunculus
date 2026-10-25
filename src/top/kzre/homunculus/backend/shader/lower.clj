@@ -65,11 +65,12 @@
 
 (defmethod lower-node* :literal [node env]
   ;; shader 不存在空值，退化为无操作
-  (if-let [val (:val node) ]
-    [(ast/->Literal val
-                    (:attrs node)
-                    (ir-meta node)) env]
-    [nil env]))
+  (let [val (:val node) ]
+    (if (some? val)
+      [(ast/->Literal val
+                      (:attrs node)
+                      (ir-meta node)) env]
+      [nil env])))
 
 (defmethod lower-node* :variable [node env]
   [(ast/->Variable (:name node) (:attrs node) (ir-meta node)) env])
@@ -162,21 +163,24 @@
              (= :constructor (ast/kind ret')))
       ;; 结构体构造器返回——HLSL 的 `return { ... }` 依赖聚合初始化，
       ;; 在部分编译器下不保证支持；降级为临时变量声明 + 返回变量。
-      (let [ret-name  (gensym "__ret_")
+      (let [ret-name  (gensym "cljh_ret_")
             var-decl  (ast/->VarDecl ret-name
                                      (ty/get-type ret)
                                      ret'
                                      {}
                                      (ir-meta node))
             ret-var   (ast/->Variable ret-name nil (ir-meta node))]
-        [(normalize-block
-           (ast/->Block (conj lowered-stmts var-decl)
-                        ret-var
-                        (:attrs node)
-                        (ir-meta node)))
+        [(assoc (normalize-block
+                  (ast/->Block
+                    (conj lowered-stmts var-decl)
+                    nil (:attrs node) (ir-meta node)))
+           :ret ret-var)
          env''])
-      [(normalize-block
-         (ast/->Block lowered-stmts ret' (:attrs node) (ir-meta node)))
+      [(assoc (normalize-block
+                (ast/->Block
+                  lowered-stmts
+                  nil (:attrs node) (ir-meta node)))
+         :ret ret')
        env''])))
 
 (defmethod lower-node* :if [node env]

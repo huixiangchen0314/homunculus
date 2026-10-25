@@ -1,4 +1,5 @@
 (ns top.kzre.homunculus.core.irstmt.pass.declare.api
+  "声明的消除重建，目的是不让CFG 考虑作用域"
   (:require
     [top.kzre.homunculus.core.irstmt.pass.declare.polyfill]
     [top.kzre.homunculus.core.irstmt.pass.declare.strip]
