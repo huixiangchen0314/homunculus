@@ -29,7 +29,7 @@
                                             (p/module-naming-style config)))
                           out-dir)
                  ".hlsl")
-          irstmts (irstmt.lower/lower nodes)
+          irstmts (irstmt.lower/lower nodes (irstmt.lower/make-env))
           sted (statementize/statementize-nodes irstmts)
           ped  (propagate/propagate sted (propagate/make-env ctx))
           dced (dce/elim ped (dce/make-env ctx))

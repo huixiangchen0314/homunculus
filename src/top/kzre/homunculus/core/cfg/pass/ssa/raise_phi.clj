@@ -10,6 +10,7 @@
 
    "
   (:require
+    [clojure.string :as str]
     [top.kzre.homunculus.core.cfg.adapt :as adapt]
     [top.kzre.homunculus.core.cfg.analysis.dominator :as dom]
     [top.kzre.homunculus.core.cfg.model :as cfg]
@@ -50,12 +51,15 @@
   (let [targets (escape-targets* cfg var-name adapter)]
     (when (= 1 (count targets))
       (let [candidate     (first targets)
+            target (:target candidate)
+            loop-head?    (cfg/cfg-loop-head? cfg phi-block-id)
             decl-block-id (adapt/declare-block-id
                             adapter cfg
-                            (:target candidate))
+                            target)
             idom          (dom/compute-dominators cfg)]
         (when (and decl-block-id
-                   (dom/dominates? idom decl-block-id phi-block-id))
+                   (or loop-head?
+                       (dom/dominates? idom decl-block-id phi-block-id)))
           candidate)))))
 
 (defn phi-raisable-escape

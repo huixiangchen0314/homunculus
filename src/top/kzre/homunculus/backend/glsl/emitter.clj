@@ -13,13 +13,13 @@
    [top.kzre.homunculus.backend.shader.pass.ns-strategy :as ns-strategy]
    [top.kzre.homunculus.backend.shader.pass.split-entries :as split-entries]
    [top.kzre.homunculus.backend.shader.semantic :as semantic]
+   [top.kzre.homunculus.core.cfg.irstmt.adapt :as cfg-adapt]
+   [top.kzre.homunculus.core.cfg.irstmt.opt :as opt]
    [top.kzre.homunculus.core.error :as err]
    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
    [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
    [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
    [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
-   [top.kzre.homunculus.core.cfg.irstmt.opt :as opt]
-   [top.kzre.homunculus.core.cfg.irstmt.adapt :as cfg-adapt]
    [top.kzre.homunculus.internal.compile-result :as compile-result]
    [top.kzre.homunculus.internal.protocol :as ip]))
 
@@ -70,9 +70,10 @@
     (let [cfg (ip/config ctx)
           path (ip/output-path  cfg)
           ;; IR2 → IRStmt → 优化 → ShaderAST
-          irstmts      (irstmt.lower/lower nodes)
+          irstmts      (irstmt.lower/lower nodes (irstmt.lower/make-env))
           sted         (statementize/statementize-nodes irstmts)
           cfged        (opt/optimize sted (cfg-adapt/make-adapter ctx))
+          ;declared     (declare/decl cfged)
           ped          (propagate/propagate cfged (propagate/make-env ctx))
           dced         (dce/elim ped (dce/make-env ctx))
           shader-asts  (lower/lower dced)

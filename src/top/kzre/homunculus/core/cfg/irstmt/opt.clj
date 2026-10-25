@@ -15,13 +15,15 @@
    这不是开关——是 pass 的确定性边界。同一输入永远同一输出。
    bake 支持 while / 汇合 if 后，边界自然收窄。"
   (:require
-    [top.kzre.homunculus.core.cfg.bake :as bake]
-    [top.kzre.homunculus.core.cfg.build :as build]
-    [top.kzre.homunculus.core.cfg.irstmt.build :as irstmt-build]
-    [top.kzre.homunculus.core.cfg.pass.ssa.construct :as construct]
-    [top.kzre.homunculus.core.cfg.pass.ssa.destruct :as destruct]
-    [top.kzre.homunculus.core.cfg.pass.ssa.raise-phi :as raise-phi]
-    [top.kzre.homunculus.core.irstmt.ast :as ast]))
+   [top.kzre.homunculus.core.cfg.bake :as bake]
+   [top.kzre.homunculus.core.cfg.build :as build]
+   [top.kzre.homunculus.core.cfg.irstmt.build :as irstmt-build]
+   [top.kzre.homunculus.core.cfg.irstmt.pass.copy-prop :as copy-prop]
+   [top.kzre.homunculus.core.cfg.pass.reachable :as reachable]
+   [top.kzre.homunculus.core.cfg.pass.ssa.construct :as construct]
+   [top.kzre.homunculus.core.cfg.pass.ssa.destruct :as destruct]
+   [top.kzre.homunculus.core.cfg.pass.ssa.raise-phi :as raise-phi]
+   [top.kzre.homunculus.core.irstmt.ast :as ast]))
 
 (defn- optimize-function
   [node adapter]
@@ -29,11 +31,12 @@
     (if (or (nil? body) (not= :block (ast/kind body)))
       node
       (let [builder  (irstmt-build/builder)
-            cfg      (build/build-cfg body builder)
+            cfg      (reachable/elim
+                       (build/build-cfg body builder))
             ssa      (construct/construct cfg adapter)
             raised   (raise-phi/raise-phi ssa adapter)     ; SSA：改 phi 的 var-name
-            ;propped  (copy-prop/copy-prop raised adapter)   ; SSA：处理非 phi 变量的拷贝
-            restored (destruct/elim-phi raised adapter)   ; 解构：phi 下推 + 版本化消除
+            propped  (copy-prop/copy-prop raised adapter)   ; SSA：处理非 phi 变量的拷贝
+            restored (destruct/elim-phi propped adapter)   ; 解构：phi 下推 + 版本化消除
             baked    (bake/bake restored adapter)]
         (assoc node :body baked)))))
 

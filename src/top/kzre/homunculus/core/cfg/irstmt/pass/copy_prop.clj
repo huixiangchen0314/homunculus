@@ -10,62 +10,73 @@
    ── 目标 ──
 
    ▸ x、y 都是 :variable
-   ▸ x 的 base name 不是 phi-var-name（phi 变量不能替换）
-   ▸ y 的 base name 不是 phi-var-name
+   ▸ x、y 不在 protected-names 里——protected-names 是 phi
+     input 的 var-name 集合
 
-   SSA 环境下 x/y 带版本号（`a$$1`）——phi-var-name-set 里是
-   base name（`a`）。用 strip-versions 后比较。
+   ── 为什么只保护 phi input ──
+
+   替换 phi input var-name 的 use 会破坏 phi 的 input——phi 的
+   语义直接依赖 input 的 var-name。phi 的 var-name 不需要保护
+   ——SSA 下 phi 的 var-name 在 join 处定义一次，之后不重新
+   定义——`x = phi_var` 的传播（替换 x 的 use → phi_var）是
+   安全的。
+
+   protected-names 里是精确版本名（`a$$1`）——直接 contains?
+   匹配，不需要 strip-versions。
 
    ── 算法 ──
 
    1. 找所有满足条件的 'x = y'
-   2. 全 CFG 替换 use(x) → use(y)——stmts、terms、phi 输入
+   2. 全 CFG 替换 use(x) → use(y)——stmts、terms
    3. 删除 'x = y' 本身
    4. 迭代到不动点
 
-   ── 与 raise-phi 的关系 ──
-
-   raise-phi 在 construct 之后、destruct 之前——phi 还在 :phis
-   里，phi-var-name 是 base name。copy-prop 在 raise-phi 之后
-   跑——phi-var-name-set 非空，跳过 phi 涉及的变量。"
+   phi 的 input 不替换——protected-names 保护了 phi input 的
+   var-name，x/y 不会是它们。"
   (:require
     [top.kzre.homunculus.core.cfg.adapt :as adapt]
     [top.kzre.homunculus.core.cfg.phi :as phi]
-    [top.kzre.homunculus.core.cfg.pass.ssa.construct :as construct]
     [top.kzre.homunculus.core.irstmt.ast :as ast]))
+
+;; ═══════════════════════════════════════════
+;; 受保护名称——phi input 的 var-name
+;; ═══════════════════════════════════════════
+
+(defn- protected-names
+  "copy-prop 不能碰的变量名——phi input 的 var-name 集合。
+
+   这些是 phi 语义的直接依赖——替换它们的 use 会破坏 phi 的
+   input。精确版本名，直接 contains? 匹配。
+
+   phi 的 var-name 不在此列——SSA 下 phi 的 var-name 在 join
+   处定义一次，之后不重新定义——替换它的 use 是安全的。"
+  [ssa-cfg]
+  (into #{}
+        (mapcat (fn [[_ block]]
+                  (mapcat (fn [phi]
+                            (keep :var-name (phi/phi-inputs phi)))
+                          (:phis block))))
+        (:blocks ssa-cfg)))
 
 ;; ═══════════════════════════════════════════
 ;; 候选识别
 ;; ═══════════════════════════════════════════
 
-(defn- phi-var-names
-  "当前 CFG 里所有 phi 的 var-name 集合（base name）。"
-  [ssa-cfg]
-  (into #{}
-        (map phi/phi-var-name)
-        (mapcat :phis (vals (:blocks ssa-cfg)))))
-
 (defn- copy-assign?
-  "x = y 形式的拷贝赋值。
-
-   x/y 的 base name（strip 版本号）不在 phi-var-name-set 里——
-   跳过 phi 涉及的变量。"
-  [stmt phi-var-name-set]
+  [stmt protected]
   (and (= :assign (ast/kind stmt))
        (let [v (:var stmt) r (:val stmt)]
          (and v r
               (= :variable (ast/kind v))
               (= :variable (ast/kind r))
-              (not (contains? phi-var-name-set
-                              (construct/strip-versions (:name v))))
-              (not (contains? phi-var-name-set
-                              (construct/strip-versions (:name r))))))))
+              (not (contains? protected (:name v)))
+              (not (contains? protected (:name r)))))))
 
 (defn- collect-copy-assigns
-  [ssa-cfg phi-var-name-set]
+  [ssa-cfg protected]
   (->> (for [[bid block] (:blocks ssa-cfg)
              [idx stmt]  (map-indexed vector (:stmts block))
-             :when       (copy-assign? stmt phi-var-name-set)]
+             :when       (copy-assign? stmt protected)]
          {:block-id bid
           :stmt-idx idx
           :x        (:name (:var stmt))
@@ -85,25 +96,12 @@
   [term x y adapter]
   (adapt/term-replace-uses adapter term {x y}))
 
-(defn- replace-in-phi
-  "替换 phi input 的 origin 和 var-name。
-
-   防御性代码——copy-assign? 跳过 phi 涉及的变量，phi input
-   的 origin/var-name 的 base name 在 phi-var-name-set 里——
-   实际不会触发。保留以应对未来放松跳过条件。"
-  [p x y adapter]
-  (let [ref-y (adapt/make-var-ref adapter (phi/phi-origin p) y)]
-    (update p :inputs
-            (fn [inputs]
-              (mapv (fn [input]
-                      (if (and (:origin input)
-                               (= :variable (ast/kind (:origin input)))
-                               (= x (:name (:origin input))))
-                        (assoc input :origin ref-y :var-name y)
-                        input))
-                    inputs)))))
-
 (defn- replace-all-uses
+  "替换 stmts 和 term 里的 use(x) → use(y)。
+
+   不替换 phi 的 input——protected-names 保护了 phi input 的
+   var-name，x/y 不会是它们；phi 的 input 的 origin 的 name
+   也是版本名——不会等于普通变量 x/y。"
   [ssa-cfg x y adapter]
   (update ssa-cfg :blocks
           (fn [blocks]
@@ -111,13 +109,8 @@
                   (map (fn [[bid block]]
                          [bid (-> block
                                   (update :stmts #(replace-in-stmts % x y adapter))
-                                  (update :term  #(replace-in-term  % x y adapter))
-                                  (update :phis  (fn [phis]
-                                                   (when phis
-                                                     (mapv (fn [p]
-                                                             (replace-in-phi p x y adapter))
-                                                           phis)))))])
-                       blocks)))))
+                                  (update :term  #(replace-in-term  % x y adapter)))]))
+                  blocks))))
 
 (defn- remove-copy-stmt
   [ssa-cfg bid idx]
@@ -134,8 +127,8 @@
   (loop [cfg ssa-cfg n 0]
     (when (> n 1000)
       (throw (ex-info "copy-prop did not converge" {:iterations n})))
-    (let [phi-var-name-set (phi-var-names cfg)
-          copies           (collect-copy-assigns cfg phi-var-name-set)]
+    (let [protected (protected-names cfg)
+          copies    (collect-copy-assigns cfg protected)]
       (if (empty? copies)
         cfg
         (let [cfg' (reduce (fn [c {:keys [block-id stmt-idx x y]}]

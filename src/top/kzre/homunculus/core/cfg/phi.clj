@@ -59,7 +59,9 @@
   (let [phi-var-name (phi-var-name phi)]
     (reduce
       (fn [substs {:keys [var-name]}]
-        (assoc substs var-name phi-var-name))
+        (if-not (= phi-var-name var-name)
+          (assoc substs var-name phi-var-name)
+          substs))
       {}
       (phi-inputs phi))))
 

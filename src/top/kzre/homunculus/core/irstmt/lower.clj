@@ -8,7 +8,6 @@
 (defn make-env [] (->Env #{}))
 (defn env-add-local [env var-name] (update env :locals conj var-name))
 (defn env-contains? [env var-name] (contains? (:locals env) var-name))
-(defonce empty-env (make-env))
 
 (defmulti lower-node* (fn [node _env] (ir2/kind node)))
 
@@ -131,9 +130,9 @@
         ]
     [(ast/->While test body (n/attrs node) (n/node-meta node)) env1]))
 
-(defn lower [nodes]
+(defn lower [nodes init-env]
   (let [[stmts _] (reduce (fn [[stmts env] n]
                             (let [[node new-env] (lower-node* n env)]
                               [(conj stmts node) new-env]))
-                          [[] empty-env] nodes)]
+                          [[] init-env] nodes)]
     stmts))

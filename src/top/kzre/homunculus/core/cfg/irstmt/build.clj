@@ -8,8 +8,9 @@
    :block 节点——:origin 是 :block 节点本身（它的 stmts 会展开到
    当前 CFG 块，:origin 用于 bake 时给 Block 节点继承 attrs）。"
   (:require
-    [top.kzre.homunculus.core.cfg.build :as build]
-    [top.kzre.homunculus.core.irstmt.ast :as ast]))
+    [top.kzre.homunculus.core.cfg.build]
+    [top.kzre.homunculus.core.irstmt.ast :as ast])
+  (:import (top.kzre.homunculus.core.cfg.build ICFGBuilder)))
 
 (defn- block-form
   "IRStmt 的 :block 节点 → 规范 block 形式（含 :origin）。
@@ -35,7 +36,7 @@
      :origin node}))
 
 (defrecord IRStmtCFGBuilder []
-  build/ICFGBuilder
+  ICFGBuilder
   (decon [_ node]
     (case (ast/kind node)
       :if    {:kind   :if
