@@ -20,8 +20,12 @@
 (defn lit-val [node] (:val node))
 
 (defn make-literal
-  ([val] (m/->Literal val nil))
-  ([val meta] (m/->Literal val meta)))
+  ([val]
+   {:pre [some? val]}
+   (m/->Literal val nil))
+  ([val meta]
+   {:pre [some? val]}
+   (m/->Literal val meta)))
 
 ;; ════════════════════════════════════════════════════════════
 (defn sym-name [node] (:name node))

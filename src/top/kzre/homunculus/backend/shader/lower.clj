@@ -52,7 +52,16 @@
     [(ast/->Block imports nil {} (ir-meta node)) env]))
 
 (defmethod lower-node* :literal [node env]
-  [(ast/->Literal (n/lit-val node) (:attrs node) (ir-meta node)) env])
+  ;; shader 不存在空值，退化为无操作
+  (if-let [val (:val node) ]
+    [(ast/->Literal val
+                    (:attrs node)
+                    (ir-meta node)) env]
+    (try
+      (throw (ex-info "" {}))
+      (catch Throwable t
+        [nil env])))
+  )
 
 (defmethod lower-node* :variable [node env]
   [(ast/->Variable (:name node) (:attrs node) (ir-meta node)) env])
@@ -135,7 +144,8 @@
         ret   (:ret node)
         [lowered-stmts env'] (reduce (fn [[s e] stmt]
                                        (let [[stmt' e'] (lower-node* stmt e)]
-                                         (if (value-expr? stmt')
+                                         (if (or (nil? stmt')
+                                                  (value-expr? stmt'))
                                            [s e']
                                            [(conj s stmt') e'])))
                                      [[] env] stmts)
@@ -171,14 +181,18 @@
         lhs-type (ty/get-type lhs-node)
         [lhs env1] (lower-node* lhs-node env)
         [rhs env2] (lower-node* (n/assign-val node) env1)]
-    (if (and (ty/vec-type? lhs-type)
-             (not= :literal (ast/kind rhs))
-             (not= :constructor (ast/kind rhs)))
-      [(ast/->Assign lhs rhs (:attrs node)
-                     (assoc (ir-meta node)
-                       :vec-assign? true
-                       :vec-type lhs-type)) env2]
-      [(ast/->Assign lhs rhs (:attrs node) (ir-meta node)) env2])))
+    (if (some? rhs)
+      (if (and (ty/vec-type? lhs-type)
+               (not= :literal (ast/kind rhs))
+               (not= :constructor (ast/kind rhs)))
+        [(ast/->Assign lhs rhs (:attrs node)
+                       (assoc (ir-meta node)
+                         :vec-assign? true
+                         :vec-type lhs-type)) env2]
+        [(ast/->Assign lhs rhs (:attrs node) (ir-meta node)) env2])
+
+      ;; shader 不存在空语义，退化为无操作
+      [nil env2])))
 
 
 (defmethod lower-node* :while [node env]
@@ -191,7 +205,6 @@
 
 (defmethod lower-node* :var-decl [node env]
   (let [var-name (:name node)
-
         init-expr (:val node)
         [init env'] (if init-expr (lower-node* init-expr env) [nil env])
         resource-kind (semantic/shader-resource-kind node)
@@ -237,8 +250,10 @@
           uniform? [(ast/->Uniform   var-name var-ty attrs meta) env']
           static?  [(ast/->StaticVar var-name var-ty init attrs meta) env']
           :else    (if (shader.env/local-var? env' var-name)
-                     [(ast/->Assign (ast/->Variable var-name (:attrs node) (:meta node))
-                                    init attrs meta) env']
+                     (if init
+                       [(ast/->Assign (ast/->Variable var-name (:attrs node) (:meta node))
+                                      init attrs meta) env']
+                       [nil env'])
                      [(ast/->VarDecl var-name var-ty init attrs meta)
                       (shader.env/bind-var env' var-name)]))))))
 
@@ -268,4 +283,4 @@
                             (let [[node new-env] (lower-node* n env)]
                               [(conj stmts node) new-env]))
                           [[] (shader.env/make-env)] nodes)]
-    stmts))
+    (keep stmts)))

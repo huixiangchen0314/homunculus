@@ -23,7 +23,8 @@
    [top.kzre.homunculus.core.cfg.pass.ssa.construct :as construct]
    [top.kzre.homunculus.core.cfg.pass.ssa.destruct :as destruct]
    [top.kzre.homunculus.core.cfg.pass.ssa.raise-phi :as raise-phi]
-   [top.kzre.homunculus.core.irstmt.ast :as ast]))
+   [top.kzre.homunculus.core.irstmt.ast :as ast]
+   [top.kzre.homunculus.core.irstmt.pass.declare.api :as declare]))
 
 (defn- optimize-function
   [node adapter]
@@ -31,6 +32,7 @@
     (if (or (nil? body) (not= :block (ast/kind body)))
       node
       (let [builder  (irstmt-build/builder)
+            ;striped  (declare/strip-node body)
             cfg      (reachable/elim
                        (build/build-cfg body builder))
             ssa      (construct/construct cfg adapter)

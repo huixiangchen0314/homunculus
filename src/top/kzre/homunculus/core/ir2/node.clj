@@ -71,9 +71,15 @@
 (defn lit-val [node] (:val node))
 
 (defn make-literal
-  ([val]                      (ir2/->Literal val {} nil ))
-  ([val attrs]                (ir2/->Literal val attrs nil ))
-  ([val attrs meta]           (ir2/->Literal val attrs meta )))
+  ([val]
+   ;{:pre [(some? val)]}
+   (ir2/->Literal val {} nil ))
+  ([val attrs]
+   ;{:pre [(some? val)]}
+   (ir2/->Literal val attrs nil ))
+  ([val attrs meta]
+   ;{:pre [(some? val)]}
+   (ir2/->Literal val attrs meta )))
 
 (defn literal-with-val [node val] (assoc node :val val))
 
