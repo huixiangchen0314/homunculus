@@ -292,6 +292,18 @@
                                       members))))]
     (T "cbuffer ${res-name} : register(${res-reg})\n{\n${member-str}\n}")))
 
+(def ^:private access-projected-target
+  #{:binary-op :unary-op :array-index
+    :member-access :constructor :cast :assign})
+(defmethod emit-node* :member-access [node env]
+  (let [target-node (:target node)
+        protected? (contains? access-projected-target (ast/kind target-node))]
+    (clang.format/member-access
+      (if protected?
+        (str "(" (emit-node target-node env) ")")
+        (emit-node target-node env))
+      (clang.lang/naming (:member node)))))
+
 (defmethod emit-node* :default [node env]
   (case (ast/kind node)
     :literal
@@ -324,10 +336,6 @@
     :uniform
     (let [ty   (:type node)]
       (str "uniform " (render-var-decl ty (:name node)) ";"))
-    :member-access
-    (clang.format/member-access
-      (emit-node* (:target node) env)
-      (clang.lang/naming (:member node)))
     (throw (ex-info (str "Unknown ShaderAST node: " (ast/kind node)) {:node node}))))
 
 ;; ── 入口 ──

@@ -78,10 +78,17 @@
     (lang/naming-fn (:fn node))
     (map #(emit-node % env) (:args node))))
 
+(def ^:private access-projected-target
+  #{:binary-op :unary-op :array-index
+    :member-access :constructor :cast :assign})
 (defmethod emit-node* :member-access [node env]
-  (clang.format/member-access
-    (emit-node (:target node) env)
-    (lang/naming (:member node))))
+  (let [target-node (:target node)
+        protected? (contains? access-projected-target (ast/kind target-node))]
+    (clang.format/member-access
+      (if protected?
+        (str "(" (emit-node target-node env) ")")
+        (emit-node target-node env))
+      (lang/naming (:member node)))))
 
 (defmethod emit-node* :array-index [node env]
   (clang.format/array-index
