@@ -14,7 +14,7 @@
 
 (defn ir2?
   [node]
-  (satisfies? IR2 node))
+  (when node (satisfies? IR2 node)))
 
 
 (defast IR2

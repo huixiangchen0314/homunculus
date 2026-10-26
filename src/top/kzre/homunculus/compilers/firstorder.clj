@@ -9,7 +9,7 @@
  [top.kzre.homunculus.core.ir2.pass.alias :as alias]
  [top.kzre.homunculus.core.ir2.pass.check.api :as check]
  [top.kzre.homunculus.core.ir2.pass.constraint.api :as constraint]
- [top.kzre.homunculus.core.ir2.pass.dc-elim.core :as dce]
+ [top.kzre.homunculus.core.ir2.pass.cleanup :as cleanup]
  [top.kzre.homunculus.core.ir2.pass.fold.core :as fold]
  [top.kzre.homunculus.core.ir2.pass.ho-elim.api :as ho-elim]
  [top.kzre.homunculus.core.ir2.pass.infer.api :as infer]
@@ -43,6 +43,12 @@
           solved
           (recur nodes))))))
 
+(defn- cleanup [nodes]
+  (-> nodes
+      (cleanup/elim-high-order)
+      (cleanup/elim-inline)
+      (cleanup/elim-polymorphic)))
+
 (defrecord TypedCompiler []
   p/ICompiler
   ;; 模块编译
@@ -59,7 +65,7 @@
           traited    (mark-trait/mark ir2-roots')   ;; 分析标记
           inlined    (inline/inline traited (inline/make-env ctx))  ;; 执行内联
           no-ho      (ho-elim/elim inlined (ho-elim/make-env ctx))
-          ;; 闭包消除可能引入新的高阶函数
+          ;; 闭包消除可能引入新的高阶/泛型函数
           no-closure (lambda-elim/elim no-ho (lambda-elim/make-env ctx))
           inlined2    (inline/inline no-closure (inline/make-env ctx))  ;; 执行内联
           no-ho2      (ho-elim/elim inlined2 (ho-elim/make-env ctx))
@@ -75,12 +81,9 @@
 
   (compile-module [_ unit context]
     (let [roots   (mu/module-nodes unit)
-          dce-ctx (dce/make-context context)                ;; 这些是必须在HLSL 消除的代码
-          no-ho (dce/eliminate-ho-defs roots dce-ctx)
-          inlined (dce/eliminate-inline-defs no-ho dce-ctx)
-          no-poly (dce/eliminate-polymorphic-defs inlined dce-ctx)
+          cleaned (cleanup roots)
           emitter (p/emitter context)
-          checked   (check/check no-poly (check/make-env context))
+          checked   (check/check cleaned (check/make-env context))
           result    (p/emit emitter checked context {:unit unit})]
       result))
 
@@ -90,13 +93,9 @@
           roots (vec (mapcat mu/module-nodes all-units))
           emitter (p/emitter context)
           roots1 (vec (remove n/ns-node? roots))
-          ;; dce
-          dce-ctx (dce/make-context context)   ;; 使用默认配置
-          roots2 (dce/eliminate-ho-defs roots1 dce-ctx)
-          roots3 (dce/eliminate-inline-defs roots2 dce-ctx)
-          roots4 (dce/eliminate-polymorphic-defs roots3 dce-ctx)
+          cleaned (cleanup roots1)
           ;; 最终类型检查
-          checked   (check/check roots4 (check/make-env context))
+          checked   (check/check cleaned (check/make-env context))
           ;; 代码生成
           result    (p/emit emitter checked context {})]
       result)))

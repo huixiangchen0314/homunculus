@@ -36,7 +36,9 @@
            ctx depth-limit current-depth))
 
   (lookup-ho [_ name]
+    ;; 本地高阶函数
     (or (get ho-lambdas name)
+        ;; 符号表高阶函数
         (when-let [entry (sym/lookup-func (ip/symbol-table ctx) name)]
           (when (:ho? entry)
             (:ir2 entry)))))

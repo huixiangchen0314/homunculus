@@ -24,6 +24,7 @@
     (or (get local-inline-defs fn-name)
         (when-let [entry (get symbol-table fn-name)]
           (when (or (:inline entry)
+                    ;; 泛型函数内联
                     (and (:polymorphic entry) inline-polymorphic?))
             (:ir2 entry)))))
   (register-inline-def [this name lambda]
@@ -31,7 +32,9 @@
 
 (defn make-env
   "从 compile-ctx 构造内联 pass 的环境。"
-  [compile-ctx & {:keys [inline-polymorphic?] :or {inline-polymorphic? true}}]
+  [compile-ctx
+   & {:keys [inline-polymorphic?]
+      :or {inline-polymorphic? true}}]
   (let [frontend      (ip/frontend compile-ctx)
         builtin-table (tp/builtin-symbols frontend)
         user-table    (ip/symbol-table compile-ctx)

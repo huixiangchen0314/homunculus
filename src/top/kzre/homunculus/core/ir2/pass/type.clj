@@ -458,6 +458,12 @@
     (hetero-map? ty) (every? (fn [[_ v]] (concrete? v)) (hetero-map-entries ty))
     :else false))
 
+(defn has-concrete-type?
+  [node]
+  (if-let [t  (get-type node)]
+    (concrete? t)
+    false))
+
 (defn clear-type
   ([node]
    (clear-type node true))

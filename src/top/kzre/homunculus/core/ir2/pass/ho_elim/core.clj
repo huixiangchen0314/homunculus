@@ -2,11 +2,11 @@
   "高阶函数内联 Pass：标记并内联高阶函数。
    使用 reduce-children + walk 模式，elim-node* 绝不递归子节点。"
   (:require
-    [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.ast :as ir2]
-    [top.kzre.homunculus.core.ir2.transform.inline :as transform-inline]
-    [top.kzre.homunculus.core.ir2.pass.mark-ho :as mark-ho]
-    [top.kzre.homunculus.core.ir2.pass.ho-elim.env :as env]))
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.ir2.pass.ho-elim.env :as env]
+    [top.kzre.homunculus.core.ir2.pass.mark-trait :as mark-trait]
+    [top.kzre.homunculus.core.ir2.transform.inline :as transform-inline]))
 
 ;; ── 内部单步 ─────────────────────────────
 (declare walk)
@@ -16,11 +16,12 @@
   (case (ir2/kind node)
     ;; define：被标记为高阶的 lambda 注册进环境
     :define
-    (let [name (n/define-name node)
-          val  (n/define-val node)]
-      (if (and val (mark-ho/high-order? val))
-        (walk node (env/track-ho env name val))
-        (walk node env)))
+    (if (mark-trait/high-order? node)
+      (walk node (env/track-ho
+                   env
+                   (n/define-name node)
+                   (n/define-val node)))
+      (walk node env))
 
     ;; call：尝试内联高阶调用
     :call
@@ -57,10 +58,9 @@
 (defn elim
   "对 IR2 根节点列表做高阶内联。"
   [ir2-roots env]
-  (let [analyzed-roots (mark-ho/mark ir2-roots)]
-    (first
-      (reduce (fn [[roots e] root]
-                (let [[new-root new-env] (elim-node* root e)]
-                  [(conj roots new-root) new-env]))
-              [[] env]
-              analyzed-roots))))
+  (first
+    (reduce (fn [[roots e] root]
+              (let [[new-root new-env] (elim-node* root e)]
+                [(conj roots new-root) new-env]))
+            [[] env]
+            ir2-roots)))

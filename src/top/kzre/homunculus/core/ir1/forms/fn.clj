@@ -7,13 +7,13 @@
 ;; 我们把 fn 作为特殊形式，不会去展开它.
 (defmethod ir1/form->node 'fn [form]
   (let [[fn-sym maybe-name params & body] form
-        [name params body] (if (symbol? maybe-name)
+        [name param-v body] (if (symbol? maybe-name)
                              [maybe-name params body]
                              [nil maybe-name (cons params body)])
         ;; 将参数符号转换为参数 param 节点
-        param-descs (mapv (fn [p] (n/make-param p (meta p))) params)
-        ;; 合并 fn-sym、form、params 的元数据，确保各种位置标注都能传递
-        merged-meta (merge (meta fn-sym) (meta form) (meta params))]
+        param-descs (mapv (fn [p] (n/make-param p (meta p))) param-v)
+        ;; 合并 fn-sym、form、param-v 的元数据，确保各种位置标注都能传递
+        merged-meta (merge (meta fn-sym) (meta form) (meta param-v))]
     (n/make-fn name param-descs body merged-meta)))
 
 (defmethod ir1/build-tree :fn [node]

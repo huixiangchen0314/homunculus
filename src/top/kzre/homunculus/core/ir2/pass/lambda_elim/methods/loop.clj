@@ -6,13 +6,7 @@
 (defmethod elim/elim-node* :loop [node env]
   (let [bindings (n/loop-bindings node)        ;; Binding 向量
         ;; 值表达式在外部环境下处理
-        [new-vals val-defs]
-        (reduce (fn [[vals defs] b]
-                  (let [val-node (:val b)
-                        [new-val val-defs'] (elim/elim-node* val-node env)]
-                    [(conj vals new-val) (into defs val-defs')]))
-                [[] []]
-                bindings)
+        [new-vals val-defs] (elim/elim-seq bindings env)
         ;; 扩展内部环境——绑定名可见于 body
         binding-names (map #(:name (:var %)) bindings)
         inner-env     (reduce p/bind-var env binding-names)

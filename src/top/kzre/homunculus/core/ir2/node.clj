@@ -33,8 +33,7 @@
 ;; 通用字段访问
 ;; ══════════════════════════════════════════════
 (defn kind [node]
-  (when node
-    (ir2/kind node)))
+  (when node (ir2/kind node)))
 
 (defn attrs [node]
   (when node

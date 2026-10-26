@@ -21,8 +21,10 @@
 (defrecord Env [vars compile-ctx config]
   IEnv
   (inline-all-lambda? [_]
-    (or (proto/get-option config :inline-all-lambda?)
-         false))
+    ;; 时候内联所有 lambda，
+    ;; 如果内联，则标记内联，后续pass会内联回来
+    ;; 否则在后续pass 会进入单态化
+    (or (proto/get-option config :inline-all-lambda?) false))
   (max-iterations [_] 1000)
   (strict-mode? [_] true)
   (on-unresolved [_ lambda _reason]
