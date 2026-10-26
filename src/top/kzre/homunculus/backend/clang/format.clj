@@ -18,8 +18,7 @@
 
 (defn var-decl
   [var-name type-str & {:keys [static? const?]}]
-  (let [var-name (lang/naming var-name)
-        [base size] (split-array-type type-str)
+  (let [[base size] (split-array-type type-str)
         prefix      (cond-> ""
                             static? (str "static ")
                             const?  (str "const "))
@@ -51,8 +50,7 @@
 
 (defn member-access
   [target member]
-  (let [member (lang/naming member)]
-    (T "${target}.${member}")))
+  (T "${target}.${member}"))
 
 (defn call
   [op args]
@@ -79,8 +77,7 @@
 (defn function
   [& {:keys [name return-type params body
              before after]}]
-  (let [name       (lang/naming name)
-        return-type return-type
+  (let [return-type return-type
         params     (str/join ", " params)
         body       body]
     (cond
@@ -102,7 +99,7 @@
 (defn struct-member
   [& {:keys [name type before after post]}]
   (str (when before (str before " "))
-       type " " (lang/naming name)
+       type " " name
        (when after (str " " after))
        ";"
        (when post (str " " post))))
@@ -120,5 +117,25 @@
 (defn param
   [& {:keys [type name before after]}]
   (str (when before (str before " "))
-       type " " (lang/naming name)
+       type " " name
        (when after (str " " after))))
+
+
+(defn forhead
+  "for 循环头——`for (init; test; update)`。
+
+   init / update 为 nil 时输出空段——`for (; test;)`。
+   body 由调用方拼接——forhead 只负责头部。"
+  [& {:keys [init test update]}]
+  (let [init   (or init "")
+        test   (or test "")
+        update (or update "")]
+    (T "for (${init}; ${test}; ${update})")))
+
+(defn loopfor
+  "for 语句——头部 + body。
+
+   body 已由调用方 indent——此函数只负责外层 `{}` 包裹。"
+  [& {:keys [init test update body]}]
+  (let [head (forhead :init init :test test :update update)]
+    (T "${head}\n{\n${body}\n}")))

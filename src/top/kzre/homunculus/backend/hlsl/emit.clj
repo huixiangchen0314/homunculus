@@ -141,7 +141,7 @@
 
 (defn- render-var-decl [ir-type var-name]
   (let [type-str (clang.lang/type->str ir-type)]
-    (clang.format/var-decl var-name type-str)))
+    (clang.format/var-decl (clang.lang/naming var-name) type-str)))
 
 ;; ── 变量声明 ──
 (defmethod emit-node* :var-decl [node env]
@@ -152,7 +152,7 @@
                       (when-not (str/blank? s)
                         (str " = " s))))
         type-str  (clang.lang/type->str ty)]
-    (str (clang.format/var-decl (:name node) type-str) init-str)))
+    (str (clang.format/var-decl (clang.lang/naming (:name node)) type-str) init-str)))
 
 (defmethod emit-node* :static-var [node env]
   (let [ty        (:type node)
@@ -162,7 +162,7 @@
                       (when-not (str/blank? s)
                         (str " = " s))))
         type-str  (clang.lang/type->str ty)]
-    (str (clang.format/var-decl (:name node) type-str :static? true)
+    (str (clang.format/var-decl (clang.lang/naming (:name node)) type-str :static? true)
          init-str ";")))
 
 ;; ── 语句结尾分号 ──
@@ -209,11 +209,11 @@
         params   (mapv (fn [p]
                          (clang.format/param
                            :type (clang.lang/type->str (:type p))
-                           :name (:name p)))
+                           :name (clang.lang/naming (:name p))))
                        (:params node))
         body     (indent/indent (emit-block-body (:body node) env true))]
     (clang.format/function
-      :name (:name node)
+      :name (clang.lang/naming  (:name node))
       :return-type ret-type
       :params params
       :body body)))
@@ -229,13 +229,13 @@
                         (let [sem (semantic/shader-semantic p)]
                           (clang.format/param
                             :type (clang.lang/type->str (:type p))
-                            :name (:name p)
+                            :name (clang.lang/naming (:name p))
                             :after (when sem
                                      (str ": " (lang/sematic->str sem stage))))))
                       (:params node))
         body     (indent/indent (emit-block-body (:body node) env true))]
     (clang.format/function
-      :name (:name node)
+      :name (clang.lang/naming (:name node))
       :return-type ret-type
       :params params
       :body body
@@ -248,10 +248,10 @@
                                   sem  (semantic/shader-semantic m)]
                               (if sem
                                 (clang.format/struct-member
-                                  :name (:name m) :type type
+                                  :name (clang.lang/naming (:name m)) :type type
                                   :after (str ": " (lang/sematic->str sem :vertex)))
                                 (clang.format/struct-member
-                                  :name (:name m)
+                                  :name (clang.lang/naming (:name m))
                                   :type type))))
                           (:members node))
         members     (indent/indent (format/rows member-strs))]
@@ -322,13 +322,12 @@
       (emit-node* (:target node) env)
       (emit-node* (:index node) env))
     :uniform
-    (let [ty   (:type node)
-          name (clang.lang/naming (:name node))]
-      (str "uniform " (render-var-decl ty name) ";"))
+    (let [ty   (:type node)]
+      (str "uniform " (render-var-decl ty (:name node)) ";"))
     :member-access
     (clang.format/member-access
       (emit-node* (:target node) env)
-      (:member node))
+      (clang.lang/naming (:member node)))
     (throw (ex-info (str "Unknown ShaderAST node: " (ast/kind node)) {:node node}))))
 
 ;; ── 入口 ──

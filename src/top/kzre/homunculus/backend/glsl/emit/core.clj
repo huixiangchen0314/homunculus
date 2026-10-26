@@ -45,7 +45,7 @@
   (clang.lang/literal->str (:val node)))
 
 (defmethod emit-node* :variable [node _]
-  (clang.lang/naming (:name node)))
+  (lang/naming (:name node)))
 
 (defn- binary-child-op
   [node]
@@ -81,7 +81,7 @@
 (defmethod emit-node* :member-access [node env]
   (clang.format/member-access
     (emit-node (:target node) env)
-    (:member node)))
+    (lang/naming (:member node))))
 
 (defmethod emit-node* :array-index [node env]
   (clang.format/array-index
@@ -109,7 +109,7 @@
 
 (defmethod emit-node* :var-decl [node env]
   (hlsl.format/var-decl
-    :name (:name node)
+    :name (lang/naming (:name node))
     :type (:type node)
     :init (when-let [i (:init node)]
             (emit-node i env))))
@@ -178,6 +178,13 @@
                    (indent/indent (emit-node body env)))]
     (clang.format/while (emit-node (:test node) env) body-str)))
 
+(defmethod emit-node* :for [node env]
+  (clang.format/loopfor
+    :init   (when-let [i (:init node)] (emit-node i env))
+    :test   (emit-node (:test node) env)
+    :update (when-let [u (:update node)] (emit-node u env))
+    :body   (indent/indent (emit-block-body (:body node) env))))
+
 (defmethod emit-node* :block [node env]
   (clang.format/block (indent/indent (emit-block-body node env))))
 
@@ -186,13 +193,13 @@
 ;; ═══════════════════════════════════════════
 
 (defmethod emit-node* :param [node _]
-  (let [type-str (:type node)
-        name     (:name node)]
-    (T "${type-str} ${name}")))
+  (clang.format/param
+    :type (:type node)
+    :name (lang/naming (:name node))))
 
 (defmethod emit-node* :struct-member [node _]
   (clang.format/struct-member
-    :name (:name node)
+    :name (lang/naming (:name node))
     :type (:type node)))
 
 (defmethod emit-node* :interface-block-member [node _]
@@ -213,7 +220,7 @@
 (defmethod emit-node* :uniform-block [node env]
   (let [name         (:name node)
         layout-parts (cond-> []
-                             (:packing node) (conj (clang.lang/naming (:packing node)))
+                             (:packing node) (conj (lang/naming (:packing node)))
                              (:binding node) (conj (str "binding = " (:binding node))))
         layout-str   (if (seq layout-parts)
                        (let [joined (str/join ", " layout-parts)]
@@ -244,7 +251,7 @@
 
 (defmethod emit-node* :function [node env]
   (clang.format/function
-    :name (:name node)
+    :name (lang/naming (:name node))
     :return-type (:return-type node)
     :params (map #(emit-node % env) (:params node))
     :body (indent/indent (emit-block-body (:body node) env))))

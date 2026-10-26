@@ -12,7 +12,6 @@
    语义相关字段通过 semantic 命名空间的辅助函数读取——
    不硬编码 meta / attrs 路径。"
   (:require
-   [top.kzre.homunculus.backend.hlsl.lang :as lang]
    [top.kzre.homunculus.backend.shader.pass.analyze.env :as env]
    [top.kzre.homunculus.backend.shader.semantic :as semantic]
    [top.kzre.homunculus.backend.shader.ast :as ast]
@@ -76,7 +75,7 @@
   (let [fn-name (:fn node)]
 
     (cond
-      (lang/sample-fn? (:fn node))
+      (hlsl.lang/sample-fn? (:fn node))
       (let [args     (:args node)
             tex-name (var-name (first args))
             smp-name (var-name (second args))]

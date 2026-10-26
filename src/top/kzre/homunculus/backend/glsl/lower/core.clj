@@ -165,6 +165,14 @@
         (update :test lower-node layout)
         (update :body lower-node layout))))
 
+(defmethod lower-node* :for [node layout]
+  (glsl/map->For
+    (-> node
+        (update :init #(some-> % (lower-node layout)))
+        (update :test #(lower-node % layout))
+        (update :update #(some-> % (lower-node layout)))
+        (update :body #(lower-node % layout)))))
+
 (defmethod lower-node* :block [node layout]
   (glsl/map->Block
     (-> node

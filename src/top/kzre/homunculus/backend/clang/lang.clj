@@ -40,6 +40,8 @@
    \@ "_at_"
    \' "_quote_"})
 
+
+
 (defn naming
   "将符号或字符串转为安全的 C 标识符。
    Clojure 特殊字符按映射表替换，其余非法字符替换为 '_'。"
@@ -57,6 +59,8 @@
                       (fn [ch] (get naming-char-map (first ch) "_")))
          ;; 再将其它非法字符替换为下划线
          (str/replace #"[^a-zA-Z0-9_]" "_")))))
+
+(def ^:dynamic *naming* naming)
 
 (defn type->str
   "ir类型转C风格类型字符串，默认严格，数组长度必须编译时已知"

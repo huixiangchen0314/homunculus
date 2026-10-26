@@ -1,7 +1,9 @@
 (ns top.kzre.homunculus.backend.glsl.lang
   (:require
+    [clojure.string :as str]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.backend.clang.lang :as clang.lang]))
+    [top.kzre.homunculus.backend.clang.lang :as clang.lang]
+    [top.kzre.homunculus.backend.clang.format :as clang.format]))
 
 
 ;; ═══════════════════════════════════════════
@@ -87,6 +89,24 @@
    "firstbithigh" "findMSB"
    "firstbitlow"  "findLSB"
    "atan2"      "atan"})
+
+(defn naming
+  "将符号或字符串转为安全的 GLSL 标识符。
+
+   先走 clang.lang/naming——Clojure 特殊字符按映射表替换，其余
+   非法字符替换为 '_'。然后打 GLSL 补丁：
+
+   连续下划线替换为 `_gemsym_`——GLSL 规范保留含 '__' 的标识符，
+   某些驱动会拒绝。用独特标记而不是合并成单个 '_'——避免
+   `a__b` 和 `a_b` 补丁后同名冲突：
+
+   `recur_p__5964_5968` → `recur_p_gemsym_5964_5968`
+   `a__b`               → `a_gemsym_b`
+   `a_b`                → `a_b`（不变）"
+  [sym-or-str]
+  (-> (clang.lang/naming sym-or-str)
+      (str/replace #"__+" "_1zw_")))
+
 
 (defn naming-fn
   "GLSL 的函数名/操作符映射。返回符号。

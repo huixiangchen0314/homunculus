@@ -10,6 +10,7 @@
    [top.kzre.homunculus.backend.shader.pass.analyze.env-impl :as env-impl]
    [top.kzre.homunculus.backend.shader.pass.array-assign :as array-assign]
    [top.kzre.homunculus.backend.shader.pass.liveness :as liveness]
+   [top.kzre.homunculus.backend.shader.pass.loopfor.api :as loopfor]
    [top.kzre.homunculus.backend.shader.pass.ns-strategy :as ns-strategy]
    [top.kzre.homunculus.backend.shader.pass.split-entries :as split-entries]
    [top.kzre.homunculus.backend.shader.semantic :as semantic]
@@ -17,8 +18,6 @@
    [top.kzre.homunculus.core.cfg.irstmt.opt :as opt]
    [top.kzre.homunculus.core.error :as err]
    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
-   [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
-   [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
    [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
    [top.kzre.homunculus.internal.compile-result :as compile-result]
    [top.kzre.homunculus.internal.protocol :as ip]))
@@ -74,7 +73,8 @@
           sted         (statementize/statementize-nodes irstmts)
           cfged        (opt/optimize sted (cfg-adapt/make-adapter ctx))
           shader-asts  (lower/lower cfged)
-          vec-copied   (array-assign/expand shader-asts)
+          fored        (loopfor/run shader-asts (loopfor/make-env ctx))
+          vec-copied   (array-assign/expand fored)
           renamed (ns-strategy/apply vec-copied (cfg/ns-strategy (ip/config ctx)))
           ;; 分析 → 分流
           {:keys [env]} (analyze/analyze renamed (env-impl/make-env))

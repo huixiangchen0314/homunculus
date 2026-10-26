@@ -4,17 +4,19 @@
 (declare ShaderAST kind children reduce-children node-meta
         ->Literal ->Variable ->BinaryOp ->UnaryOp ->Call ->MemberAccess
         ->ArrayIndex ->Constructor ->Cast
-        ->Assign ->VarDecl ->If ->While ->Block
+        ->Assign ->VarDecl ->If ->While ->For ->Block
         ->Function ->EntryPoint ->Struct ->Import
         ->CbufferDecl ->TextureDecl ->SamplerDecl
         ->Param ->StructMember
         ->Uniform ->StaticVar)
 
+(defn attrs[node] (:attrs node))
+
 (defast ShaderAST
         {:expr            [:literal / :variable / :binary-op / :unary-op / :call /
                            :member-access / :array-index / :constructor / :cast]
          :exprs           [:expr {:many true}]
-         :stmt            [:assign / :var-decl / :if / :while / :block / :expr /
+         :stmt            [:assign / :var-decl / :if / :while / :for / :block / :expr /
                            :uniform / :static-var /
                            :texture-decl / :sampler-decl / :cbuffer-decl]
          :stmts           [:stmt {:many true}]
@@ -39,6 +41,11 @@
         :assign          [:expr 'lhs :expr 'rhs 'attrs]
         :if              [:expr 'test :block 'then :block 'else {:optional true} 'attrs]
         :while           [:expr 'test :block 'body 'attrs]
+        :for             [:stmt 'init {:optional true}
+                          :expr 'test
+                          :stmt 'update {:optional true}
+                          :block 'body
+                          'attrs]
         :block           [:stmts 'stmts :expr 'ret  {:optional true} 'attrs]
 
         ;; 声明
@@ -60,3 +67,4 @@
         ;; 辅助
         :param           ['name 'type 'attrs]
         :struct-member   ['name 'type 'attrs])
+

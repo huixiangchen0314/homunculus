@@ -47,7 +47,7 @@
         ->Param ->StructMember ->InterfaceBlockMember
         map->Literal map->Variable map->BinaryOp map->UnaryOp map->Call
         map->MemberAccess map->ArrayIndex map->Constructor map->Cast
-        map->Assign map->VarDecl map->If map->While map->Block
+        map->Assign map->VarDecl map->If map->While map->For map->Block
         map->Uniform map->GlobalVar
         map->InputDecl map->OutputDecl map->UniformBlock map->InterfaceBlock
         map->Function map->Struct
@@ -96,6 +96,11 @@
         :assign          [:expr 'lhs :expr 'rhs 'attrs]
         :if              [:expr 'test :block 'then :block 'else {:optional true} 'attrs]
         :while           [:expr 'test :block 'body 'attrs]
+        :for             [:stmt 'init {:optional true}
+                          :expr 'test
+                          :stmt 'update {:optional true}
+                          :block 'body
+                          'attrs]
         :block           [:stmts 'stmts :expr 'ret {:optional true} 'attrs]
 
         ;; ── 顶层 ──────────────────────────────────────
