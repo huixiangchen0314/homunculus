@@ -34,10 +34,13 @@
         folder (tp/folder backend)
         solve (fn [n] (constraint/solve n ctx))
         fold* (fn [n] (fold/fold n (fold/make-context ctx frontend backend folder)))
-        clear (fn [n] (mapv ty/clear-type n))]
+        ;clear (fn [n] (mapv ty/clear-type n))
+        ]
     (loop [current nodes]
-      (let [cleared (clear current)
-            solved  (solve cleared)
+      (let [
+            ;; 不需要清理类型，约束求解残留旧的是安全的，约束变量不会刷新，前提是正确区分前向的和推导的
+            ;cleared (clear current)
+            solved  (solve current)
             {:keys [nodes changed?]}  (fold* solved)]
         (if (not changed?)
           solved

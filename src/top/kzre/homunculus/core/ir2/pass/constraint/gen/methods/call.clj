@@ -13,7 +13,7 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
-    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as env]
     [top.kzre.homunculus.core.ir2.pass.type :as t]))
 
 (defn- cand-arity
@@ -36,14 +36,9 @@
                       (n/var-name fn-node))
         candidates  (cond
                       (and fn-type (t/fun-type? fn-type)) [fn-type]
-                      fn-name                             (p/resolve-callees fn-env fn-name)
+                      fn-name                             (env/resolve-callees fn-env fn-name)
                       :else                               [])
-        [arg-results final-env]
-        (reduce (fn [[results current-env] arg]
-                  (let [{:keys [env] :as r} (gen/gen-node* arg current-env)]
-                    [(conj results r) env]))
-                [[] fn-env]
-                (n/call-args current-node))
+        [arg-results final-env] (gen/gen-seq (n/call-args current-node) env)
         arg-count    (count arg-results)
         arg-types    (mapv :type arg-results)
         arg-nodes    (mapv :node arg-results)
@@ -85,7 +80,7 @@
                                   (n/attrs current-node)
                                   (n/node-meta current-node))
             ret-eq
-            (when (p/call-driven-inference? env)
+            (when (env/call-driven-inference? env)
               [(cons/make-cequal
                  (t/fun-return-type (first arity-compatible) arg-count)
                  ret-tv)])]
@@ -110,21 +105,16 @@
       ;; ── Arity 匹配但类型未完全确定：投递约束（仅 arity 兼容的候选）──
       :else
       (let [ret-tv (gen/fresh-tvar)
-
             new-node (n/make-call fn-node
                                   (vec arg-nodes)
                                   (n/attrs current-node)
                                   (n/node-meta current-node))
-            extra    [(cons/make-coverload arity-compatible arg-types ret-tv fn-type
-                                           :call-driven-interface?  (p/call-driven-inference? env)
-                                           :data new-node)]
+            extra    [(cons/make-coverload arity-compatible arg-types ret-tv fn-type :data new-node)]
             ;; 单候选 + call-driven-inference 开启：
             ;; 只有唯一候选，返回值必然是它的返回类型——
             ;; 显式约束，不依赖 COverload 单候选分支的内部绑定。
             ret-eq
-            (when (and
-                    (p/call-driven-inference? env)
-                    (= 1 (count arity-compatible)))
+            (when (= 1 (count arity-compatible))
               [(cons/make-cequal
                  (t/fun-return-type (first arity-compatible) arg-count)
                  ret-tv)])]

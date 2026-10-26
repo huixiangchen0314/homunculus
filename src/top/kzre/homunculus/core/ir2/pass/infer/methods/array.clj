@@ -45,4 +45,5 @@
         new-node (n/make-alength target-node
                                  (n/attrs node)
                                  (n/node-meta node))]
+    ;; 强制的推导
     (infer/success int-ty (ty/set-type! new-node int-ty) target-env)))

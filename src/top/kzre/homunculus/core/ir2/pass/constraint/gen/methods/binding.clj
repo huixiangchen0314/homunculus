@@ -1,11 +1,13 @@
 (ns top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.binding
   (:require [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
             [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
+            [clojure.string :as str]
             [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]))
 
 
 (defmethod gen/gen-node* :binding [node env]
-  (let [{var-type :type var-node :node var-cons :constraints var-env :env}
+  (let [ var-n (:name (:var node))
+        {var-type :type var-node :node var-cons :constraints var-env :env}
         (gen/gen-node-hinted (:var node) env)
         var-name (:name var-node)
         {val-type :type val-node :node val-cons :constraints  val-env :env}

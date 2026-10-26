@@ -12,9 +12,7 @@
   (let [fn-node (check/check-node* (n/call-fn node) nil env)
         ;fn-name (n/var-name (n/call-fn node)) ;; for debug
         fn-type (ty/get-type fn-node)
-        fn-type (if (ty/scheme-type? fn-type)
-                  (scheme/instantiate fn-type)
-                  fn-type)
+        fn-type (scheme/instantiate-if-scheme fn-type)
         args    (n/call-args node)]
     ;; 1. callee 必须是函数类型
     (when-not (ty/fun-type? fn-type)

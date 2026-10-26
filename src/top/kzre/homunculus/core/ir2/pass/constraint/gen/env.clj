@@ -21,7 +21,8 @@
 ;; ═══════════════════════════════════════════════
 
 (defprotocol IEnv
-  (call-driven-inference? [this]
+  ;; TODO 调用点驱动应当是逐实例的配置，应当用单态化进行解决，并补充旧定义的清理
+  (^:deprecated call-driven-inference? [this]
     "是否允许从调用点反向约束函数类型（call-driven inference）。
 
      严格 Hindley-Milner 下，函数类型只在定义处确定，调用点只能
@@ -96,13 +97,6 @@
   (or (get type-scope name)
       (get type-scope (symbol name))))
 
-(defn- instantiate-if-scheme
-  "若绑定为 scheme 则实例化，否则原样返回。"
-  [binding]
-  (if (scheme/tscheme? binding)
-    (scheme/instantiate binding)
-    binding))
-
 ;; ═══════════════════════════════════════════════
 ;; Record
 ;; ═══════════════════════════════════════════════
@@ -120,7 +114,7 @@
   ;; ── 类型解析 ──
   (resolve-var-type [_ name]
     (if-let [binding (lookup-local type-scope name)]
-      (instantiate-if-scheme binding)
+      (scheme/instantiate-if-scheme binding)
       (sym/resolve-sym-type (ip/symbol-table compile-ctx) name)))
   (resolve-field-type [_ record-name field-name]
     (let [field-sym (iu/ensure-symbol field-name)]
@@ -129,7 +123,7 @@
 
   (resolve-callees [_ name]
     (if-let [binding (lookup-local type-scope name)]
-      (let [type (instantiate-if-scheme binding)]
+      (let [type (scheme/instantiate-if-scheme binding)]
         (if (ty/fun-type? type) [type] []))
       (when-let [entry (sym/lookup-in-tables name (ip/symbol-table compile-ctx))]
         (when-let [function-entry (sym/entry->func entry)]

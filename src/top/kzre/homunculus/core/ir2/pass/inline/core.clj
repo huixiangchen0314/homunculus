@@ -7,7 +7,8 @@
     [top.kzre.homunculus.core.ir2.transform.inline :as transform-inline]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
     [top.kzre.homunculus.core.ir2.transform.rename.rename :as rename]
-    [top.kzre.homunculus.core.ir2.pass.inline.env :as p]))
+    [top.kzre.homunculus.core.ir2.pass.inline.env :as p]
+    [top.kzre.homunculus.core.ir2.pass.mark-trait :as mark-trait]))
 
 ;; ── 内联辅助 ────────────────────────────
 (defn- clear-node [node]
@@ -29,16 +30,8 @@
 (defn- register-if-inlineable
   "如果节点是带 :inline / :polymorphic 标记的 define，注册进 env。"
   [env node]
-  (if (and (= (ir2/kind node) :define)
-           (n/define-val node)
-           (= (ir2/kind (n/define-val node)) :lambda))
-    (let [attrs (n/attrs node)]
-      (if (or (true? (:inline attrs))
-              (true? (:inline (:meta node)))
-              ;; TODO 多态内联需要配置
-              (true? (:polymorphic attrs)))
-        (p/register-inline-def env (n/define-name node) (n/define-val node))
-        env))
+  (if (mark-trait/inline? node)
+    (p/register-inline-def env (n/define-name node) (n/define-val node))
     env))
 
 ;; ── 核心遍历 ─────────────────────────────

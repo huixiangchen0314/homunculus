@@ -9,12 +9,7 @@
 
 (defn- instantiate-candidate [cand subst-map]
   (let [cand (unify/substitute cand subst-map)]
-    (if (scheme/tscheme? cand)
-      (scheme/instantiate cand)
-      cand)))
-
-(defn- call-driven-interface? [opts]
-  (:call-driven-interface? opts))
+    (scheme/instantiate-if-scheme cand)))
 
 (defn- bind-fn-tv
   "若 fn-tv 是未绑定或部分绑定的类型变量，将其绑定到候选函数类型。
@@ -33,13 +28,9 @@
     (nil? fn-tv)
     subst-map
 
-    ;; 已完整绑定：保留（冲突检查由调用方负责，见 :solve-constraint）
-    (and (not (call-driven-interface? opts))
-         (ty/concrete? (unify/substitute fn-tv subst-map)))
-    subst-map
-
-    (and (call-driven-interface? opts)
-         (ty/concrete? (unify/substitute fn-tv subst-map))
+    ;; TODO 调用点驱动与否差别是使用原类型进行求解，还是先泛化成 scheme 再进行求解.
+    ;; scheme 设置到符号上，约束求解完，统一实例化，并进行单态化
+    (and (ty/concrete? (unify/substitute fn-tv subst-map))
          (ty/concrete? (unify/substitute candidate subst-map)))
     subst-map
 
@@ -105,24 +96,11 @@
    (and  (ty/concrete? ret-tv)
          (ty/concrete? fn-tv)))
   (substitute-constraint [this subst-map]
-    (if (and (call-driven-interface? opts)
-             (= 1 (count fn-type-vec)))
-      ;; call-driven + 单候选：先把 fn-tv 绑定到候选，
-      ;; 再用合并后的 subst-map 刷新所有字段
-      (let [cand       (unify/substitute (first fn-type-vec) subst-map)
-            subst-map' (try (unify/unify fn-tv cand subst-map)
-                            (catch Exception _ subst-map))]
-        (assoc this
-          :fn-type-vec [cand]
-          :arg-tys     (mapv #(unify/substitute % subst-map') arg-tys)
-          :ret-tv      (unify/substitute ret-tv subst-map')
-          :fn-tv       (unify/substitute fn-tv subst-map')))
-      ;; 默认：只刷新字段，不引入新绑定
-      (assoc this
-        :fn-type-vec (mapv #(unify/substitute % subst-map) fn-type-vec)
-        :arg-tys     (mapv #(unify/substitute % subst-map) arg-tys)
-        :ret-tv      (unify/substitute ret-tv subst-map)
-        :fn-tv       (unify/substitute fn-tv subst-map))))
+    (assoc this
+      :fn-type-vec (mapv #(unify/substitute % subst-map) fn-type-vec)
+      :arg-tys     (mapv #(unify/substitute % subst-map) arg-tys)
+      :ret-tv      (unify/substitute ret-tv subst-map)
+      :fn-tv       (unify/substitute fn-tv subst-map)))
   (solve-constraint [_ subst-map env]
     (let [arg-tys'   (mapv #(unify/substitute % subst-map) arg-tys)
           ret-tv'   (unify/substitute ret-tv subst-map)

@@ -16,27 +16,20 @@
          size-env         :env}
         (gen/gen-node* (n/new-array-size current-node) env)
         int-type (ty/make-tcon (p/integer-type env))
-        size-eq  (cons/make-cequal size-type int-type)]
-    (if (p/use-hetero-vec? env)
-      (let [tv       (ty/make-hetero-vec [])
-            new-node (n/make-new-array size-node (n/node-meta current-node))]
-        {:type        tv
-         :node        (ty/set-type! new-node tv)
-         :constraints (concat size-constraints [size-eq])
-         :env         size-env})
-      (let [len-type (if (and (n/literal-node? size-node)
-                              (integer? (n/lit-val size-node)))
-                       (ty/make-tvalue (n/lit-val size-node))
-                       (gen/fresh-tvar))
-            elem-tv  (gen/fresh-tvar)
-            tv       (ty/make-tvec elem-tv len-type)
-            new-node (n/make-new-array size-node
-                                       (n/attrs current-node)
-                                       (n/node-meta current-node))]
-        {:type        tv
-         :node        (ty/set-type! new-node tv)
-         :constraints (concat size-constraints [size-eq])
-         :env         size-env}))))
+        size-eq  (cons/make-cequal size-type int-type)
+        len-type (if (and (n/literal-node? size-node)
+                          (integer? (n/lit-val size-node)))
+                   (ty/make-tvalue (n/lit-val size-node))
+                   (gen/fresh-tvar))
+        elem-tv  (gen/fresh-tvar)
+        tv       (ty/make-tvec elem-tv len-type)
+        new-node (n/make-new-array size-node
+                                   (n/attrs current-node)
+                                   (n/node-meta current-node))]
+    {:type        tv
+     :node        (ty/set-type! new-node tv)
+     :constraints (concat size-constraints [size-eq])
+     :env         size-env}))
 
 ;; ── aget ───────────────────────────────────
 (defmethod gen/gen-node* :aget [current-node env]

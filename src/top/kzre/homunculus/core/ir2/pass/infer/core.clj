@@ -18,9 +18,9 @@
 (defn infer-seq
   "  [new-args final-env]"
   [nodes init-env]
-  (reduce (fn [[node-acc current-env] n]
-            (let [[_ new-arg new-env] (infer-node* n current-env)]
-              [(conj node-acc new-arg) new-env]))
+  (reduce (fn [[node-acc env-acc] n]
+            (let [[_ new-node new-env] (infer-node* n env-acc)]
+              [(conj node-acc new-node) new-env]))
           [[] init-env]
           nodes))
 
@@ -58,11 +58,5 @@
 
    调用方负责用 gen.env/make-env 构造初始 env。"
   [ir2-roots init-env]
-  (let [[new-roots _]
-        (reduce
-          (fn [[roots env] node]
-            (let [[_ new-node new-env] (infer-node* node env)]
-              [(conj roots new-node) new-env]))
-          [[] init-env]
-          ir2-roots)]
+  (let [[new-roots _] (infer-seq ir2-roots init-env)]
     (vec new-roots)))

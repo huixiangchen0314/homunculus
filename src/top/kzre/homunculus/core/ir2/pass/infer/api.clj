@@ -9,7 +9,7 @@
     [top.kzre.homunculus.core.ir2.pass.infer.methods.convert]
     [top.kzre.homunculus.core.ir2.pass.infer.methods.define]
     [top.kzre.homunculus.core.ir2.pass.infer.methods.if]
-    [top.kzre.homunculus.core.ir2.pass.infer.methods.lambda]
+    [top.kzre.homunculus.core.ir2.pass.infer.methods.binding]
     [top.kzre.homunculus.core.ir2.pass.infer.methods.let]
     [top.kzre.homunculus.core.ir2.pass.infer.methods.literal]
     [top.kzre.homunculus.core.ir2.pass.infer.methods.loop]

@@ -314,6 +314,17 @@
             [['v 'bool3] 'bool]
             [['v 'bool4] 'bool]]
 
+           ;; 标量显示转型
+           [:func 'int
+            [['v 'float] 'int]
+            [['v 'uint] 'int]]
+           [:func 'float
+            [['v  'int] 'float]
+            [['v 'uint] 'float]]
+           [:func 'uint
+            [['v  'int] 'uint]
+            [['v 'float] 'uint]]
+
            ;; ═══════════════════════════════════════════
            ;; 向量构造
            ;; ═══════════════════════════════════════════
@@ -328,6 +339,8 @@
             [['a 'float2 'b 'float 'c 'float] 'float4]
             [['a 'float3 'b 'float] 'float4]
             [['a 'float 'b 'float3] 'float4]]
+
+
 
            [:func 'int2
             [['a 'int 'b 'int] 'int2]]

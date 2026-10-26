@@ -3,11 +3,12 @@
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.infer.core :as infer]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as p]
-    [top.kzre.homunculus.core.ir2.pass.type :as t]))
+    [top.kzre.homunculus.core.ir2.pass.type :as t]
+    [top.kzre.homunculus.core.ir2.pass.mark-trait :as mark-trait]))
 
 (defmethod infer/infer-node* :define [node env]
   ;; 1. 对 :define 节点的值表达式进行局部推导
-  (if (true? (:ho? (n/attrs node)))
+  (if (mark-trait/high-order? node)
     (infer/nothing node env)
     ;; 无值不推导
     (if-let [val-node (n/define-val node)]

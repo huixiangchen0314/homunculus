@@ -36,9 +36,7 @@
    - expected 非 nil 时，不匹配则尝试转换或报错"
   [node expected env]
   (let [actual  (ty/get-type node)
-        actual* (if (ty/scheme-type? actual)
-                  (scheme/instantiate actual)
-                  actual)]
+        actual* (scheme/instantiate-if-scheme actual)]
     (when (or (nil? actual*)
               (not (ty/concrete? actual*)))
       (throw (err/compile-error
