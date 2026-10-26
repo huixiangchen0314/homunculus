@@ -3,23 +3,17 @@
   (:require
     [top.kzre.homunculus.core.ir2.node :as n]
     [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
-    [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 ;; ── 类型变量生成 ──────────────────────────
 (defn fresh-tvar [] (ty/make-tvar (gensym "cg")))
 
-;; ── 结果构造 ────────────────────────────
 (defn result
-  "约束生成的统一返回值。
-   type        推断出的类型
-   node        重建后的节点
-   constraints 累积的约束列表
-   env         更新后的环境"
-  [type node constraints env]
+  [type node env & constraints]
   {:type        type
-   :node        node
-   :constraints (or constraints [])
+   ;; 尊重已有推断
+   :node        (ty/ensure-type node type)
+   :constraints (vec (keep identity (flatten constraints)))
    :env         env})
 
 ;; ── 内部多方法 ──────────────────────────
@@ -29,21 +23,25 @@
           (fn [node _env] (n/kind node)))
 
 (defmethod gen-node* :default [node env]
-  (let [tv (fresh-tvar)]
-    (result tv (ty/set-type! node tv) nil env)))
-
+  (let [tv (or (ty/get-type node) (fresh-tvar))]
+    (result tv node env)))
 
 (defn gen-node-hinted
   "节点约束生成入口，返回 {:type :node :constraints :env}。
    若节点已有注解类型，附加一条 type ≡ annotated 约束。"
-  [current-node current-env]
-  (let [hinted-type (ty/get-type current-node)
-        {:keys [type] :as r} (gen-node* current-node current-env)]
-    (if (and hinted-type
-             (satisfies? tp/IType hinted-type)
-             (not (ty/var-type? hinted-type)))
+  [raw-node current-env]
+  (let [hinted-type (ty/get-type raw-node)
+        {:keys [type] :as r} (gen-node* raw-node current-env)]
+    (if (ty/concrete? hinted-type)
       (update r :constraints conj (cons/make-cequal type hinted-type))
       r)))
+
+(defn gen-seq [nodes env]
+  (reduce (fn [[results current-env] arg]
+            (let [{:keys [env] :as result} (gen-node-hinted arg current-env)]
+              [(conj results result) env]))
+          [[] env]
+          nodes))
 
 
 ;; ── 全局入口 ────────────────────────────

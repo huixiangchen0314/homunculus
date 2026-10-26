@@ -28,8 +28,12 @@
 (defn type-value? [ty] (= :value (type-kind ty)))
 (defn vec-type? [ty]
   (= :vec (type-kind ty)))
-(defn hetero-vec? [ty] (= :hetero-vec (type-kind ty)))
-(defn hetero-map? [ty] (= :hetero-map (type-kind ty)))
+
+;; 同构vector 是数组语义, 异构数组无意义
+;; 异构 map 是行多态语义, 同构map是泛型语义
+;; 同构异构是后端的翻译策略，对于变长数组的支持，只要不使用 check pass 就好
+(defn ^:deprecated hetero-vec? [ty] (= :hetero-vec (type-kind ty)))
+(defn ^:deprecated hetero-map? [ty] (= :hetero-map (type-kind ty)))
 
 (defn type-sym
   "获取 TCon 的类型名称关键字，若非 TCon 返回 nil。"

@@ -3,7 +3,7 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.protocol :as p]
     [top.kzre.homunculus.core.ir2.pass.constraint.unify :as unify]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.core.ir2.pass.constraint.env :as env]))
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as env]))
 
 ;; tvar => type
 ;; tvar 为左值，type 为右值

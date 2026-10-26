@@ -4,10 +4,12 @@
     [top.kzre.homunculus.core.ir2.pass.check.core :as check]))
 
 (defmethod check/check-node* :member-access [node expected env]
+  ;; TODO 期待参数
   (let [new-target (check/check-node* (n/access-target node) nil env)
-        new-args   (mapv #(check/check-node* % nil env) (n/access-args node))]
-    (n/make-member-access new-target
-                          (n/access-member node)
-                          new-args
-                          (n/attrs node)
-                          (n/node-meta node))))
+        new-args   (mapv #(check/check-node* % nil env) (n/access-args node))
+        new-node (n/make-member-access new-target
+                                       (n/access-member node)
+                                       new-args
+                                       (n/attrs node)
+                                       (n/node-meta node))]
+    (check/check-type new-node expected env)))

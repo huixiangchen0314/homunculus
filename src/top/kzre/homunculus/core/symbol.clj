@@ -370,9 +370,8 @@
   (when-let [fields (:fields record-entry)]
     (some (fn [f]
             (when (= (:field-name f) field-name)
-              (or (:type f)
-                  (when-let [tag (:tag (:meta f))]
-                    (ty/make-tcon (symbol (name tag)))))))
+              ;; 注册类型，或者从 meta 获取标注类型
+              (or (:type f) (ty/get-type f))))
           fields)))
 
 (defn list-arities

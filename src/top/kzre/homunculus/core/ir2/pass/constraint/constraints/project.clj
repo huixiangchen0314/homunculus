@@ -3,7 +3,8 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.protocol :as p]
     [top.kzre.homunculus.core.ir2.pass.constraint.unify :as unify]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.core.ir2.pass.constraint.env :as env]))
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as env]
+    [top.kzre.homunculus.core.error :as err]))
 
 ;; target-tv + member => ret-tv
 (defrecord CProject [target-tv member ret-tv]
@@ -16,13 +17,15 @@
       :ret-tv    (unify/substitute ret-tv subst-map)))
   (solve-constraint [_ subst-map env]
     (let [target-type (unify/substitute target-tv subst-map)]
-      (if (ty/con-type? target-type)
+      (if (ty/concrete? target-type)
         (let [record-name (ty/type-sym target-type)]
           (if-let [field-type (env/resolve-field-type env record-name member)]
             (try
               (unify/unify ret-tv field-type subst-map)
               (catch Exception _ subst-map))
-            (throw (ex-info "Record or field not found"
+            (throw (err/compile-error
+                     :symbol-cannot-be-resolved
+                     "Record or field not found"
                             {:record record-name
                              :field  member}))))
         subst-map))))

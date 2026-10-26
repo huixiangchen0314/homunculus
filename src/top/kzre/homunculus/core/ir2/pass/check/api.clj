@@ -11,6 +11,7 @@
    [top.kzre.homunculus.core.ir2.pass.check.methods.define]
    [top.kzre.homunculus.core.ir2.pass.check.methods.if]
    [top.kzre.homunculus.core.ir2.pass.check.methods.lambda]
+    [top.kzre.homunculus.core.ir2.pass.check.methods.binding]
    [top.kzre.homunculus.core.ir2.pass.check.methods.let]
    [top.kzre.homunculus.core.ir2.pass.check.methods.literal]
    [top.kzre.homunculus.core.ir2.pass.check.methods.loop]

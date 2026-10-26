@@ -1,7 +1,6 @@
 (ns top.kzre.homunculus.core.ir2.pass.constraint.core
   "约束系统的编排入口：构造上下文、运行约束生成与求解。"
   (:require
-    [top.kzre.homunculus.core.ir2.pass.constraint.env :as env]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as gen.env]
     [top.kzre.homunculus.core.ir2.pass.constraint.protocol :as proto]
@@ -9,11 +8,12 @@
 
 (defn solve
   [ir2-roots compile-ctx]
-  (let [{:keys [nodes constraints]}
-        (gen/gen ir2-roots (gen.env/make-env compile-ctx ))]
+  (let [env (gen.env/make-env compile-ctx )
+        {:keys [nodes constraints]}
+        (gen/gen ir2-roots env)]
     (loop [constrs constraints
            subs-map {}
-           env (env/make-env compile-ctx)]
+           env (gen.env/make-env compile-ctx)]
       (let [[remaining subst-map' env']
             (reduce
               (fn [[acc-constraints

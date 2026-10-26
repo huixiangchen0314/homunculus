@@ -4,7 +4,8 @@
    使用与约束求解相同的类型环境（gen.env/IEnv）——
    三个类型推导 pass 共享同一套对外部世界的访问方式。"
   (:require
-    [top.kzre.homunculus.core.ir2.ast :as ir2p]))
+    [top.kzre.homunculus.core.ir2.ast :as ir2p]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
 (defmulti infer-node*
           "对节点树递归进行局部类型推导。
@@ -14,12 +15,21 @@
            - env       更新后的类型环境"
           (fn [node _env] (ir2p/kind node)))
 
+(defn infer-seq
+  "  [new-args final-env]"
+  [nodes init-env]
+  (reduce (fn [[node-acc current-env] n]
+            (let [[_ new-arg new-env] (infer-node* n current-env)]
+              [(conj node-acc new-arg) new-env]))
+          [[] init-env]
+          nodes))
+
 ;; ── 返回值构造 ──────────────────────────
 
 (defn success
   "推断成功。"
   [type node env]
-  [type node env])
+  [type (ty/ensure-type node type) env])
 
 (defn nothing
   "推断失败（类型为 nil），但保留节点和环境。"
@@ -28,14 +38,14 @@
 
 ;; ── 默认遍历 ────────────────────────────
 
-(defn- infer-fn
+(defn- walk
   [node env]
   (let [[_ new-node new-env] (infer-node* node env)]
     [new-node new-env]))
 
 (defmethod infer-node* :default [node env]
-  (let [[new-node new-env] (ir2p/reduce-children node infer-fn env)]
-    [nil new-node new-env]))
+  (let [[new-node new-env] (ir2p/reduce-children node walk env)]
+    (nothing new-node new-env)))
 
 ;; ── 入口 ────────────────────────────────
 

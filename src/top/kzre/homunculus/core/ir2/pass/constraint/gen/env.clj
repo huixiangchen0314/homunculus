@@ -11,9 +11,10 @@
   (:require
     [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.core.ir2.pass.constraint.scheme :as scheme]
-    [top.kzre.homunculus.core.ir2.pass.type :as t]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]
     [top.kzre.homunculus.internal.protocol :as ip]
-    [top.kzre.homunculus.core.symbol :as sym]))
+    [top.kzre.homunculus.core.symbol :as sym]
+    [top.kzre.homunculus.internal.utils :as iu]))
 
 ;; ═══════════════════════════════════════════════
 ;; 协议
@@ -71,6 +72,10 @@
   ;; ── 后端能力 ──
   (use-hetero-vec? [this]
     "后端是否支持异构向量。")
+  (resolve-field-type [this record-name field-name]
+    "解析 record 的字段类型。
+     record 不存在或字段不存在返回 nil。
+     注意字段和协议方法是被显示区分的，这个仅负责获取字段")
   (conversion-cost [this src-type dst-type]
     "返回从 src-type 到 dst-type 的转换代价。
      不支持转换返回 nil。")
@@ -117,14 +122,18 @@
     (if-let [binding (lookup-local type-scope name)]
       (instantiate-if-scheme binding)
       (sym/resolve-sym-type (ip/symbol-table compile-ctx) name)))
+  (resolve-field-type [_ record-name field-name]
+    (let [field-sym (iu/ensure-symbol field-name)]
+      (when-let [record-entry (sym/lookup-record (ip/symbol-table compile-ctx) record-name)]
+        (sym/lookup-field-type record-entry field-sym))))
 
   (resolve-callees [_ name]
     (if-let [binding (lookup-local type-scope name)]
       (let [type (instantiate-if-scheme binding)]
-        (if (t/fun-type? type) [type] []))
+        (if (ty/fun-type? type) [type] []))
       (when-let [entry (sym/lookup-in-tables name (ip/symbol-table compile-ctx))]
         (when-let [function-entry (sym/entry->func entry)]
-          (mapv t/arity->tfun (sym/list-arities function-entry))))))
+          (mapv ty/arity->tfun (sym/list-arities function-entry))))))
 
   ;; ── 作用域扩展 ──
   (bind-var [this name type]
@@ -137,8 +146,8 @@
                 (dissoc type-scope name (symbol name))))
   (generalize [_ type]
     (cond
-      (t/concrete? type) type
-      (t/fun-type? type) (scheme/generalize type type-scope)
+      (ty/concrete? type) type
+      (ty/fun-type? type) (scheme/generalize type type-scope)
       :else              type))
 
   ;; ── 前端能力 ──
@@ -167,6 +176,7 @@
   (loop-vars [_] loop-vars-list)
   (with-loop-vars [this vars]
     (assoc this :loop-vars-list vars)))
+
 
 ;; ═══════════════════════════════════════════════
 ;; 构造

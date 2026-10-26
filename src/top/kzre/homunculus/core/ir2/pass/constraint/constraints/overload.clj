@@ -4,7 +4,7 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.scheme :as scheme]
     [top.kzre.homunculus.core.ir2.pass.constraint.unify :as unify]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.core.ir2.pass.constraint.env :as env]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as env]
     [top.kzre.homunculus.core.ir2.node :as n]))
 
 (defn- instantiate-candidate [cand subst-map]

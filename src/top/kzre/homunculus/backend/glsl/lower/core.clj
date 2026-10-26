@@ -341,7 +341,7 @@
                                                     {:field (:name f) :semantic sem})))
                                   (ctor)))
                               (:members struct-def))
-              tmp       "__entry_input"
+              tmp       "cljh_entry_input"
               type-str  (lang/type->str (:type p0))
               setup     [(glsl/->VarDecl
                            tmp type-str
@@ -369,7 +369,7 @@
 (defn- wrapper-struct-body
   [call-expr return-type ^EntryLayout entry struct-def]
   (let [struct-def  (require-struct-def struct-def return-type)
-        tmp-name    "__entry_result"
+        tmp-name    "cljh_entry_result"
         tmp-type    (lang/type->str return-type)
         tmp-decl    (glsl/->VarDecl tmp-name tmp-type call-expr nil nil)
         field-names (mapv :name (:members struct-def))]
@@ -386,7 +386,7 @@
   [call-expr return-type ^EntryLayout entry struct-def]
   (let [struct-def  (require-struct-def struct-def return-type)
         stage       (:stage entry)
-        tmp-name    "__entry_result"
+        tmp-name    "cljh_entry_result"
         tmp-type    (lang/type->str return-type)
         tmp-decl    (glsl/->VarDecl tmp-name tmp-type call-expr nil nil)
         block       (some #(when (instance? InterfaceBlock %) %) (:outputs entry))

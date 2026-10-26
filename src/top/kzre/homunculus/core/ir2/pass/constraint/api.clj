@@ -9,6 +9,7 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.define]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.if]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.lambda]
+    [top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.binding]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.let]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.literal]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.methods.loop]

@@ -11,9 +11,7 @@
         new-node (n/make-new-array size-node
                                    (n/attrs node)
                                    (n/node-meta node))]
-    (if (p/use-hetero-vec? env)
-      (infer/nothing new-node size-env)
-      (infer/nothing new-node size-env))))
+    (infer/nothing new-node size-env)))
 
 (defmethod infer/infer-node* :aget [node env]
   (let [[target-ty target-node target-env] (infer/infer-node* (n/aget-target node) env)
