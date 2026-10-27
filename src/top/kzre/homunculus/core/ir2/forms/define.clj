@@ -4,7 +4,7 @@
             [top.kzre.homunculus.core.ir2.node :as n2]))
 
 (defmethod ir2/lower-ast :def [node env]
-  (let [name-sym (n1/sym-name (n1/def-name node))   ;; 从 SymbolNode 中取出符号
+  (let [name-sym (n1/def-name node)   ;; 从 SymbolNode 中取出符号
         val-node (when-let [v (n1/def-val node)]
                    (first (ir2/lower-ast v env)))]
     [(n2/make-define name-sym val-node (n1/def-docstring node)

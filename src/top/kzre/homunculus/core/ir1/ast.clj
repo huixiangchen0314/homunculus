@@ -42,15 +42,13 @@
         :def             ['name :expr 'val {:optional true} 'docstring]     ; 顺序: name, val, docstring
         :loop            [:bindings 'bindings :expr 'body]
         :recur           [:exprs 'exprs]
-        :quote           [:expr 'expr]
-        :var             [:symbol 'var-sym]
         :throw           [:expr 'expr]
         :set             [:expr 'var :expr 'val]
         :try             [:expr 'body :catches 'catches :expr 'finally]
         :catch           ['class 'sym :expr 'body]         ; class/sym 属性
         :binding         [:expr 'var :expr 'val]
         :field           ['name]                           ; 无子节点
-        :protocol-impl   [:symbol 'proto-name :protocol-methods 'methods]
+        :protocol-impl   ['proto-name :protocol-methods 'methods]
         :record          ['name :record-fields 'fields :protocol-impls 'protocols]
         :method          ['name :params 'params :expr 'body 'docstring] ; body 可为 nil
         :protocol        ['name :protocol-methods 'methods]

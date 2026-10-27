@@ -4,6 +4,3 @@
 
 (defmethod ir1/form->node :symbol [form]
   (n/make-symbol form (meta form)))
-
-(defmethod ir1/build-tree :symbol [node]
-  node)

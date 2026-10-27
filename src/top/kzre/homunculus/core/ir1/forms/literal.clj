@@ -4,6 +4,3 @@
 
 (defmethod ir1/form->node :literal [form]
   (n/make-literal form))
-
-(defmethod ir1/build-tree :literal [node]
-  node)

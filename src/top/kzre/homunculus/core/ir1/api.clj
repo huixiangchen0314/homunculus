@@ -7,8 +7,6 @@
                   [top.kzre.homunculus.core.ir1.forms.symbol]
                   [top.kzre.homunculus.core.ir1.forms.vector]
                   [top.kzre.homunculus.core.ir1.forms.map]
-                ;; 调用
-                  [top.kzre.homunculus.core.ir1.forms.call]
                 ;; 控制流
                   [top.kzre.homunculus.core.ir1.forms.if]
                   [top.kzre.homunculus.core.ir1.forms.do]
@@ -18,9 +16,7 @@
                   [top.kzre.homunculus.core.ir1.forms.def]
                   [top.kzre.homunculus.core.ir1.forms.loop] ;; loop + recur
                 ;; 引用 / 赋值
-                  [top.kzre.homunculus.core.ir1.forms.var]
                   [top.kzre.homunculus.core.ir1.forms.set!]
-                  [top.kzre.homunculus.core.ir1.forms.quote]
                 ;; 异常
                   [top.kzre.homunculus.core.ir1.forms.try]  ;; try / catch / throw
                 ;; 命名空间

@@ -23,20 +23,12 @@
 
 (defmethod form->node :default [form]
   (if (seq? form)
+    ;; 没有被识别到的就是调用，特殊形式已经分发掉的
     (let [[op & args] form]
       (m/->Call (->ir1 op)
                 (mapv ->ir1 args)
                 (meta form)))
     (throw (ex-info (str "Unsupported form: " form) {:form form}))))
 
-
-
-
-(defmulti build-tree (fn [node] (m/kind node)))
-
-(defmethod build-tree :default [node] node)
-
 (defn ->ir1 [form]
-  (let [raw-node (form->node form)
-        tree     (build-tree raw-node)]
-    tree))
+  (form->node form))

@@ -1,33 +1,17 @@
 (ns top.kzre.homunculus.core.ir1.forms.fn
-  "fn* 特殊形式的 IR1 构建。"
+  "fn 特殊形式的 IR1 构建。"
   (:require [top.kzre.homunculus.core.ir1.core :as ir1]
             [top.kzre.homunculus.core.ir1.node :as n]))
 
-;; fn* 是 clojure 宏展开后的形式.
-;; 我们把 fn 作为特殊形式，不会去展开它.
+;; fn 作为特殊形式，不展开。
 (defmethod ir1/form->node 'fn [form]
   (let [[fn-sym maybe-name params & body] form
         [name param-v body] (if (symbol? maybe-name)
-                             [maybe-name params body]
-                             [nil maybe-name (cons params body)])
-        ;; 将参数符号转换为参数 param 节点
-        param-descs (mapv (fn [p] (n/make-param p (meta p))) param-v)
-        ;; 合并 fn-sym、form、param-v 的元数据，确保各种位置标注都能传递
-        merged-meta (merge (meta fn-sym) (meta form) (meta param-v))]
-    (n/make-fn name param-descs body merged-meta)))
-
-(defmethod ir1/build-tree :fn [node]
-  (let [name      (n/fn-name node)          ;; 可能是 nil 或符号
-        params    (n/fn-params node)        ;; 参数描述列表
-        body      (n/fn-body node)          ;; 原始表单向量（来自 form->node）
-        meta      (n/node-meta node)
-        ;; 将参数描述中的符号构建为 IR1 节点
-        param-iris (mapv (fn [p] (ir1/->ir1 (n/param-sym p))) params)
-        ;; 递归构建函数体，得到子节点向量
-        body-iris  (mapv ir1/->ir1 body)
-        ;; 包装函数体为单个 DoNode（如果多个）或保持单个节点
-        wrapped-body (n/wrap-body body-iris)
-        ;; 如果函数有名字，构建名字节点 (SymbolNode)
-        name-node (when name (ir1/->ir1 name))]
-    ;; 构造新的 FnNode，body 现在是单个节点（可能是 DoNode）
-    (n/make-fn name-node param-iris wrapped-body meta)))
+                              [maybe-name params body]
+                              [nil maybe-name (cons params body)])
+        param-descs  (mapv (fn [p] (n/make-param p (meta p))) param-v)
+        merged-meta  (merge (meta fn-sym) (meta form) (meta param-v))]
+    (n/make-fn name
+               param-descs
+               (n/wrap-body (mapv ir1/->ir1 body))
+               merged-meta)))
