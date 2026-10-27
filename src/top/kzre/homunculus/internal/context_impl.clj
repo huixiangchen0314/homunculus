@@ -1,11 +1,13 @@
 (ns top.kzre.homunculus.internal.context-impl
   "编译配置和上下文的默认实现。"
   (:require
-    [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
-    [top.kzre.homunculus.internal.module-unit :as mu]
-    [top.kzre.homunculus.internal.utils :as util]
-    [top.kzre.homunculus.internal.protocol :as proto])
-  (:import (top.kzre.homunculus.internal.compile_target CompileTarget)))
+   [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
+   [top.kzre.homunculus.internal.module-unit :as mu]
+   [top.kzre.homunculus.internal.protocol :as proto]
+   [top.kzre.homunculus.internal.resolve-lib :as resolve-lib]
+   [top.kzre.homunculus.internal.utils :as util])
+  (:import
+   (top.kzre.homunculus.internal.compile_target CompileTarget)))
 
 
 
@@ -24,7 +26,7 @@
       (try
         ;; 从 lib-paths 加载源文件，解析表单，然后调用 compile-module
         (let [lib-paths (proto/lib-paths (proto/config ctx))
-              src       (util/resolve-module lib-paths ns-sym)
+              src       (resolve-lib/read-ns-source lib-paths ns-sym)
               _         (when-not src
                           (throw (ex-info "Module not found" {:module ns-sym :paths lib-paths})))
               forms     (util/parse-forms src)]

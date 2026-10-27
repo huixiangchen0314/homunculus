@@ -56,8 +56,8 @@
   p/ICompiler
   ;; 模块编译
   (compile [_ raw-forms ctx]
-    (let [{:keys [forms ns-info]} (ir1/preprocess raw-forms)
-          unit (mu/make-module-unit (ns-info/ns-name ns-info))
+    (let [{:keys [forms ns-sym]} (ir1/preprocess raw-forms)
+          unit (mu/make-module-unit ns-sym )
           raw-ir1s (mapv ir1/->ir1 forms)
           polyfilled-ir1s (pm/polyfill-nodes raw-ir1s)
           ir2-roots (ir2/lower-nodes polyfilled-ir1s ctx)

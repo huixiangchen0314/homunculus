@@ -1,6 +1,7 @@
 (ns top.kzre.homunculus.core.ir1.preprocess
   "预处理表单，保留所有表单的元数据（包括源码位置）。"
-  (:require [top.kzre.homunculus.internal.walk :as walk]
+  (:require [top.kzre.homunculus.core.ir1.ns-info :as ns-info]
+            [top.kzre.homunculus.internal.walk :as walk]
             [top.kzre.homunculus.core.ir1.expand-symbols :as ex]))
 
 (defonce special-forms
@@ -74,4 +75,5 @@
         expanded (mapv #(try-expand-macro % ns-info) forms)
         normalized (mapv normalize-special-forms expanded)]
     {:forms   (mapv fix-namespaced-special-forms normalized)
+     :ns-sym (ns-info/ns-name ns-info)
      :ns-info ns-info}))

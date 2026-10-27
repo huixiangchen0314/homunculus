@@ -80,8 +80,6 @@
          handler (get module-naming-style-handlers style (module-naming-style-handlers :default))]
      (handler ns-name suffix))))
 
-
-
 (defn ns->path
   "将命名空间符号转换为相对于 base-path 的文件路径（.clj 扩展名）。"
   [base-path ns-sym]
@@ -97,35 +95,7 @@
                          base-path)]
     (str base "/" filename)))
 
-(defn module-candidates
-  "返回命名空间 ns-sym 在 lib-paths 下的所有候选文件路径（有序）。"
-  [lib-paths ns-sym]
-  (let [paths (if (coll? lib-paths) lib-paths [lib-paths])]
-    (map #(ns->path % ns-sym) paths)))
 
-(defn resolve-file
-  "从 lib-paths 中查找命名空间 ns-sym 对应的第一个可读源文件，读取并返回其内容。
-   找不到文件返回 nil。"
-  [paths]
-  (some (fn [path]
-          (try (slurp path)
-               (catch FileNotFoundException _ nil)))
-        paths))
-
-;; 将命名空间符号转换为 classpath 资源路径
-(defn- ns->classpath [ns-sym]
-  (-> (name ns-sym)
-      (str/replace "." "/")
-      (str/replace "-" "_")
-      (ensure-suffix ".clj")))
-
-(defn resolve-module
-  "从 lib-paths 中查找模块源文件，若找不到则尝试从 classpath 资源加载（用于标准库等）。"
-  [lib-paths ns-sym]
-  (or (resolve-file (module-candidates lib-paths ns-sym))
-      ;; TODO 区分是静态编译与否分发到不同类型的标准库中.
-      (when-let [res (io/resource (ns->classpath ns-sym))]
-        (slurp res))))
 
 
 (defn parse-forms
