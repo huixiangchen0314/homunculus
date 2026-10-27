@@ -12,8 +12,7 @@
                   [top.kzre.homunculus.core.ir1.forms.do]
                 ;; 绑定
                   [top.kzre.homunculus.core.ir1.forms.let]
-                  [top.kzre.homunculus.core.ir1.forms.fn]   ;; fn* 特殊形式
-                  [top.kzre.homunculus.core.ir1.forms.def]
+                  [top.kzre.homunculus.core.ir1.forms.fn]
                   [top.kzre.homunculus.core.ir1.forms.loop] ;; loop + recur
                 ;; 引用 / 赋值
                   [top.kzre.homunculus.core.ir1.forms.set!]

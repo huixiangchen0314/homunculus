@@ -3,6 +3,7 @@
    所有特殊形式的解析逻辑在 ir1.forms 中。"
   (:require
     [top.kzre.homunculus.core.ir1.ast :as m]
+    [top.kzre.homunculus.core.ir1.node :as n]
     [top.kzre.homunculus.core.ir1.ns-form :as ns-form])
   (:import (top.kzre.homunculus.core.ir1.ns_form NsForm)))
 
@@ -40,6 +41,21 @@
                                      :else         :call))
               :else (throw (ex-info (str "Unsupported form: " form) {:form form})))))
 
+
+(defn- lower-def
+  [form env]
+  (let [[_ sym & more] form
+        docstring      (when (string? (first more)) (first more))
+        rest-after-doc (if docstring (rest more) more)
+        attr-map       (when (map? (first rest-after-doc)) (first rest-after-doc))
+        val-expr       (if attr-map (second rest-after-doc) (first rest-after-doc))
+        def-meta       (merge (meta form) (meta sym) (meta val-expr) attr-map)
+        [val-node env'] (if val-expr
+                          (lower-node val-expr env)
+                          [nil env])]
+    [(n/make-def sym val-node docstring def-meta) env']))
+
+
 (defn lower-seq
   "按顺序 lower 一组表单，env 沿每个表单串行积累。
    返回 [nodes env']，nodes 是 IR1 节点向量。"
@@ -64,5 +80,15 @@
 (defn lower-node [form env]
   (lower-node* form env))
 
+(defn- lower-global [form env]
+  (if (and  (seq? form)
+            (= 'def (first form)))
+    (lower-def form env)
+    (lower-node form env)))
+
 (defn lower [forms env]
-  (lower-seq forms env))
+  (reduce (fn [[acc e] form]
+            (let [[node e'] (lower-global form e)]
+              [(conj acc node) e']))
+          [[] env]
+          forms))
