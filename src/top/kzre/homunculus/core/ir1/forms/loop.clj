@@ -5,16 +5,21 @@
             [top.kzre.homunculus.core.ir1.node :as n]))
 
 ;; ── loop ─────────────────────────────────
-(defmethod ir1/form->node 'loop [form]
+(defmethod ir1/lower-node* 'loop [form env]
   (let [[_ bindings & body] form
         pairs (partition 2 bindings)
-        bnds (mapv #(m/->Binding (ir1/->ir1 (first %))
-                                 (ir1/->ir1 (second %))
-                                 (meta bindings))
-                   pairs)]
-    (n/make-loop bnds (n/wrap-body (mapv ir1/->ir1 body)) (meta form))))
+        [bnds env-bind]
+        (reduce (fn [[acc e] [lhs rhs]]
+                  (let [[lhs' e']   (ir1/lower-node lhs e)
+                        [rhs' e'']  (ir1/lower-node rhs e')]
+                    [(conj acc (m/->Binding lhs' rhs' (meta bindings))) e'']))
+                [[] env]
+                pairs)
+        [body-nodes _] (ir1/lower-seq body env-bind)]
+    [(n/make-loop bnds (n/wrap-body body-nodes) (meta form)) env]))
 
 ;; ── recur ─────────────────────────────────
-(defmethod ir1/form->node 'recur [form]
-  (let [[_ & exprs] form]
-    (n/make-recur (mapv ir1/->ir1 exprs) (meta form))))
+(defmethod ir1/lower-node* 'recur [form env]
+  (let [[_ & exprs] form
+        [nodes env'] (ir1/lower-seq exprs env)]
+    [(n/make-recur nodes (meta form)) env']))

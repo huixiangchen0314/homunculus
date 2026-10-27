@@ -3,14 +3,14 @@
             [top.kzre.homunculus.core.ir1.node :as n]))
 
 ;; 关键字访问 (:foo obj) → obj.foo
-(defmethod ir1/form->node :keyword-access [form]
-  (let [[k obj] form]
-    (n/make-member-access (ir1/->ir1 obj) k nil (meta form))))
+(defmethod ir1/lower-node* :keyword-access [form env]
+  (let [[k obj] form
+        [obj-node env'] (ir1/lower-node obj env)]
+    [(n/make-member-access obj-node k nil (meta form)) env']))
 
 ;; 方法调用 (. obj method args...)
-(defmethod ir1/form->node '. [form]
-  (let [[_ obj method & args] form]
-    (n/make-member-access (ir1/->ir1 obj)
-                          method
-                          (mapv ir1/->ir1 args)
-                          (meta form))))
+(defmethod ir1/lower-node* '. [form env]
+  (let [[_ obj method & args] form
+        [obj-node env']   (ir1/lower-node obj env)
+        [arg-nodes env''] (ir1/lower-seq args env')]
+    [(n/make-member-access obj-node method arg-nodes (meta form)) env'']))

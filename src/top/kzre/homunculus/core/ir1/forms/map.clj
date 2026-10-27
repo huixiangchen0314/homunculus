@@ -3,9 +3,13 @@
     [top.kzre.homunculus.core.ir1.core :as ir1]
     [top.kzre.homunculus.core.ir1.ast :as m]))
 
-(defmethod ir1/form->node :map [form]
+(defmethod ir1/lower-node* :map [form env]
   (let [m (meta form)
-        pairs (mapv (fn [[k v]]
-                      (m/->Pair (ir1/->ir1 k) (ir1/->ir1 v) m))
-                    form)]
-    (m/->Map pairs m)))
+        [pairs env']
+        (reduce (fn [[acc e] [k v]]
+                  (let [[k' e']  (ir1/lower-node k e)
+                        [v' e''] (ir1/lower-node v e')]
+                    [(conj acc (m/->Pair k' v' m)) e'']))
+                [[] env]
+                form)]
+    [(m/->Map pairs m) env']))

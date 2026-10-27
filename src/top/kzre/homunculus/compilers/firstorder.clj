@@ -58,7 +58,7 @@
   (compile [_ raw-forms ctx]
     (let [{:keys [forms ns-sym]} (ir1/preprocess raw-forms)
           unit (mu/make-module-unit ns-sym )
-          raw-ir1s (mapv ir1/->ir1 forms)
+          [raw-ir1s _env] (ir1/lower forms (ir1/make-env ctx))
           polyfilled-ir1s (pm/polyfill-nodes raw-ir1s)
           ir2-roots (ir2/lower-nodes polyfilled-ir1s ctx)
           ir2-roots' (rename/rename ir2-roots)

@@ -29,7 +29,7 @@
 
 (re-export
         [top.kzre.homunculus.core.ir1.core
-         :refer [->ir1]]
+         :refer [lower make-env]]
         [top.kzre.homunculus.core.ir1.preprocess
          :refer [preprocess]])
 
