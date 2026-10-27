@@ -48,8 +48,6 @@
 ;; 分派
 ;; ═══════════════════════════════════════════════
 
-(declare rename-fn)
-
 (defn- rename-fn
   [node env*]
   (case (p/kind node)

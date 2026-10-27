@@ -2,14 +2,13 @@
 (ns top.kzre.homunculus.compilers.firstorder
 (:require
  [top.kzre.homunculus.core.ir1.api :as ir1]
- [top.kzre.homunculus.core.ir1.ns-info :as ns-info]
  [top.kzre.homunculus.core.ir1.polyfill-meta :as pm]
  [top.kzre.homunculus.core.ir2.api :as ir2]
  [top.kzre.homunculus.core.ir2.node :as n]
  [top.kzre.homunculus.core.ir2.pass.alias :as alias]
  [top.kzre.homunculus.core.ir2.pass.check.api :as check]
- [top.kzre.homunculus.core.ir2.pass.constraint.api :as constraint]
  [top.kzre.homunculus.core.ir2.pass.cleanup :as cleanup]
+ [top.kzre.homunculus.core.ir2.pass.constraint.api :as constraint]
  [top.kzre.homunculus.core.ir2.pass.fold.core :as fold]
  [top.kzre.homunculus.core.ir2.pass.ho-elim.api :as ho-elim]
  [top.kzre.homunculus.core.ir2.pass.infer.api :as infer]
@@ -19,7 +18,6 @@
  [top.kzre.homunculus.core.ir2.pass.module.api :as module]
  [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
  [top.kzre.homunculus.core.ir2.pass.recur-elim.api :as recur-elim]
- [top.kzre.homunculus.core.ir2.pass.type :as ty]
  [top.kzre.homunculus.core.ir2.transform.rename.rename :as rename]
  [top.kzre.homunculus.internal.module-unit :as mu]
  [top.kzre.homunculus.internal.protocol :as p]))
@@ -58,14 +56,14 @@
   (compile [_ raw-forms ctx]
     (let [{:keys [forms ns-sym]} (ir1/preprocess raw-forms)
           unit (mu/make-module-unit ns-sym )
-          [raw-ir1s _env] (ir1/lower forms (ir1/make-env ctx))
-          polyfilled-ir1s (pm/polyfill-nodes raw-ir1s)
-          ir2-roots (ir2/lower-nodes polyfilled-ir1s ctx)
-          ir2-roots' (rename/rename ir2-roots)
-          ir2-roots' (alias/alias-nodes ir2-roots' ctx)
-          ir2-roots' (module/resolve-ns ir2-roots' (module/build-env ir2-roots' ctx))
-          unit1      (module/collect-symbols ir2-roots' ctx unit)
-          traited    (mark-trait/mark ir2-roots')   ;; 分析标记
+          [ir1s _env] (ir1/lower forms (ir1/make-env ctx))
+          ir1s' (pm/polyfill-nodes ir1s)
+          ir2s (ir2/lower-nodes ir1s' ctx)
+          ir2s' (rename/rename ir2s)
+          ir2s'' (alias/alias-nodes ir2s' ctx)
+          ir2s''' (module/resolve-ns ir2s'' (module/build-env ir2s'' ctx))
+          unit1      (module/collect-symbols ir2s''' ctx unit)
+          traited    (mark-trait/mark ir2s''')   ;; 分析标记
           inlined    (inline/inline traited (inline/make-env ctx))  ;; 执行内联
           no-ho      (ho-elim/elim inlined (ho-elim/make-env ctx))
           ;; 闭包消除可能引入新的高阶/泛型函数

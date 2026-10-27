@@ -957,62 +957,7 @@
             [['x 'float4] 'uint4]
             [['x 'int4]   'uint4]]
 
-           ;; TODO 移除类型构造器，改用类型标注
-           ;; ═══════════════════════════════════════════
-           ;; 类型构造器（零参）
-           ;; ═══════════════════════════════════════════
-           ;; 标量
-           [:func 'top.kzre.homunculus.backend.shader.dsl/bool  [] 'bool]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/int   [] 'int]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/uint  [] 'uint]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float [] 'float]
-
-           ;; 向量
-           [:func 'top.kzre.homunculus.backend.shader.dsl/bool2  [] 'bool2]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/bool3  [] 'bool3]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/bool4  [] 'bool4]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/int2   [] 'int2]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/int3   [] 'int3]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/int4   [] 'int4]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/uint2  [] 'uint2]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/uint3  [] 'uint3]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/uint4  [] 'uint4]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float2 [] 'float2]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float3 [] 'float3]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float4 [] 'float4]
-
-           ;; 矩阵
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float2x2 [] 'float2x2]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float2x3 [] 'float2x3]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float2x4 [] 'float2x4]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float3x2 [] 'float3x2]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float3x3 [] 'float3x3]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float3x4 [] 'float3x4]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float4x2 [] 'float4x2]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float4x3 [] 'float4x3]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/float4x4 [] 'float4x4]
-
-           ;; 纹理
-           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture1D        [] 'Texture1D]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture1DArray   [] 'Texture1DArray]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture2D        [] 'Texture2D]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture2DArray   [] 'Texture2DArray]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture3D        [] 'Texture3D]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/TextureCube      [] 'TextureCube]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/TextureCubeArray [] 'TextureCubeArray]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture2DMS      [] 'Texture2DMS]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/Texture2DMSArray [] 'Texture2DMSArray]
-
-           ;; 采样器
-           [:func 'top.kzre.homunculus.backend.shader.dsl/SamplerState           [] 'SamplerState]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/SamplerComparisonState [] 'SamplerComparisonState]
-
-           ;; 缓冲
-           [:func 'top.kzre.homunculus.backend.shader.dsl/cbuffer           [] 'cbuffer]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/Buffer            [] 'Buffer]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/StructuredBuffer  [] 'StructuredBuffer]
-           [:func 'top.kzre.homunculus.backend.shader.dsl/ByteAddressBuffer [] 'ByteAddressBuffer]
-           ))
+        ))
 
 
 (defrecord HLSLFrontend []

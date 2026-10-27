@@ -1,192 +1,114 @@
 (ns top.kzre.homunculus.backend.shader.dsl
-  "着色器 DSL 语法糖。提供统一的资源/入口声明，通过元数据传递给后端。"
-  (:refer-clojure :exclude [float int])
+  "着色器 DSL 语法糖。类型以符号形式直接传给宏，展开期构造 IR 类型标记；
+   运行时无需类型构造器，类型信息全部通过元数据传给后端。"
   (:require
     [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
-    [top.kzre.homunculus.core.ir2.pass.type :as ty]
-    [top.kzre.homunculus.core.error :as err]))
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 
-;;; ========= 类型构造器 =========================================
-;;; 命名与 HLSL 原始拼写一致：
-;;;   标量 / 向量 / 矩阵 → 全小写
-;;;   纹理 / 采样器 / 缓冲 → PascalCase
+;;; ========= IR 类型辅助（宏展开期使用）=========
 
-;; ═══════════════════════════════════════════
-;; 标量
-;; ═══════════════════════════════════════════
-(defn bool  [] nil)
-(defn int   [] nil)
-(defn uint  [] nil)
-(defn float [] nil)
+(defn- ir-type
+  [type-sym]
+  (ty/make-tcon (symbol (name type-sym))))
 
-;; ═══════════════════════════════════════════
-;; 向量
-;; ═══════════════════════════════════════════
-(defn bool2  [] nil) (defn bool3  [] nil) (defn bool4  [] nil)
-(defn int2   [] nil) (defn int3   [] nil) (defn int4   [] nil)
-(defn uint2  [] nil) (defn uint3  [] nil) (defn uint4  [] nil)
-(defn float2 [] nil) (defn float3 [] nil) (defn float4 [] nil)
+(defn- ir-array-type
+  [elem-sym size]
+  (ty/make-tvec (ir-type elem-sym) (ty/make-tvalue size)))
 
-;; ═══════════════════════════════════════════
-;; 矩阵
-;; ═══════════════════════════════════════════
-(defn float2x2 [] nil) (defn float2x3 [] nil) (defn float2x4 [] nil)
-(defn float3x2 [] nil) (defn float3x3 [] nil) (defn float3x4 [] nil)
-(defn float4x2 [] nil) (defn float4x3 [] nil) (defn float4x4 [] nil)
+;;; ========= 入口 =========
 
-;; ═══════════════════════════════════════════
-;; 纹理
-;; ═══════════════════════════════════════════
-(defn Texture1D        [] nil)
-(defn Texture1DArray   [] nil)
-(defn Texture2D        [] nil)
-(defn Texture2DArray   [] nil)
-(defn Texture3D        [] nil)
-(defn TextureCube      [] nil)
-(defn TextureCubeArray [] nil)
-(defn Texture2DMS      [] nil)
-(defn Texture2DMSArray [] nil)
-
-;; ═══════════════════════════════════════════
-;; 采样器
-;; ═══════════════════════════════════════════
-(defn SamplerState           [] nil)
-(defn SamplerComparisonState [] nil)
-
-;; ═══════════════════════════════════════════
-;; 缓冲
-;; ═══════════════════════════════════════════
-(defn cbuffer           [] nil)
-(defn Buffer            [] nil)
-(defn StructuredBuffer  [] nil)
-(defn ByteAddressBuffer [] nil)
-
-
-;; 类型构造器名 → 全限定符号
-(def ^:private type-ctor-name->sym
-  {'bool  `bool,  'int   `int,  'uint  `uint,  'float `float
-   'bool2 `bool2, 'bool3 `bool3, 'bool4 `bool4
-   'int2  `int2,  'int3  `int3,  'int4  `int4
-   'uint2 `uint2, 'uint3 `uint3, 'uint4 `uint4
-   'float2 `float2, 'float3 `float3, 'float4 `float4
-   'float2x2 `float2x2, 'float2x3 `float2x3, 'float2x4 `float2x4
-   'float3x2 `float3x2, 'float3x3 `float3x3, 'float3x4 `float3x4
-   'float4x2 `float4x2, 'float4x3 `float4x3, 'float4x4 `float4x4
-   'Texture1D        `Texture1D
-   'Texture1DArray   `Texture1DArray
-   'Texture2D        `Texture2D
-   'Texture2DArray   `Texture2DArray
-   'Texture3D        `Texture3D
-   'TextureCube      `TextureCube
-   'TextureCubeArray `TextureCubeArray
-   'Texture2DMS      `Texture2DMS
-   'Texture2DMSArray `Texture2DMSArray
-   'SamplerState           `SamplerState
-   'SamplerComparisonState `SamplerComparisonState
-   'cbuffer           `cbuffer
-   'Buffer            `Buffer
-   'StructuredBuffer  `StructuredBuffer
-   'ByteAddressBuffer `ByteAddressBuffer})
-
-(defn- fully-qualified-ctor [ctor-sym]
-  (let [short (symbol (name ctor-sym))]        ; 剥离 namespace，只留短名
-    (or (get type-ctor-name->sym short)
-        (throw (ex-info (str "Unknown type constructor: " ctor-sym)
-                        {:ctor ctor-sym
-                         :short short})))))
-
-
-
-(defmacro defshader [stage name param-vec & body]
+(defmacro defshader
+  [stage name param-vec & body]
   (let [meta-map (merge {:shader/stage stage :shader/entry? true}
                         (meta name)
                         (meta param-vec))
         fn-form (list* 'fn param-vec body)]
     `(def ~(vary-meta name merge meta-map) ~fn-form)))
 
-
+;;; ========= 资源与变量（声明，无值）=========
 
 (defmacro defuniform
-  "定义全局 uniform 常量。示例：(defuniform worldViewProj float4x4)"
-  ([var-name elem-ctor size]
-   (let [elem-sym (symbol (name elem-ctor))
-         ;; 直接标注 IR 类型，避免解析
-         arr-ty
-         (ty/make-tvec
-           (ty/make-tcon elem-sym)
-           (ty/make-tvalue size))]
+  "定义全局 uniform（声明，无值）。
+   示例：(defuniform worldViewProj float4x4)
+         (defuniform lights float4 8)"
+  ([var-name elem-sym]
+   (let [ir-ty (ir-type elem-sym)]
      `(def ~(vary-meta var-name assoc
                        :shader/uniform? true
-                       :tag arr-ty))))
-  ([var-name elem-ctor]
-   (let [elem-sym (symbol (name elem-ctor))
-         ;; 直接标注 IR 类型，避免解析
-         arr-ty
-         (ty/make-tcon elem-sym)]
+                       :tag ir-ty))))
+  ([var-name elem-sym size]
+   (let [ir-ty (ir-array-type elem-sym size)]
      `(def ~(vary-meta var-name assoc
                        :shader/uniform? true
-                       :tag arr-ty)))))
+                       :tag ir-ty)))))
 
 (defmacro defstatic
-  "定义全局静态变量专用宏. eg. (defstatic accumColor (float4 0.0 0.0 0.0 0.0))"
-  [name type-ctor]
-  `(def ~(vary-meta name assoc
-                    :shader/static-var? true) ~type-ctor))
+  "定义全局静态变量。可选初值；无初值时后端按类型生成默认初始化。
+   示例：(defstatic accumColor float4)
+         (defstatic accumColor float4 [0.0 0.0 0.0 0.0])"
+  ([name type-sym]
+   (let [ir-ty (ir-type type-sym)]
+     `(def ~(vary-meta name assoc
+                       :tag ir-ty
+                       :shader/static-var? true))))
+  ([name type-sym init-expr]
+   (let [ir-ty (ir-type type-sym)]
+     `(def ~(vary-meta name assoc
+                       :tag ir-ty
+                       :shader/static-var? true)
+        ~init-expr))))
 
 (defmacro deftexture
+  "定义纹理资源（声明，无值）。
+   示例：(deftexture albedo t0)
+         (deftexture albedo t0 :2d float4)"
   ([name register]
    `(deftexture ~name ~register :2d float4))
   ([name register dimension]
-   `(deftexture ~name ~register ~dimension float))
-  ([sym register dimension element-ctor]
-   (let [ctor (hlsl.lang/texture-dimension->type-sym dimension)
-         texture-type (name ctor)
-         element-type (name element-ctor)]
+   `(deftexture ~name ~register ~dimension float4))
+  ([sym register dimension elem-sym]
+   (let [texture-type-sym (hlsl.lang/texture-dimension->type-sym dimension)
+         element-type     (name elem-sym)
+         ir-ty            (ir-type texture-type-sym)]
      `(def ~(vary-meta sym assoc
+                       :tag ir-ty
                        :shader/resource? true
                        :shader/resource-kind :texture
                        :shader/texture-register register
                        :shader/dimension dimension
-                       :shader/texture-type texture-type
-                       :shader/element-type element-type)
-        (~(fully-qualified-ctor ctor))))))
+                       :shader/element-type element-type)))))
 
 (defmacro defsampler
-  "定义采样器资源。"
+  "定义采样器资源（声明，无值）。"
   ([name register]
    `(defsampler ~name ~register false))
   ([sym register-kw compare]
-   (let [ctor (if compare 'SamplerComparisonState 'SamplerState)
-         sampler-type (name ctor)]
+   (let [sampler-type-sym (if compare 'SamplerComparisonState 'SamplerState)
+         ir-ty            (ir-type sampler-type-sym)]
      `(def ~(vary-meta sym assoc
+                       :tag ir-ty
                        :shader/resource? true
                        :shader/resource-kind :sampler
-                       :shader/sampler-type sampler-type
                        :shader/sampler-compare? (boolean compare)
-                       :shader/sampler-register register-kw)
-        (~(fully-qualified-ctor ctor))))))
+                       :shader/sampler-register register-kw)))))
 
 (defmacro defcbuffer
-  "定义 cbuffer 资源。成员以交替的符号+类型构造器给出，如 lightDir float3。
-   同时为每个成员生成隐式 def，使类型系统可见。"
+  "定义 cbuffer 资源。成员以交替的 符号+类型符号 给出，同时为每个成员生成隐式声明 def。"
   [name register-kw & members]
-  (let [pairs (partition 2 members)
-        map-expr (into {} (map (fn [[sym type-ctor]]
-                                 [sym (fully-qualified-ctor type-ctor)])
-                               pairs))
-        member-defs (map (fn [[sym type-ctor]]
-                           (let [full-ctor (fully-qualified-ctor type-ctor)]
-                             `(def ~(vary-meta sym assoc
-                                               :shader/cbuffer-member true
-                                               :shader/ignore-emit? true)
-                                (~full-ctor))))
-                         pairs)]
+  (let [pairs      (partition 2 members)
+        member-map (into {} (map (fn [[sym type-sym]] [sym type-sym]) pairs))
+        member-defs
+        (map (fn [[sym type-sym]]
+               (let [ir-ty (ir-type type-sym)]
+                 `(def ~(vary-meta sym assoc
+                                   :shader/cbuffer-member true
+                                   :shader/ignore-emit? true
+                                   :tag ir-ty))))
+             pairs)]
     `(do
        (def ~(vary-meta name assoc
                         :shader/resource? true
                         :shader/resource-kind :cbuffer
                         :shader/cbuffer-register register-kw
-                        :shader/cbuffer-members map-expr)
-         (top.kzre.homunculus.backend.shader.dsl/cbuffer))
-       ~@member-defs
-       )))
+                        :shader/cbuffer-members member-map))
+       ~@member-defs)))
