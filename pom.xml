@@ -1,0 +1,48 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>top.kzre</groupId>
+    <artifactId>homunculus</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
+
+    <name>homunculus</name>
+    <description>homunculus</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <clojure.version>1.11.1</clojure.version>
+        <main.class>top.kzre.homunculus.cli.core</main.class>
+    </properties>
+
+    <dependencies>
+        <!-- Clojure -->
+        <dependency>
+            <groupId>org.clojure</groupId>
+            <artifactId>clojure</artifactId>
+            <version>${clojure.version}</version>
+        </dependency>
+
+        <!-- top.kzre/krro-core -->
+        <dependency>
+            <groupId>top.kzre</groupId>
+            <artifactId>krro-core</artifactId>
+            <version>0.1.0</version>
+        </dependency>
+
+        <!-- org.clojure/tools.cli -->
+        <dependency>
+            <groupId>org.clojure</groupId>
+            <artifactId>tools.cli</artifactId>
+            <version>1.1.230</version>
+        </dependency>
+
+    </dependencies>
+
+
+</project>

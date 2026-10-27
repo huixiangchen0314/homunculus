@@ -15,6 +15,9 @@ test: jar
 jar:
 	clj -T:build jar
 
+install: jar
+	mvn install:install-file -Dfile=target/homunculus-0.1.0-standalone.jar -DpomFile=pom.xml
+
 uberjar:
 	clj -T:build uberjar
 
