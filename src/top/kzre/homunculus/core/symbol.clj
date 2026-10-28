@@ -90,10 +90,6 @@
   (cond-> {:type type}
           meta (assoc :meta meta)))
 
-(defn make-ret-item [name type & {:keys [meta]}]
-  (cond-> {:ret-name name :type type}
-          meta (assoc :meta meta)))
-
 (defn make-func-arity [params & {:keys [ret]}]
   (cond-> {:params params}
           ret (assoc :ret ret)))
@@ -110,14 +106,8 @@
     (validate! entry)
     entry))
 
-;; ── 判断函数 ──
-(defn alias-symbol? [entry] (= (:kind entry) :alias))
-
 ;; ── 访问器 ──
 (defn alias-target [entry] (:alias-target entry))
-
-(defn get-type   [entry] (:type entry))
-
 
 ;; ── 解析 DSL 的多方法 ──
 
@@ -255,7 +245,7 @@
 
 ;; ── 主构建函数：支持同符号多条目合并 ──
 
-(defn entry-domain
+(defn- entry-domain
   "符号表条目所属的域。
 
    :value —— 值域（:variable / :function / :alias）
@@ -296,14 +286,6 @@
           {}
           (mapcat parse-table-entry entries)))
 
-;; ── 判断函数（单一条目）──
-
-(defn function-symbol? [entry] (= (:kind entry) :function))
-(defn record-symbol?   [entry] (= (:kind entry) :record))
-(defn protocol-symbol? [entry] (= (:kind entry) :protocol))
-(defn variable-symbol? [entry] (= (:kind entry) :variable))
-(defn primitive-symbol? [entry] (= (:kind entry) :primitive))
-
 ;; ── 工具：从可能的重载条目中筛选指定 kind ──
 
 (defn resolve-overload-entry
@@ -323,8 +305,6 @@
 (defn entry->primitive [entry] (resolve-overload-entry entry :primitive))
 (defn entry->alias     [entry] (resolve-overload-entry entry :alias))
 
-
-
 (defn resolve-type-entries
   "从条目中解析出所有声明类型的项（:primitive / :record / :protocol）。
    返回向量；无匹配返回空向量。"
@@ -336,8 +316,6 @@
              entries)))
 
 
-
-
 ;; ── 按种类查找（使用新工具）──
 
 (defn lookup-sym
@@ -345,29 +323,10 @@
   [table sym]
   (get table sym))
 
-(defn ^:deprecated lookup-func
-  "别名通过pass统一替换，不额外处理"
-  [table sym]
-  (loop [visited #{}
-         current-sym sym]
-    (when-not (contains? visited current-sym)
-      (let [visited (conj visited current-sym)
-            entry   (lookup-sym table current-sym)
-            func    (entry->func entry)]
-        (if func
-          func
-          (when-let [alias (entry->alias entry)]
-            (recur visited (alias-target alias))))))))
-
 (defn func-fx?
   [entry]
   (or (:io? entry)
       (not (:pure? entry))))
-
-(defn lookup-record    [table sym] (entry->record    (lookup-sym table sym)))
-(defn lookup-protocol  [table sym] (entry->protocol  (lookup-sym table sym)))
-(defn lookup-variable  [table sym] (entry->variable  (lookup-sym table sym)))
-(defn lookup-primitive [table sym] (entry->primitive (lookup-sym table sym)))
 
 ;; ── 其他辅助函数保持不变 ──
 
@@ -410,12 +369,6 @@
           (when (= 1 (count arities))
             (ty/arity->tfun (first arities)))))))
 
-(defn resolve-sym-type
-  [table sym]
-  (when-let [entry (lookup-sym table sym)]
-    (entry->symbol-type entry)))
-
-
 (defn find-matching-arities
   [func-entry arg-tys]
   (when-let [arities (list-arities func-entry)]
@@ -427,25 +380,3 @@
                                            (= (:type p) a))
                                          params arg-tys)))))
                    arities))))
-
-(defn ^:deprecated resolve-overload
-  [table sym arg-tys]
-  (when-let [func-entry (lookup-func table sym)]
-    (when-let [arity (find-matching-arities func-entry arg-tys)]
-      (when-let [ret (:ret arity)]
-        (:type ret)))))
-
-(defn lookup-in-tables
-  "按顺序在多个符号表中查找 sym，返回第一个找到的条目（可能为重载条目）。
-   支持别名解析：若条目为 :alias，则继续查找其目标符号，直到非别名条目或无结果。"
-  [sym & tables]
-  (some (fn [tbl]
-          (loop [current-sym sym visited #{}]
-            (when-let [entry (get tbl current-sym)]
-              (if (alias-symbol? entry)
-                (let [target (alias-target entry)]
-                  (if (contains? visited target)
-                    (throw (ex-info "Alias cycle detected" {:sym sym :visited visited}))
-                    (recur target (conj visited target))))
-                entry))))
-        tables))

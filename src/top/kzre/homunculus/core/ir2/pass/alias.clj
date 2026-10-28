@@ -13,8 +13,8 @@
   "如果 sym 对应一个 :alias 条目，返回其 target；否则返回 nil。"
   [ctx sym]
   (when-let [entry (ip/resolve-symbol-entry ctx sym)]
-    (when (sym/alias-symbol? entry)
-      (sym/alias-target entry))))
+    (when-let [alias-entry (sym/entry->alias entry)]
+      (sym/alias-target alias-entry))))
 
 (defn- alias-fn
   "处理单个节点：variable 替换 alias，其他节点原样。"
