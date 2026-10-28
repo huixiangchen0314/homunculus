@@ -39,9 +39,10 @@
     ;; 本地高阶函数
     (or (get ho-lambdas name)
         ;; 符号表高阶函数
-        (when-let [entry (sym/lookup-func (ip/symbol-table ctx) name)]
-          (when (:ho? entry)
-            (:ir2 entry)))))
+        (when-let [entry (ip/resolve-symbol-entry ctx name)]
+          (when-let [func-entry (sym/entry->func entry)]
+            (when (:ho? func-entry)
+              (:ir2 func-entry))))))
 
   (depth      [_] current-depth)
   (with-depth [_ n]

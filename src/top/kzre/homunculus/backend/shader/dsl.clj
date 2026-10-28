@@ -34,8 +34,9 @@
   ([var-name elem-sym]
    (let [ir-ty (ir-type elem-sym)]
      `(def ~(vary-meta var-name assoc
+                       :tag ir-ty
                        :shader/uniform? true
-                       :tag ir-ty))))
+                       ))))
   ([var-name elem-sym size]
    (let [ir-ty (ir-array-type elem-sym size)]
      `(def ~(vary-meta var-name assoc
@@ -43,14 +44,26 @@
                        :tag ir-ty)))))
 
 (defmacro defstatic
-  "定义全局静态变量。可选初值；无初值时后端按类型生成默认初始化。
-   示例：(defstatic accumColor float4)
-         (defstatic accumColor float4 [0.0 0.0 0.0 0.0])"
-  ([name type-sym]
-   (let [ir-ty (ir-type type-sym)]
-     `(def ~(vary-meta name assoc
-                       :tag ir-ty
-                       :shader/static-var? true))))
+  "定义全局静态变量。
+
+   - (defstatic name type-sym)           无值，后端按类型默认初始化
+   - (defstatic name init-expr)          有值，类型由 init-expr 的构造器推断
+   - (defstatic name type-sym init-expr) 有值，显式类型（init 可为任意表达式）"
+  ([name type-or-ctor]
+   (if (symbol? type-or-ctor)
+     ;; 无值：type-or-ctor 是类型
+     (let [ir-ty (ir-type type-or-ctor)]
+       `(def ~(vary-meta name assoc
+                         :tag ir-ty
+                         :shader/static-var? true)))
+     ;; 有值：type-or-ctor 是表达式。类型取构造器首元素。
+     (let [ctor  (when (and (seq? type-or-ctor) (symbol? (first type-or-ctor)))
+                   (first type-or-ctor))
+           ir-ty (when ctor (ir-type ctor))]
+       `(def ~(vary-meta name assoc
+                         :tag ir-ty
+                         :shader/static-var? true)
+          ~type-or-ctor))))
   ([name type-sym init-expr]
    (let [ir-ty (ir-type type-sym)]
      `(def ~(vary-meta name assoc

@@ -27,13 +27,15 @@
 ;; ── 构建函数（均保持不变） ──
 
 (defn make-func
-  [sym & {:keys [arities params ret rets type meta] :as opts}]
+  [sym & {:keys [arities
+                 ;; 无arities 重载构造
+                 params ret type meta] :as opts}]
   (let [entry (cond-> {:kind :function :sym sym}
                       type          (assoc :type type)
                       meta          (assoc :meta meta)
                       (seq arities) (assoc :arities (vec arities))
                       (and (empty? arities) (some? params))
-                      (assoc :params params :ret ret :rets rets))
+                      (assoc :params params :ret ret))
         extra (select-keys opts [:io? :pure?])]   ;; 提取允许的属性
     (merge entry extra)))
 
@@ -321,6 +323,8 @@
 (defn entry->primitive [entry] (resolve-overload-entry entry :primitive))
 (defn entry->alias     [entry] (resolve-overload-entry entry :alias))
 
+
+
 (defn resolve-type-entries
   "从条目中解析出所有声明类型的项（:primitive / :record / :protocol）。
    返回向量；无匹配返回空向量。"
@@ -341,7 +345,9 @@
   [table sym]
   (get table sym))
 
-(defn lookup-func [table sym]
+(defn ^:deprecated lookup-func
+  "别名通过pass统一替换，不额外处理"
+  [table sym]
   (loop [visited #{}
          current-sym sym]
     (when-not (contains? visited current-sym)
@@ -380,32 +386,34 @@
       (when (:params func-entry)
         [(select-keys func-entry [:params :ret])])))
 
+(defn entry->symbol-type
+  "查找符号在运行时作为值引用时的类型。
+ 合法符号：
+ - :variable  → 其 :type
+ - :function  → 单 arity 时返回其函数类型
+
+ 不支持多 arity 函数：多 arity 的函数不具有显式类型，
+ 必须由重载推断（由调用点提供实参类型后选优），
+ 因此本函数对多 arity 的项静默返回 nil。
+
+ 不处理 alias：alias 在管线初期已被替换展开，
+ 到达本函数时符号表里不应再有 :alias 条目。
+ 若遇到 :alias 条目，视为管线配置错误，静默返回 nil。
+
+ 注意：本函数不查找编译期类型名（:primitive / :record / :protocol），
+ 那是类型命名空间的查询，不属于运行时值。"
+  [entry]
+  (or (when-let [var-entry (entry->variable entry)]
+        (:type var-entry))
+      (when-let [func-entry (entry->func entry)]
+        (let [arities (list-arities func-entry)]
+          (when (= 1 (count arities))
+            (ty/arity->tfun (first arities)))))))
 
 (defn resolve-sym-type
-  "查找符号在运行时作为值引用时的类型。
-
-   合法符号：
-   - :variable  → 其 :type
-   - :function  → 单 arity 时返回其函数类型
-
-   不支持多 arity 函数：多 arity 的函数不具有显式类型，
-   必须由重载推断（由调用点提供实参类型后选优），
-   因此本函数对多 arity 的项静默返回 nil。
-
-   不处理 alias：alias 在管线初期已被替换展开，
-   到达本函数时符号表里不应再有 :alias 条目。
-   若遇到 :alias 条目，视为管线配置错误，静默返回 nil。
-
-   注意：本函数不查找编译期类型名（:primitive / :record / :protocol），
-   那是类型命名空间的查询，不属于运行时值。"
   [table sym]
   (when-let [entry (lookup-sym table sym)]
-    (or (when-let [var-entry (entry->variable entry)]
-          (:type var-entry))
-        (when-let [func-entry (entry->func entry)]
-          (let [arities (list-arities func-entry)]
-            (when (= 1 (count arities))
-              (ty/arity->tfun (first arities))))))))
+    (entry->symbol-type entry)))
 
 
 (defn find-matching-arities
@@ -420,7 +428,7 @@
                                          params arg-tys)))))
                    arities))))
 
-(defn resolve-overload
+(defn ^:deprecated resolve-overload
   [table sym arg-tys]
   (when-let [func-entry (lookup-func table sym)]
     (when-let [arity (find-matching-arities func-entry arg-tys)]

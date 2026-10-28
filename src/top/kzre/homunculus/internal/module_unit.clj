@@ -16,15 +16,19 @@
 (defn module-nodes [^ModuleUnit unit]
   (:nodes unit))
 
-(defn module-symbols [^ModuleUnit unit]
-  (:symbol-table unit))
+(defn module-public-entries
+  "模块公开的符号表项。"
+  [^ModuleUnit unit]
+  (into {}
+        (filter #(not (sym/private-symbol? (val %)))
+                (:symbol-table unit))))
 
 (defn module-public-symbols
+  "模块导出的可见符号"
   [^ModuleUnit unit]
-  (into {} (filter #(not (sym/private-symbol? (val %))) unit)))
-
-(defn module-requires [^ModuleUnit unit]
-  (:requires unit))
+  (let [entries (into {} (filter #(not (sym/private-symbol? (val %))) unit))
+        table (:symbol-table entries)]
+    (set (keys table))))
 
 (defn make-module-unit
   ([ns-sym]
@@ -47,10 +51,3 @@
         normalized-sym (norm-sym unit sym)
         normalized-entry (assoc entry :sym normalized-sym)]
     (assoc-in unit [:symbol-table normalized-sym] normalized-entry)))
-
-(defn lookup-symbol
-  "尝试在模块中查找未限定符号表项"
-  [^ModuleUnit unit sym]
-  (let [normalized-sym (norm-sym unit sym)
-        symbol-table (:symbol-table unit)]
-    (get symbol-table normalized-sym)))

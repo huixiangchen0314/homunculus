@@ -4,10 +4,11 @@
     [top.kzre.homunculus.core.ir2.pass.constraint.constraints.core :as cons]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.core :as gen]
     [top.kzre.homunculus.core.ir2.pass.constraint.gen.env :as env]
-    [top.kzre.homunculus.core.ir2.pass.type :as t]))
+    [top.kzre.homunculus.core.ir2.pass.type :as t]
+    [top.kzre.homunculus.core.ir2.pass.mark-trait :as mark-trait]))
 
 (defmethod gen/gen-node* :define [current-node env]
-  (if (true? (:ho? (n/attrs current-node)))
+  (if  (mark-trait/high-order? current-node)
     ;; 高阶函数：不处理值节点，分配自由类型变量，不生成约束，不写入环境
     (let [tv       (gen/fresh-tvar)
           new-node (n/make-define (n/define-name current-node)
@@ -16,9 +17,10 @@
                                   (n/attrs current-node)
                                   (n/node-meta current-node))]
       {:type        tv
-       :node        (t/set-type! new-node tv)
+       :node        (t/ensure-type new-node tv)
        :constraints nil
        :env         env})
+    ;; 有值
     (if-let [val-node (n/define-val current-node)]
       (let [{:keys [type node constraints env]} (gen/gen-node* val-node env)
             annotated-type (t/get-type current-node)
@@ -33,19 +35,20 @@
             ;; 将定义名与最终类型写入环境
             new-env        (env/bind-var env (n/define-name current-node) final-type)]
         {:type        final-type
-         :node        (t/set-type! new-node final-type)
+         :node        (t/ensure-type new-node final-type)
          :constraints (concat constraints extra-constr)
          :env         new-env})
       (let [annotated-type (t/get-type current-node)
             final-type     (or annotated-type (gen/fresh-tvar))
-            new-node       (n/make-define (n/define-name current-node)
+            sym-name (n/define-name current-node)
+            new-node       (n/make-define sym-name
                                           nil
                                           (n/define-docstring current-node)
                                           (n/attrs current-node)
                                           (n/node-meta current-node))
             ;; 将定义名与最终类型写入环境
-            new-env        (env/bind-var env (n/define-name current-node) final-type)]
+            new-env        (env/bind-var env sym-name final-type)]
         {:type        final-type
-         :node        (t/set-type! new-node final-type)
+         :node        (t/ensure-type new-node final-type)
          :constraints nil
          :env         new-env}))))

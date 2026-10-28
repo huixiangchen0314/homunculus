@@ -2,19 +2,19 @@
   "收集命名空间符号, 注册到编译上下文。
    每次调用都尽可能收集完整信息：声明、类型、元数据、高阶标记及 IR 子树。"
   (:require
-   [top.kzre.homunculus.core.ir2.node :as n]
-   [top.kzre.homunculus.core.ir2.pass.record :as record]
-   [top.kzre.homunculus.core.ir2.pass.type :as ty]
-   [top.kzre.homunculus.core.symbol :as sym]
-   [top.kzre.homunculus.internal.module-unit :as mu]
-   [top.kzre.homunculus.internal.protocol :as p])
+    [top.kzre.homunculus.core.ir2.node :as n]
+    [top.kzre.homunculus.core.ir2.pass.record :as record]
+    [top.kzre.homunculus.core.ir2.pass.type :as ty]
+    [top.kzre.homunculus.core.symbol :as sym]
+    [top.kzre.homunculus.internal.module-unit :as mu]
+    [top.kzre.homunculus.internal.protocol :as p])
   (:import
-   (top.kzre.homunculus.internal.module_unit ModuleUnit)))
+    (top.kzre.homunculus.internal.module_unit ModuleUnit)))
 
 (defn- fully-qualified-sym [node]
   (n/define-name node))
 
-(defn- collect-define [node context]
+(defn- collect-define [node ]
   (let [s   (fully-qualified-sym node)
         val (n/define-val node)]
     (cond
@@ -49,7 +49,7 @@
                          :type (ty/get-type node)
                          :meta (n/node-meta node)))))
 
-(defn- collect-record [node context]
+(defn- collect-record [node ]
   (let [s              (n/record-name node)                ; 记录名符号
         fields-vec     (:fields node)                     ; Field 节点向量
         protocol-impls (:protocols node)                  ; ProtocolImpl 向量
@@ -69,30 +69,7 @@
         record-entry (sym/make-record s
                                       :fields fields
                                       :protocols protocols
-                                      :meta (n/node-meta node))
-
-        ;; 生成构造器条目 ->RecordName
-        ctor-name   (symbol (str "->" (name s)))
-        field-tys   (mapv :type fields)                   ; 从字段条目中取类型
-        record-ty   (ty/make-tcon s)
-        ctor-type   (reduce (fn [ret arg] (ty/make-tfun arg ret))
-                            record-ty
-                            (reverse field-tys))
-        ctor-params (mapv (fn [f]
-                            (sym/make-param (get f :field-name)   ; sym/make-field 返回包含 :field-name
-                                            :type (:type f)
-                                            :meta (:meta f)))
-                          fields)
-        ctor-entry  (sym/make-func ctor-name
-                                   :params ctor-params
-                                   :ret (sym/make-ret record-ty)
-                                   :type ctor-type
-                                   :ctor? true
-                                   :pure? true
-                                   :io? false
-                                   :meta {})]
-    (p/register-sym context record-entry)
-    (p/register-sym context ctor-entry)
+                                      :meta (n/node-meta node))]
     record-entry))
 
 (defn emit-record-ctor [entry ^ModuleUnit unit]
@@ -114,7 +91,7 @@
                    :meta {:constructor? true                ;; 自动生成的构造器
                           })))
 
-(defn- collect-protocol [node _context]
+(defn- collect-protocol [node ]
   (let [proto-name       (n/protocol-name node)
         methods (mapv (fn [method-node]
                         (let [mname   (n/method-name method-node)
@@ -124,7 +101,7 @@
                                                               :meta (:meta param-node)))
                                             (n/method-params method-node))
                               ret     (sym/make-ret  (ty/get-type method-node)
-                                                    :meta (n/method-meta method-node))]
+                                                     :meta (n/method-meta method-node))]
                           (sym/make-method mname
                                            [(sym/make-func-arity params :ret ret)])))
                       (n/protocol-methods node))
@@ -136,22 +113,21 @@
 (defn collect-symbols
   "遍历 IR2 根节点，收集所有顶层定义并注册到 compile-ctx。"
   [ir2-roots compile-ctx ^ModuleUnit unit]
-  (let [module-atom (atom unit)
-        ]
+  (let [module-atom (atom unit)]
     (doseq [root ir2-roots]
       (try
         (case (n/kind root)
           ;; TODO 使用新的隔离符号表，以支持可见性
-          :define   (when-let [entry (collect-define root compile-ctx)]
+          :define   (when-let [entry (collect-define root )]
                       (swap! module-atom mu/register-symbol entry)
                       (p/register-sym compile-ctx entry))
-          :record   (when-let [entry (collect-record root compile-ctx)]
-                      (swap! module-atom mu/register-symbol entry)
-                      (p/register-sym compile-ctx entry)
-                      (let [ctor-entry (emit-record-ctor entry unit)]
+          :record   (when-let [record-entry (collect-record root )]
+                      (swap! module-atom mu/register-symbol record-entry)
+                      (p/register-sym compile-ctx record-entry)
+                      (let [ctor-entry (emit-record-ctor record-entry unit)]
                         (swap! module-atom mu/register-symbol ctor-entry)
                         (p/register-sym compile-ctx ctor-entry)))
-          :protocol (when-let [entry (collect-protocol root compile-ctx)]
+          :protocol (when-let [entry (collect-protocol root )]
                       (swap! module-atom mu/register-symbol entry)
                       (p/register-sym compile-ctx entry))
           nil)

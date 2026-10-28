@@ -1,19 +1,17 @@
 (ns top.kzre.homunculus.backend.hlsl.emitter
   (:require
-   [top.kzre.homunculus.backend.format :as format]
-   [top.kzre.homunculus.backend.hlsl.emit :as emit]
-   [top.kzre.homunculus.backend.shader.lower :as lower]
-   [top.kzre.homunculus.backend.shader.pass.array-assign :as  array-assign]
-   [top.kzre.homunculus.core.cfg.build :as build]
-   [top.kzre.homunculus.core.cfg.irstmt.build :as irstmt.build]
-   [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
-   [top.kzre.homunculus.core.irstmt.pass.assign-propagate.api :as propagate]
-   [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
-   [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
-   [top.kzre.homunculus.internal.compile-result :as compile-result]
-   [top.kzre.homunculus.internal.module-unit :as mu]
-   [top.kzre.homunculus.internal.protocol :as p]
-   [top.kzre.homunculus.internal.utils :as iu]))
+    [top.kzre.homunculus.backend.format :as format]
+    [top.kzre.homunculus.backend.hlsl.emit :as emit]
+    [top.kzre.homunculus.backend.shader.lower :as lower]
+    [top.kzre.homunculus.backend.shader.pass.array-assign :as array-assign]
+    [top.kzre.homunculus.core.cfg.irstmt.adapt :as cfg-adapt]
+    [top.kzre.homunculus.core.cfg.irstmt.opt :as opt]
+    [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]
+    [top.kzre.homunculus.core.irstmt.pass.statementize :as statementize]
+    [top.kzre.homunculus.internal.compile-result :as compile-result]
+    [top.kzre.homunculus.internal.module-unit :as mu]
+    [top.kzre.homunculus.internal.protocol :as p]
+    [top.kzre.homunculus.internal.utils :as iu]))
 
 
 (defrecord HLSLEmitter []
@@ -31,9 +29,8 @@
                  ".hlsl")
           irstmts (irstmt.lower/lower nodes (irstmt.lower/make-env))
           sted (statementize/statementize-nodes irstmts)
-          ped  (propagate/propagate sted (propagate/make-env ctx))
-          dced (dce/elim ped (dce/make-env ctx))
-          shader-asts (lower/lower dced)
+          cfged        (opt/optimize sted (cfg-adapt/make-adapter ctx))
+          shader-asts (lower/lower cfged)
           vec-copied (array-assign/expand shader-asts)
           emitted (emit/emit vec-copied)]
 

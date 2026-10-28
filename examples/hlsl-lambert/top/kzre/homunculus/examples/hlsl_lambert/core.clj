@@ -1,6 +1,5 @@
 (ns top.kzre.homunculus.examples.hlsl-lambert.core
-  (:require
-    ;[top.kzre.homunculus.examples.hlsl-lambert.lib :as lib]
+  (:require-macros
     [top.kzre.homunculus.backend.shader.dsl :refer :all]))
 
 ;; ── 资源声明 ──────────────────────────────
@@ -27,27 +26,11 @@
 (defshader :vertex vsMain
            [^:position ^float4 pos
             ^:normal ^float3 nrm
-            ^:texcoord0 ^float2 uv
-            ]
-           (def x (%%new-array 3))
-
-           (%%aset x 0 1)
-           (%%aset x 1 1)
-           (%%aset x 2 2)
-           (def svsv (riemann-integral (%%aget x 1)))
-           (def sum-x (reduce + 0 x))
-           (def sv (conj x 6))
-           (%%aset sv 3 0)
-           (def vv 6)
-           (set! vv 3)
-           ;; 元素类型没能求解出来 TODO 支持带类型的构造
-           ;(def avv (%%new-array vv))
-           ;; 使用 my-map 对 x 的每个元素加 1
-           (def y (map (fn [v] (* (+ v 1.0) 2)) sv))
+            ^:texcoord0 ^float2 uv]
            (let [worldPos (mul worldViewProj pos)
                  ll (if true (if false  2 3) 1 )
                  xxxxx [1 2 3]]
-             (->VertOutput (float4 (float3 (%%aget y 0) vv 1.0) (%%aget xxxxx 0))
+             (->VertOutput (float4 (float3 uv 1.0) (%%aget xxxxx 0))
                            (float3 0.0 0.0 ll)
                            (float2 0.0 0.0))))
 
@@ -64,7 +47,4 @@
                  diff (max 0 (dot N L))
                  color (* diffuse (* lightColor diff))
                  finalColor (+ color ambient)]
-                (def ^{:aaa MyInout} f (range 10))
-                (def g (drop 3 f))
-                (def z (butlast g))
                 finalColor))

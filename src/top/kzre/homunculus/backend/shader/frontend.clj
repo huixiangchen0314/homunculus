@@ -4,7 +4,8 @@
     [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
     [top.kzre.homunculus.core.symbol :as sym]
-    [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]))
+    [top.kzre.homunculus.backend.shader.dsl]
+    [top.kzre.homunculus.core]))
 
 (def ^:private unary-ops
   #{'not 'bit-not '-})
@@ -976,7 +977,6 @@
   (integer-type [_] 'int)
   (macro-namespaces [_] #{'top.kzre.homunculus.backend.shader.dsl
                           'top.kzre.homunculus.core
-                          'cljh.core
                           })
   (mutable-value-type? [_ type]
     ;; 向量，在 shader中转译为 数组，是可变的，此外都是不可变的

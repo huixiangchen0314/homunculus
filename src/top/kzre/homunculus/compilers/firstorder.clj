@@ -54,16 +54,15 @@
   p/ICompiler
   ;; 模块编译
   (compile [_ raw-forms ctx]
-    (let [{:keys [forms ns-sym]} (ir1/preprocess raw-forms)
-          unit (mu/make-module-unit ns-sym )
-          [ir1s _env] (ir1/lower forms (ir1/make-env ctx))
-          ir1s' (pm/polyfill-nodes ir1s)
+    (let [{:keys [asts ns-sym]} (ir1/lower raw-forms (ir1/make-env ctx))
+          unit (mu/make-module-unit ns-sym)
+          ir1s' (pm/polyfill-nodes asts)
           ir2s (ir2/lower-nodes ir1s' ctx)
           ir2s' (rename/rename ir2s)
           ir2s'' (alias/alias-nodes ir2s' ctx)
-          ir2s''' (module/resolve-ns ir2s'' (module/build-env ir2s'' ctx))
-          unit1      (module/collect-symbols ir2s''' ctx unit)
-          traited    (mark-trait/mark ir2s''')   ;; 分析标记
+          unit1 (module/collect-symbols ir2s'' ctx unit)
+          _ (p/set-module-unit! ctx unit1)
+          traited    (mark-trait/mark ir2s'')   ;; 分析标记
           inlined    (inline/inline traited (inline/make-env ctx))  ;; 执行内联
           no-ho      (ho-elim/elim inlined (ho-elim/make-env ctx))
           ;; 闭包消除可能引入新的高阶/泛型函数

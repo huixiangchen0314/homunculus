@@ -115,17 +115,18 @@
   (resolve-var-type [_ name]
     (if-let [binding (lookup-local type-scope name)]
       (scheme/instantiate-if-scheme binding)
-      (sym/resolve-sym-type (ip/symbol-table compile-ctx) name)))
+      (when-let [entry (ip/resolve-symbol-entry compile-ctx name)]
+        (sym/entry->symbol-type entry))))
   (resolve-field-type [_ record-name field-name]
-    (let [field-sym (iu/ensure-symbol field-name)]
-      (when-let [record-entry (sym/lookup-record (ip/symbol-table compile-ctx) record-name)]
-        (sym/lookup-field-type record-entry field-sym))))
+    (when-let [entry  (ip/resolve-symbol-entry compile-ctx record-name)]
+      (when-let [record-entry (sym/entry->record entry)]
+        (sym/lookup-field-type record-entry (iu/ensure-symbol field-name)))))
 
   (resolve-callees [_ name]
     (if-let [binding (lookup-local type-scope name)]
       (let [type (scheme/instantiate-if-scheme binding)]
         (if (ty/fun-type? type) [type] []))
-      (when-let [entry (sym/lookup-in-tables name (ip/symbol-table compile-ctx))]
+      (when-let [entry (ip/resolve-symbol-entry compile-ctx name)]
         (when-let [function-entry (sym/entry->func entry)]
           (mapv ty/arity->tfun (sym/list-arities function-entry))))))
 

@@ -3,4 +3,5 @@
             [top.kzre.homunculus.core.ir1.node :as n]))
 
 (defmethod ir1/lower-node* :symbol [form env]
-  [(n/make-symbol form (meta form)) env])
+  (let [qualified (ir1/qualify-symbol env form)]
+    [(n/make-symbol qualified (meta form)) env]))

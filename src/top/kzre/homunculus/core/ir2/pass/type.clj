@@ -149,7 +149,9 @@
 (defn make-tfun [arg ret] (t/->TFun arg ret))
 
 (defn make-tapp [ctor args] (t/->TApp ctor args))
-(defn make-tvec [elem-ty size] (t/->TVec elem-ty size))
+(defn make-tvec [elem-ty size]
+  {:pre [(not (integer? size))]}
+  (t/->TVec elem-ty size))
 (defn ^:deprecated make-hetero-vec [types] (t/->THeteroVec types))
 (defn ^:deprecated make-hetero-map [entries] (t/->THeteroMap entries))
 

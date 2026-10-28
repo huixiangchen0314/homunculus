@@ -21,10 +21,10 @@
 
 (defn make-literal
   ([val]
-   {:pre [some? val]}
+   {:pre [(some? val)]}
    (m/->Literal val nil))
   ([val meta]
-   {:pre [some? val]}
+   {:pre [(some? val)]}
    (m/->Literal val meta)))
 
 ;; ════════════════════════════════════════════════════════════

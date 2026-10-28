@@ -146,11 +146,40 @@
      (reference-alias-in-ns form :require 'll)     ;; => (cc.dd/ll aa.bb/ll)
      (reference-alias-in-ns form :require 'nope)   ;; => ()"
   [^NsForm form kind sym]
-  (->> (reference-entry form kind)
-       (keep #(reference-alias % sym))
-       reverse))
+  (let [entries  (reference-entry form kind)
+        matched  (keep #(reference-alias % sym) entries)
+        result   (vec (reverse matched))]
+    result))
 
 (defn reference-namespace
   "[aa.bb ...] -> aa.bb"
   [reference]
   (first reference))
+
+(defn prepend-reference
+  "头插引用项。
+
+   返回新的 NsForm，在 kind 对应的 libspec 向量头部按顺序插入 references。
+   kind 不存在（或 :references 为 nil）时创建只含 references 的向量。
+   每个 reference 应形如 libspec（`[ns :as a]`、`[ns :refer [x]]`、`some.ns`）。
+
+   多个 references 时保持传入顺序：最近 prepend 的整批在最前，
+   符合「后声明覆盖先声明」——`reference-alias-in-ns` 的逆序语义下，
+   `first` 就是最新声明的那批里的第一个。
+
+   示例：
+     (prepend-reference form :require-macros
+                        '[cgtk.macros :as m]
+                        '[other.macros :as o])
+     ;; :require-macros 从 ([old :as x]) 变为
+     ;;                   ([cgtk.macros :as m] [other.macros :as o] [old :as x])
+
+     (prepend-reference form :require 'cljh.core)
+     ;; :require 从 ([a :as a] [b :as b]) 变为
+     ;;              (cljh.core [a :as a] [b :as b])"
+  [^NsForm form kind & references]
+  (update form :references
+          (fn [refs]
+            (update (or refs {}) kind
+                    (fn [vs]
+                      (into (vec references) (or vs [])))))))

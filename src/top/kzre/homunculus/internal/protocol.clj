@@ -24,15 +24,28 @@
   (emitter [this] "代码发射器")
   (register-deps [this dep-syms] "递归编译所有依赖，确保它们已就绪")
   (register-sym [this sym-entry] "注册一个符号表项")
-  (symbol-table [this] "返回全局符号表")
-  ;; TODO 使用这个符号表方法函数，保证可见性
-  (symbols [this ns-sym] "返回模块可见的符号表")
+  (^:deprecated symbol-table [this] "返回全局符号表")
   (module-unit [this ns-sym])
   (set-module-unit! [this unit])
   (all-module-units [this] "返回积累的所有模块单元")
   (macro-namespaces [_]
     "所有宏命名空间——前端内置的 + 用户通过 :macro-ns 选项
-     额外指定的。前端协议只提供内置集合，用户扩展在这一层组合。"))
+     额外指定的。前端协议只提供内置集合，用户扩展在这一层组合。")
+  (load-macro-ns! [this ns-sym]
+    "加载宏命名空间到 JVM。幂等——已加载的直接返回。
+     找不到源文件或加载失败时抛异常。
+     加载状态由 context 持有，不在 resolver 侧维护全局状态。")
+  (macro-ns-loaded? [this ns-sym]
+    "宏命名空间是否已加载。")
+  (ns-exported-syms [this ns-sym]
+    "返回 ns-sym 对应模块的公开导出符号集合（set of symbol）。
+     若尚未编译，先递归编译（ensure-compiled，幂等）。
+     ns 找不到或无 module-unit 时抛 :ns-not-found。")
+  (resolve-symbol-entry [this sym]
+    "解析全限定符号 sym 的符号表条目。
+     先查用户定义的符号表，未命中再查 builtin 符号表。
+     未命中返回 nil。")
+  (builtin-instruction? [this sym]))
 
 (defprotocol IEmitter
   (emit [this nodes context opts] "发射AST"))
@@ -48,7 +61,8 @@
     "收集所有已编译的 ModuleUnit，执行全局优化和检查，
      返回生成代码.")
   (compile-module [this unit context]
-    "编译单个 ModuleUnit，执行最终类型检查，返回生成代码."))
+    "编译单个 ModuleUnit，执行最终类型检查，返回生成代码.")
+  )
 
 
 (defprotocol ICompileResult

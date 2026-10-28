@@ -23,14 +23,10 @@
    ast/rreduce-children——不依赖 clojure.walk。IRStmt 的
    自定义子节点结构只有协议知道。"
   (:require
-   [top.kzre.homunculus.core.cfg.adapt :as adapt]
-   [top.kzre.homunculus.core.cfg.protocol :as proto]
-   [top.kzre.homunculus.core.ir2.pass.protocol :as tp]
-   [top.kzre.homunculus.core.ir2.pass.type :as ty]
-   [top.kzre.homunculus.core.irstmt.ast :as ast]
-   [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]
-   [top.kzre.homunculus.core.symbol :as sym]
-   [top.kzre.homunculus.internal.protocol :as ip]))
+    [top.kzre.homunculus.core.cfg.adapt :as adapt]
+    [top.kzre.homunculus.core.cfg.protocol :as proto]
+    [top.kzre.homunculus.core.irstmt.ast :as ast]
+    [top.kzre.homunculus.core.irstmt.pass.dce.api :as dce]))
 
 ;; ═══════════════════════════════════════════
 ;; 内部辅助
@@ -72,27 +68,27 @@
                                 nil))
     :else                   expr))
 
-(defn- copy-construct?
-  "node 的赋值是否涉及拷贝构造（分配 + 复制）。
-
-   ▸ vector 类型：后端 mutable 且 copy-assign 时是拷贝构造
-   ▸ record 类型：符号表里注册的 record，赋值是拷贝
-   ▸ 无类型 / 其他类型：不是拷贝构造"
-  [node compile-ctx]
-  (if-let [t (ty/get-type node)]
-    (let [backend (ip/backend compile-ctx)]
-      (if (tp/copy-on-assign? backend)
-        (cond
-          (ty/vec-type? t)
-          (and (tp/mutable-vector? backend)
-               (tp/vector-copy-assign? backend))
-
-          :else
-          (boolean
-            (sym/lookup-record (ip/symbol-table compile-ctx)
-                               (ty/type-sym t))))
-        false))
-    false))
+;(defn- copy-construct?
+;  "node 的赋值是否涉及拷贝构造（分配 + 复制）。
+;
+;   ▸ vector 类型：后端 mutable 且 copy-assign 时是拷贝构造
+;   ▸ record 类型：符号表里注册的 record，赋值是拷贝
+;   ▸ 无类型 / 其他类型：不是拷贝构造"
+;  [node compile-ctx]
+;  (if-let [t (ty/get-type node)]
+;    (let [backend (ip/backend compile-ctx)]
+;      (if (tp/copy-on-assign? backend)
+;        (cond
+;          (ty/vec-type? t)
+;          (and (tp/mutable-vector? backend)
+;               (tp/vector-copy-assign? backend))
+;
+;          :else
+;          (boolean
+;            (sym/lookup-record (ip/symbol-table compile-ctx)
+;                               (ty/type-sym t))))
+;        false))
+;    false))
 
 ;; ═══════════════════════════════════════════
 ;; IAdapter 实现
