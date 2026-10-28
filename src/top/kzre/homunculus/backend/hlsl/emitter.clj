@@ -2,8 +2,8 @@
   (:require
     [top.kzre.homunculus.backend.format :as format]
     [top.kzre.homunculus.backend.hlsl.emit :as emit]
-    [top.kzre.homunculus.backend.shader.lower :as lower]
-    [top.kzre.homunculus.backend.shader.pass.array-assign :as array-assign]
+    [top.kzre.homunculus.frontend.shader.lower :as lower]
+    [top.kzre.homunculus.frontend.shader.pass.array-assign :as array-assign]
     [top.kzre.homunculus.core.cfg.irstmt.adapt :as cfg-adapt]
     [top.kzre.homunculus.core.cfg.irstmt.opt :as opt]
     [top.kzre.homunculus.core.irstmt.lower :as irstmt.lower]

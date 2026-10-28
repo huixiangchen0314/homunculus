@@ -2,7 +2,7 @@
   "HLSL 后端实现，提供类型转换规则。"
   (:require
    [top.kzre.homunculus.backend.hlsl.cast :as cast]
-   [top.kzre.homunculus.backend.shader.folder :as folder]
+   [top.kzre.homunculus.frontend.shader.folder :as folder]
    [top.kzre.homunculus.core.ir2.pass.protocol :as tp]))
 
 (defrecord HLSLBackend []

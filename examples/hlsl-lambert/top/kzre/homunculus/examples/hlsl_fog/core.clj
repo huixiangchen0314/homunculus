@@ -1,5 +1,5 @@
 (ns top.kzre.homunculus.examples.hlsl-fog.core
-  (:require [top.kzre.homunculus.backend.shader.dsl :refer :all]
+  (:require [top.kzre.homunculus.frontend.shader.dsl :refer :all]
             [my.shaders.fog]))          ;; 可选的雾函数库，本次未使用
 
 ;; ── 体积雾参数（通过 uniform 暴露）──────

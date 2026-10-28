@@ -58,15 +58,15 @@
      :refer [->EntryLayout ->IODecl ->InterfaceBlock
              ->InterfaceBlockMember ->Layout ->SamplerUniform]]
     [top.kzre.homunculus.backend.hlsl.lang :as hlsl.lang]
-    [top.kzre.homunculus.backend.shader.ast :as ast]
-    [top.kzre.homunculus.backend.shader.pass.analyze.model :as model]
-    [top.kzre.homunculus.backend.shader.semantic :as semantic]
+    [top.kzre.homunculus.frontend.shader.ast :as ast]
+    [top.kzre.homunculus.frontend.shader.pass.analyze.model :as model]
+    [top.kzre.homunculus.frontend.shader.semantic :as semantic]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]
     [top.kzre.homunculus.core.error :as err])
   (:import
     (top.kzre.homunculus.backend.glsl.semantic.layout
       Layout)
-    (top.kzre.homunculus.backend.shader.pass.analyze.model
+    (top.kzre.homunculus.frontend.shader.pass.analyze.model
       SLAnalysis SLComputeEntry SLGraphicsEntry SLParam SLReturn
       SLSampleCall SLSampler SLTexture)))
 

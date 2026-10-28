@@ -1,0 +1,301 @@
+(ns top.kzre.homunculus.frontend.shader.lower
+  "IR2 → ShaderAST 降级器。统一按表达式降级，依赖死代码消除清理冗余。"
+  (:require
+   [clojure.string :as str]
+   [top.kzre.homunculus.frontend.shader.ast :as ast]
+   [top.kzre.homunculus.frontend.shader.env :as shader.env]
+   [top.kzre.homunculus.frontend.shader.semantic :as semantic]
+   [top.kzre.homunculus.core.ir2.node :as n]
+   [top.kzre.homunculus.core.ir2.pass.type :as ty]
+   [top.kzre.homunculus.core.irstmt.ast :as irstmt]
+   [top.kzre.homunculus.frontend.shader.frontend :as frontend]))
+
+(def ^:private value-expr-kind*
+  #{:variable :literal :binary-op :unary-op :member-access :cast :constructor})
+
+(defn value-expr? [node]
+  (contains? value-expr-kind* (ast/kind node)))
+
+(defn- ir-meta [node] (irstmt/node-meta node))
+(declare lower-node*)
+
+;; 辅助：将子节点列表按表达式降级
+(defn- lower-expr-list [env nodes]
+  (reduce (fn [[exprs e] node]
+            (let [[expr ne] (lower-node* node e)]
+              [(conj exprs expr) ne]))
+          [[] env] nodes))
+
+
+
+(defn- normalize-block
+  "清空 Block 的 :ret。
+   用于语句位置的 Block（while body、if 语句的 then/else）。
+   语义：Block 的 :ret 只在表达式位置（函数体顶层、赋值 RHS、
+   call 参数等）有意义。语句位置没有返回值。"
+  [node]
+  (if (= :block (ast/kind node))
+    (let [stmts
+          (reduce
+          (fn [stmt-acc stmt]
+            (if (some? stmt)
+              (if (= :block (ast/kind stmt))
+                (let [norm-block (normalize-block stmt)]
+                  (into stmt-acc (:stmts norm-block)))
+                (conj stmt-acc stmt))
+              stmt-acc))
+            []
+            (:stmts node))]
+      (ast/->Block stmts nil
+                   (:attrs node)
+                   (:meta node)))
+    (ast/->Block [node] nil
+                 (:attrs node)
+                 (:meta node))))
+
+;; 多方法
+(defmulti lower-node* (fn [node _env] (irstmt/kind node)))
+
+;; 基础节点
+(defmethod lower-node* :ns [node env]
+  (let [requires (n/namespace-requires node)
+        deps (mapv first requires)
+        imports (mapv #(ast/->Import % {} (ir-meta node)) deps)]
+    [(ast/->Block imports nil {} (ir-meta node)) env]))
+
+(defmethod lower-node* :literal [node env]
+  ;; shader 不存在空值，退化为无操作
+  (let [val (:val node) ]
+    (if (some? val)
+      [(ast/->Literal val
+                      (:attrs node)
+                      (ir-meta node)) env]
+      [nil env])))
+
+(defmethod lower-node* :variable [node env]
+  [(ast/->Variable (:name node) (:attrs node) (ir-meta node)) env])
+
+(defmethod lower-node* :call [node env]
+  (let [op-sym (:name (n/call-fn node))
+        [args env'] (lower-expr-list env (n/call-args node))
+        result (cond
+                 (and (frontend/unary-ops? op-sym) (= (count args) 1))
+                 (ast/->UnaryOp op-sym (first args) (:attrs node) (ir-meta node))
+                 (and (frontend/binary-ops? op-sym) (= (count args) 2))
+                 (ast/->BinaryOp op-sym (first args) (second args) (:attrs node) (ir-meta node))
+                 ;; 结构体构造函数 TODO 使用符号表查询
+                 (str/starts-with? (name op-sym) "->")
+                 (ast/->Constructor (ty/get-type node) args
+                                    (:attrs node)
+                                    (assoc (ir-meta node) :struct? true))
+                 :else
+                 (ast/->Call op-sym args (:attrs node) (ir-meta node)))]
+    [result env']))
+
+(defmethod lower-node* :vector [node env]
+  (let [[items env'] (lower-expr-list env (n/vector-items node))
+        vec-ty (ty/get-type node)]
+    [(ast/->Constructor vec-ty items (:attrs node) (ir-meta node)) env']))
+
+(defmethod lower-node* :member-access [node env]
+  (let [[target env'] (lower-node* (n/access-target node) env)
+        member (n/access-member node)
+        args (n/access-args node)]
+    (if (empty? args)
+      [(ast/->MemberAccess target member (:attrs node) (ir-meta node)) env']
+      (throw (ex-info "Method call not yet supported" {:node node})))))
+
+(defmethod lower-node* :convert [node env]
+  (let [[expr env'] (lower-node* (n/convert-expr node) env)
+        dst-ty (n/convert-dst-ty node)]
+    [(ast/->Cast dst-ty expr (:attrs node) (ir-meta node)) env']))
+
+(defmethod lower-node* :new-array [node env]
+  [(ast/->Literal nil (:attrs node) (ir-meta node)) env])
+
+(defmethod lower-node* :aget [node env]
+  (let [[target env1] (lower-node* (n/aget-target node) env)
+        [idx env2] (lower-node* (n/aget-idx node) env1)]
+    [(ast/->ArrayIndex target idx (:attrs node) (ir-meta node)) env2]))
+
+(defmethod lower-node* :aset [node env]
+  (let [[target env1] (lower-node* (n/aset-target node) env)
+        [idx env2] (lower-node* (n/aset-idx node) env1)
+        [val env3] (lower-node* (n/aset-val node) env2)]
+    [(ast/->Assign
+       (ast/->ArrayIndex target idx (:attrs node) (ir-meta node))
+       val
+       (:attrs node) (ir-meta node)) env3]))
+
+(defmethod lower-node* :alength [node env]
+  (let [[_ env'] (lower-node* (n/alength-target node) env)
+        target (n/alength-target node)
+        target-ty (ty/get-type target)
+        len (when (ty/vec-type? target-ty)
+              (ty/value-val (ty/vec-size target-ty)))]
+    (if (integer? len)
+      [(ast/->Literal len (:attrs node) (ir-meta node)) env']
+      (throw (ex-info "Cannot determine array length at compile time" {:node node})))))
+
+(defmethod lower-node* :record [node env]
+  (let [struct-name (n/record-name node)
+        fields (n/record-fields node)
+        members (mapv (fn [f] (ast/->StructMember
+                                (:name f)
+                                (ty/get-type f)
+                                (:attrs node)
+                                (irstmt/node-meta f))) fields)]
+    [(ast/->Struct struct-name members (:attrs node) (ir-meta node)) env]))
+
+;; 复合结构
+(defmethod lower-node* :block [node env]
+  (let [stmts (:stmts node)
+        ret   (:ret node)
+        [lowered-stmts env'] (reduce (fn [[s e] stmt]
+                                       (let [[stmt' e'] (lower-node* stmt e)]
+                                         (if (or (nil? stmt')
+                                                  (value-expr? stmt'))
+                                           [s e']
+                                           [(conj s stmt') e'])))
+                                     [[] env] stmts)
+        [ret' env''] (if ret (lower-node* ret env') [nil env'])]
+    (if (and ret'
+             (= :constructor (ast/kind ret')))
+      ;; 结构体构造器返回——HLSL 的 `return { ... }` 依赖聚合初始化，
+      ;; 在部分编译器下不保证支持；降级为临时变量声明 + 返回变量。
+      (let [ret-name  (gensym "cljh_ret_")
+            var-decl  (ast/->VarDecl ret-name
+                                     (ty/get-type ret)
+                                     ret'
+                                     {}
+                                     (ir-meta node))
+            ret-var   (ast/->Variable ret-name nil (ir-meta node))]
+        [(assoc (normalize-block
+                  (ast/->Block
+                    (conj lowered-stmts var-decl)
+                    nil (:attrs node) (ir-meta node)))
+           :ret ret-var)
+         env''])
+      [(assoc (normalize-block
+                (ast/->Block
+                  lowered-stmts
+                  nil (:attrs node) (ir-meta node)))
+         :ret ret')
+       env''])))
+
+(defmethod lower-node* :if [node env]
+  (let [[test env1] (lower-node* (:test node) env)
+        [then-block env2] (lower-node* (:then node) env1)
+        [else-block env3] (if-let [e (:else node)]
+                            (lower-node* e env2)
+                            [nil env2])]
+    [(ast/->If test then-block else-block (:attrs node) (irstmt/node-meta node)) env3]))
+
+(defmethod lower-node* :assign [node env]
+  (let [lhs-node (n/assign-var node)
+        lhs-type (ty/get-type lhs-node)
+        [lhs env1] (lower-node* lhs-node env)
+        [rhs env2] (lower-node* (n/assign-val node) env1)]
+    (if (some? rhs)
+      (if (and (ty/vec-type? lhs-type)
+               (not= :literal (ast/kind rhs))
+               (not= :constructor (ast/kind rhs)))
+        [(ast/->Assign lhs rhs (:attrs node)
+                       (assoc (ir-meta node)
+                         :vec-assign? true
+                         :vec-type lhs-type)) env2]
+        [(ast/->Assign lhs rhs (:attrs node) (ir-meta node)) env2])
+
+      ;; shader 不存在空语义，退化为无操作
+      [nil env2])))
+
+
+(defmethod lower-node* :while [node env]
+  (let [[test env1] (lower-node* (n/while-test node) env)
+        [body env2] (lower-node* (n/while-body node) env1)
+        body-block  (normalize-block body)]
+    [(ast/->Block [(ast/->While test body-block (:attrs node) (ir-meta node))]
+                  nil {} (ir-meta node))
+     env2]))
+
+(defmethod lower-node* :var-decl [node env]
+  (let [var-name (:name node)
+        init-expr (:val node)
+        [init env'] (if init-expr (lower-node* init-expr env) [nil env])
+        resource-kind (semantic/shader-resource-kind node)
+        attrs (:attrs node)
+        meta (irstmt/node-meta node)]
+    (cond
+      (= resource-kind :texture)
+      [(ast/->TextureDecl var-name
+                          (semantic/shader-texture-register node)
+                          (semantic/shader-texture-dimension node)
+                          (ty/make-tcon
+                            (semantic/shader-texture-element-type node))
+                          attrs
+                          meta)
+       env']
+
+      (= resource-kind :sampler)
+      [(ast/->SamplerDecl var-name
+                          (semantic/shader-sampler-register node)
+                          (semantic/shader-sampler-compare? node)
+                          attrs
+                          meta)
+       env']
+
+      (= resource-kind :cbuffer)
+      (let [register (semantic/shader-cbuffer-register node)
+            var-ns (namespace var-name)
+            members (when (= resource-kind :cbuffer)
+                      (mapv (fn [[sym type-sym]]
+                              (ast/->StructMember
+                                ;; 由于是从数据构造出来的， ns 要自己重新设置
+                                (symbol var-ns (name sym))
+                                (ty/make-tcon type-sym)
+                                {} {}))
+                            (semantic/shader-cbuffer-members node)))]
+        [(ast/->CbufferDecl var-name register members attrs meta) env'])
+
+      :else
+      (let [var-ty     (ty/get-type node)
+            uniform?   (semantic/shader-uniform? node)
+            static?    (semantic/shader-static-var? node)]
+        (cond
+          uniform? [(ast/->Uniform   var-name var-ty attrs meta) env']
+          static?  [(ast/->StaticVar var-name var-ty init attrs meta) env']
+          :else    (if (shader.env/local-var? env' var-name)
+                     (if init
+                       [(ast/->Assign (ast/->Variable var-name (:attrs node) (:meta node))
+                                      init attrs meta) env']
+                       [nil env'])
+                     [(ast/->VarDecl var-name var-ty init attrs meta)
+                      (shader.env/bind-var env' var-name)]))))))
+
+(defmethod lower-node* :function [node env]
+  (let [name (:name node)
+        params (:params node)
+        body (:body node)
+        [body-node env'] (lower-node* body env)
+        ret-ty (ty/fun-return-type (ty/get-type node))
+        stage (semantic/shader-stage node)
+        attrs (:attrs node)
+        param-nodes (mapv (fn [p] (ast/->Param (:name p)
+                                               (ty/get-type p)
+                                               (:attrs p)
+                                               (irstmt/node-meta p))) params)]
+    (if stage
+      [(ast/->EntryPoint name stage ret-ty param-nodes body-node attrs (irstmt/node-meta node)) env']
+      [(ast/->Function   name       ret-ty param-nodes body-node attrs (irstmt/node-meta node)) env'])))
+
+(defmethod lower-node* :default [node _env]
+  (throw (ex-info (str "Lowering not implemented for IRStmt node: " (irstmt/kind node)) {:node node})))
+
+
+;; 顶层入口：收集所有语句，丢弃顶层的 ret
+(defn lower [nodes]
+  (let [[stmts _] (reduce (fn [[stmts env] n]
+                            (let [[node new-env] (lower-node* n env)]
+                              [(conj stmts node) new-env]))
+                          [[] (shader.env/make-env)] nodes)]
+    (keep identity stmts)))

@@ -9,8 +9,8 @@
     [top.kzre.homunculus.backend.hlsl.format :as hlsl.format]
     [top.kzre.homunculus.backend.hlsl.lang :as lang]
     [top.kzre.homunculus.backend.indent :as indent]
-    [top.kzre.homunculus.backend.shader.ast :as ast]
-    [top.kzre.homunculus.backend.shader.semantic :as semantic]
+    [top.kzre.homunculus.frontend.shader.ast :as ast]
+    [top.kzre.homunculus.frontend.shader.semantic :as semantic]
     [top.kzre.homunculus.core.error :as err]
     [top.kzre.homunculus.core.ir2.pass.type :as ty]))
 

@@ -4,7 +4,7 @@
   (:require
    [top.kzre.homunculus.backend.glsl.emitter :as emitter]
    [top.kzre.homunculus.backend.hlsl.backend :as backend]
-   [top.kzre.homunculus.backend.shader.frontend :as frontend]
+   [top.kzre.homunculus.frontend.shader.frontend :as frontend]
    [top.kzre.homunculus.compilers.firstorder :as firstorder]
    [top.kzre.homunculus.internal.compile-target :as compile-target]))
 

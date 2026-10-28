@@ -9,7 +9,7 @@
 (def uber-file (format "target/%s-%s-standalone.jar" (name lib) version))
 
 (defn clean [_]
-      (b/delete {:path "target"}))
+      (b/delete {:path class-dir}))
 
 (defn- copy-clj-sources []
        (let [src-dir (java.io.File. "src")
