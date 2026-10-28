@@ -1,6 +1,6 @@
 (ns top.kzre.homunculus.core
   "编译器核心 DSL，提供 defn, defn- 等语法糖。"
-  (:refer-clojure :exclude [defn defn-])
+  (:refer-clojure :exclude [defn defn- lazy-seq])
   (:require [clojure.core]
             [top.kzre.homunculus.core.error :as err]))
 
@@ -28,3 +28,9 @@
   "与 defn 相同，但生成的函数为私有（通过 :private 元数据）。"
   [name & args]
   `(defn ~name {:private true} ~@args))
+
+
+(defmacro
+  ^{:cljh-rt-only? true}
+  lazy-seq [& body]
+  `(~'cljh.rt.lazy-seq* (fn [] ~@body)))

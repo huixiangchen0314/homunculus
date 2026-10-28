@@ -1,4 +1,4 @@
-(ns cljh.core
+(ns cljh.rt
   "cljh 运行时标准库。仅依赖于 cljh.lang.RT 中的动态操作。
    所有桥接函数标记 :inline，编译器在调用点直接展开为原生运行时调用。
    类型转换、简单谓词等静态可确定的操作不在运行时桥接，由编译器直接处理。")
@@ -79,5 +79,3 @@
 (defn ^:inline lazy-seq* [thunk]
   (. cljh.lang.RT lazySeq thunk))
 
-(defmacro lazy-seq [& body]
-  `(lazy-seq* (fn [] ~@body)))

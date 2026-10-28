@@ -57,9 +57,9 @@
 ;; ── 主入口 ──────────────────────────────
 (defn resolve-ns! [ctx nsf]
   (if ctx
-    (let [nsf1 (inject-global-macros ctx nsf)]
-      (load-all-macros! ctx nsf1)
-      (->> nsf1
-           (register-deps! ctx)
-           (expand-refer-all ctx)))
+    (do
+      (load-all-macros! ctx nsf)      ; 加载 :require-macros 里的宏
+      (->> nsf
+           (register-deps! ctx)       ; 编译 :require 里的依赖
+           (expand-refer-all ctx)))   ; 展开 :refer :all
     nsf))

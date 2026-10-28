@@ -48,11 +48,19 @@
                :multiple-ns-declarations
                "multiple-ns-declarations"
                {:existing ns-form :new nsf}))
-      (let [nsf' (if (and compile-ctx
+      (let [;; 1. cljh.core 注入 :require——shader 标准库
+            nsf1 (if (and compile-ctx
                           (not= (ns-form/ns-sym nsf) 'cljh.core))
                    (ns-form/prepend-reference nsf :require ['cljh.core :refer :all])
-                   nsf)]
-        (assoc this :ns-form (reference/resolve-ns! compile-ctx nsf')))))
+                   nsf)
+            ;; 2. frontend 声明的宏空间注入 :require-macros——内置 DSL 宏
+            macro-nss (when compile-ctx
+                        (seq (ip/macro-namespaces compile-ctx)))
+            nsf2 (if macro-nss
+                   (apply ns-form/prepend-reference nsf1 :require-macros
+                          (mapv (fn [ns*] [ns* :refer :all]) macro-nss))
+                   nsf1)]
+        (assoc this :ns-form (reference/resolve-ns! compile-ctx nsf2)))))
 
   (qualify-ns-symbol [this sym]
     (when (qualified-symbol? sym)
