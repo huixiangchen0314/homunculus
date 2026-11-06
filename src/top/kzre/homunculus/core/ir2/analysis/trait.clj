@@ -49,10 +49,11 @@
     (not (ty/concrete? t))
     (let [val (n/define-val define-node)]
       (and (= :lambda (n/kind val))
-           ;; 整体标记返回值类型，或者是推断的整体类型
-           (not (ty/has-concrete-type? val))
-           ;; 参数类型
-           (not-any? ty/has-concrete-type? (n/lambda-params val))))))
+           (or
+             ;; 整体标记返回值类型，或者是推断的整体类型
+             (not (ty/has-concrete-type? val))
+             ;; 参数类型
+             (not-any? ty/has-concrete-type? (n/lambda-params val)))))))
 
 (defn inline?
   "define 元数据是否声明 :inline true。"

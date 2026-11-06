@@ -40,7 +40,7 @@
 
 (declare lower-node)
 
-(defn- lower-children
+(defn- lower-seq
   [children layout]
   (mapv #(lower-node % layout) children))
 
@@ -87,7 +87,7 @@
   (glsl/map->Constructor
     (-> node
         (update :type lang/type->str)
-        (update :args lower-children layout))))
+        (update :args lower-seq layout))))
 
 (defmethod lower-node* :cast [node layout]
   (glsl/map->Cast
@@ -99,6 +99,15 @@
   (let [fn-name (:fn node)
         args    (:args node)]
     (cond
+      ;; 矩阵，向量乘法
+      (= 'mul fn-name)
+      (let [lowered-args (lower-seq args layout)]
+        (glsl/->BinaryOp
+          '*
+          (first lowered-args)
+          (second lowered-args)
+          (:attrs node)
+          (:meta node)))
       (hlsl.lang/sample-fn? fn-name)
       (let [[tex-node smp-node & rest-args] args
             tex-name (:name tex-node)
@@ -106,7 +115,7 @@
             sampler  (layout/find-sampler layout tex-name smp-name)
             glsl-fn  (lang/sample-fn-str fn-name)
             component (lang/sample-grater-component fn-name)
-            lowered-args (lower-children rest-args layout)
+            lowered-args (lower-seq rest-args layout)
             lowered-args (if (some? component)
                            (conj lowered-args
                                  (glsl/->Literal component nil nil))
@@ -122,7 +131,7 @@
       (let [[tex-node & coords] args
             tex-name (:name tex-node)
             sampler  (layout/find-load-sampler layout tex-name)
-            lowered-coords (lower-children coords layout)
+            lowered-coords (lower-seq coords layout)
             dimension (:dimension sampler)
             final-coords (if (= :buffer dimension)
                            lowered-coords
@@ -136,7 +145,7 @@
                                  final-coords)))))
       :else
       (glsl/map->Call
-        (update node :args lower-children layout)))))
+        (update node :args lower-seq layout)))))
 
 ;; ── 语句 ──────────────────────────────────────
 
@@ -176,7 +185,7 @@
 (defmethod lower-node* :block [node layout]
   (glsl/map->Block
     (-> node
-        (update :stmts lower-children layout)
+        (update :stmts lower-seq layout)
         (update :ret #(some-> % (lower-node layout))))))
 
 ;; ── 顶层声明 ──────────────────────────────────
