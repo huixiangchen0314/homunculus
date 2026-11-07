@@ -26,6 +26,24 @@ public class CompileException extends RuntimeException implements IExceptionInfo
 
     private final IPersistentMap data;
 
+    public static CompileException create(Keyword category) {
+        return new CompileException(
+                category.getName(),
+                category);
+    }
+
+    public static CompileException create(Keyword category, String message) {
+        return new CompileException(message, category);
+    }
+
+    public static CompileException create(Keyword category, IPersistentMap data) {
+        return new CompileException(category.getName(), category, data);
+    }
+
+    public static CompileException create(Keyword category, String message, IPersistentMap data) {
+        return new CompileException(message, category, data);
+    }
+
     public CompileException(String message, Keyword category) {
         this(message, category, PersistentArrayMap.EMPTY, null);
     }

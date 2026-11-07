@@ -17,7 +17,8 @@
    ── 内置变量 ──────────────────────────────────────────
    vertex 的 :position 和 fragment 的 :depth 对应 GLSL 内置变量
    （gl_Position / gl_FragDepth）。这类变量不声明 out——降级器
-   直接写赋值。IODecl 用 builtin? 区分，var-name 是内置变量名。")
+   直接写赋值。IODecl 用 builtin? 区分，var-name 是内置变量名。"
+  (:require [top.kzre.homunculus.backend.glsl.lang :as lang]))
 
 ;; ═══════════════════════════════════════════
 ;; sampler 规划
@@ -45,6 +46,43 @@
    flat?           ;; 是否 flat——整数插值必须 true
    builtin?])      ;; true 表示 GLSL 内置变量——降级器不声明，直接赋值
 
+(defn- make-io-decl
+  [var-name type
+   & {:keys [semantic
+             location
+             flat?
+             builtin?]
+      :or {flat? false
+           builtin? false}}]
+  (->IODecl var-name type semantic
+            location flat? builtin?))
+
+(defn binding-io
+  "布局绑定IO构造"
+  [var-name type semantic
+   & {:keys [location
+             flat?]}]
+  ;; 有时候用户可能自己想声明为平滑(smooth?)/平场(flat?)
+  {:pre [(some? var-name)
+         (some? type)
+         (some? semantic)]}
+  (make-io-decl var-name type
+                :semantic semantic
+                :location location
+                :flat? (or flat? (lang/flat-required? type))
+                :builtin? false))
+
+(defn builtin-io
+  "内置变量IO构造，内置变量必定含有语义"
+  [var-name type semantic]
+  {:pre [(some? var-name)
+         (some? type)
+         (some? semantic)]}
+  (make-io-decl var-name type
+                :semantic semantic
+                :flat? (lang/flat-required? type)
+                :builtin? true))
+
 ;; ═══════════════════════════════════════════
 ;; 接口块规划
 ;; ═══════════════════════════════════════════
@@ -58,12 +96,32 @@
    location        ;; 成员级 layout(location = N)，覆盖块级，或 nil
    flat?])         ;; 是否 flat
 
+(defn make-interface-block-member
+  [var-name type semantic
+   & {:keys [location flat?]}]
+  {:pre [(some? var-name)
+         (some? type)
+         (some? semantic)]}
+  (->InterfaceBlockMember
+    var-name type
+    semantic
+    location
+    (or flat? (lang/flat-required? type))))
+
 ;; 接口块。
 (defrecord InterfaceBlock
   [block-name      ;; 块名，如 "VertexData"
    instance-name   ;; 实例名，如 "vs_out" / "fs_in"
    location        ;; 块级 layout(location = N)，或 nil
    members])       ;; [InterfaceBlockMember ...]
+
+(defn make-interface-block
+  [block-name instance-name members
+   & {:keys [location
+             flat?
+             no-perspective?
+             ]}]
+  (->InterfaceBlock block-name instance-name location members))
 
 ;; ═══════════════════════════════════════════
 ;; 入口点规划
@@ -74,6 +132,18 @@
   [stage           ;; :vertex / :fragment
    inputs          ;; [IODecl 或 InterfaceBlock ...]
    outputs])       ;; [IODecl 或 InterfaceBlock ...]
+
+(defn- make-graph-entry
+  [stage inputs outputs]
+  (->EntryLayout stage inputs outputs))
+
+(defn vertex-entry
+  [inputs outputs]
+  (make-graph-entry :vertex inputs outputs))
+
+(defn fragment-entry
+  [inputs outputs]
+  (make-graph-entry :fragment inputs outputs))
 
 ;; ═══════════════════════════════════════════
 ;; 总规划

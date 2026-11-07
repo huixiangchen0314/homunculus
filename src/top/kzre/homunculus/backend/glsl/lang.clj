@@ -292,6 +292,7 @@
 
 
 (defn builtin-semantic?
+  "由内置变量支持的语义"
   [stage semantic]
   (boolean
     (or (and (= stage :vertex)   (= semantic :position))

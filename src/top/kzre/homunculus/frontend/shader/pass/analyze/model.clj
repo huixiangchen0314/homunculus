@@ -19,7 +19,8 @@
 
    ── 前端约束 ──────────────────────────────────────────
    前端是 Clojure DSL——表达式语言，每个函数有返回值。不存在
-   void 返回值。SLGraphicsEntry.return 永远非 nil。")
+   void 返回值。SLGraphicsEntry.return 永远非 nil。"
+  (:import (top.kzre.homunculus.core CompileException)))
 
 ;; ═══════════════════════════════════════════
 ;; 入口点
@@ -96,43 +97,32 @@
    sample-calls])       ;; [SLSampleCall ...]
 
 
+(defn- ensure-single-entry
+  [matches stage]
+  (case (count matches)
+    ;; 没找到不报错
+    0 nil
+    1 (first matches)
+    ;; 重复入口报错
+    (throw
+      (CompileException/create
+        :gl-duplicate-entry-points
+        {:stage stage
+         :names (mapv :name matches)}))))
+
 (defn find-entry
-  "从 analysis 中找出指定 stage 的入口点。
-
-   每个 stage 最多一个入口点——多个时抛异常。
-
-   stage —— :vertex / :fragment / :compute
-
-   返回 SLGraphicsEntry（:vertex/:fragment）或 SLComputeEntry（:compute）。"
   [^SLAnalysis analysis stage]
   (case stage
     (:vertex :fragment)
-    (let [matches (filterv #(= stage (:stage %))
-                           (:graphics-entries analysis))]
-      (cond
-        (empty? matches)
-        (throw (ex-info "no entry-point for stage"
-                        {:stage stage}))
-
-        (> (count matches) 1)
-        (throw (ex-info "multiple entry-points for same stage"
-                        {:stage stage
-                         :names (mapv :name matches)}))
-
-        :else
-        (first matches)))
+    (ensure-single-entry
+      (filterv #(and (instance? SLGraphicsEntry %)
+                     (= stage (:stage %)))
+               (:graphics-entries analysis))
+      stage)
 
     :compute
-    (let [matches (:compute-entries analysis)]
-      (cond
-        (empty? matches)
-        (throw (ex-info "no compute entry-point" {}))
+    (ensure-single-entry (:compute-entries analysis) stage)
 
-        (> (count matches) 1)
-        (throw (ex-info "multiple compute entry-points"
-                        {:names (mapv :name matches)}))
-
-        :else
-        (first matches)))
-
-    (throw (ex-info "unsupported stage" {:stage stage}))))
+    (throw (CompileException/create
+             :gl-unsupported-stage
+             {:stage stage}))))
