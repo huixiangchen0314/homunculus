@@ -292,22 +292,62 @@
 
 
 (defn builtin-semantic?
-  "由内置变量支持的语义"
-  [stage semantic]
+  "由内置变量支持的语义。direction 区分输入输出——同一个 :position
+   在 vertex 输入是 attribute、在 vertex 输出是 gl_Position、在
+   fragment 输入是 gl_FragCoord，必须分开判定。"
+  [stage direction semantic]
   (boolean
-    (or (and (= stage :vertex)   (= semantic :position))
-        (and (= stage :fragment) (= semantic :position))
-        (and (= stage :fragment) (= semantic :depth)))))
+    (or
+      ;; ---- vertex 输入 ----
+      (and (= stage :vertex)   (= direction :in)
+           (contains? #{:vertex-id :instance-id} semantic))
+
+      ;; ---- vertex 输出 ----
+      (and (= stage :vertex)   (= direction :out)
+           (contains? #{:position :clip-distance :cull-distance} semantic))
+
+      ;; ---- fragment 输入 ----
+      (and (= stage :fragment) (= direction :in)
+           (contains? #{:position :is-front-face :primitive-id} semantic))
+
+      ;; ---- fragment 输出 ----
+      (and (= stage :fragment) (= direction :out)
+           (contains? #{:depth :depth-greater-equal :depth-less-equal} semantic)))))
 
 (defn builtin-var-name
-  [stage semantic]
+  [stage direction semantic]
   (cond
-    (and (= stage :vertex)   (= semantic :position))
+    ;; vertex 输入
+    (and (= stage :vertex)   (= direction :in)  (= semantic :vertex-id))
+    "gl_VertexID"
+    (and (= stage :vertex)   (= direction :in)  (= semantic :instance-id))
+    "gl_InstanceID"
+
+    ;; vertex 输出
+    (and (= stage :vertex)   (= direction :out) (= semantic :position))
     "gl_Position"
-    (and (= stage :fragment) (= semantic :position))
+    (and (= stage :vertex)   (= direction :out) (= semantic :clip-distance))
+    "gl_ClipDistance"
+    (and (= stage :vertex)   (= direction :out) (= semantic :cull-distance))
+    "gl_CullDistance"
+
+    ;; fragment 输入
+    (and (= stage :fragment) (= direction :in)  (= semantic :position))
     "gl_FragCoord"
-    (and (= stage :fragment) (= semantic :depth))
+    (and (= stage :fragment) (= direction :in)  (= semantic :is-front-face))
+    "gl_FrontFacing"
+    (and (= stage :fragment) (= direction :in)  (= semantic :primitive-id))
+    "gl_PrimitiveID"
+
+    ;; fragment 输出
+    (and (= stage :fragment) (= direction :out) (= semantic :depth))
     "gl_FragDepth"
+    ;; depth_greater_equal / depth_less_equal 在 GLSL 里是 layout 限定符
+    ;; 不是变量名——emit 层需要特殊处理
+    (and (= stage :fragment) (= direction :out)
+         (contains? #{:depth-greater-equal :depth-less-equal} semantic))
+    "gl_FragDepth"
+
     :else
     (throw (ex-info "not a GLSL builtin semantic"
-                    {:stage stage :semantic semantic}))))
+                    {:stage stage :direction direction :semantic semantic}))))

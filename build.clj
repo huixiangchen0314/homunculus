@@ -21,5 +21,9 @@
 (defn jar [_]
       (tpl/jar params))
 
+
+(defn install [_]
+      (tpl/install params))
+
 (defn uber [_]
       (tpl/uber params))

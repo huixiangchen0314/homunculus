@@ -170,12 +170,15 @@
                {:strategy strategy})))))
 
 (defn- binding-semantics-of-struct
-  "从 struct 定义中提取非 builtin 字段的 semantic 列表。"
-  [stage struct-decl]
+  "从 struct 定义中提取非 builtin 字段的 semantic 列表。
+   direction 区分 in/out——同一字段在 VS 输出和 FS 输入侧的
+   builtin 判定不同（例如 :position 在 VS 输出是 gl_Position，
+   在 FS 输入是 gl_FragCoord）。"
+  [stage direction struct-decl]
   (into []
         (keep (fn [f]
                 (let [sem (semantic/shader-semantic f)]
-                  (when-not (lang/builtin-semantic? stage sem)
+                  (when-not (lang/builtin-semantic? stage direction sem)
                     sem))))
         (:members struct-decl)))
 
@@ -202,12 +205,12 @@
 
 (defn- vertex-varying-name-mapping
   "纯计算：给定 struct 定义和排除名集合，生成 semantic → varying 名。
-   只处理非 builtin 字段。"
+   只处理非 builtin 字段（VS out 侧）。"
   [struct-decl excluded-names]
   (into {}
         (keep (fn [f]
                 (let [sem (semantic/shader-semantic f)]
-                  (when-not (lang/builtin-semantic? :vertex sem)
+                  (when-not (lang/builtin-semantic? :vertex :out sem)
                     [sem (normalize-name (:name f) excluded-names)]))))
         (:members struct-decl)))
 
@@ -341,34 +344,51 @@
 ;; ═══════════════════════════════════════════
 
 (defn- plan-vertex-inputs
-  "顶点输入——全部走 vertex-input 空间的 location 分配。
-   vertex 的 :position 是普通属性，不是内置变量——gl_Position
-   是输出侧的映射，由 plan-vertex-return 处理。
+  "顶点输入——非内置语义走 vertex-input 空间的 location 分配；
+   内置语义（SV_VertexID / SV_InstanceID 等，即 (stage=:vertex,
+   direction=:in, semantic) 命中的）直接映射到 gl_VertexID /
+   gl_InstanceID，不分配 location、不参与槽位计数。
+
+   注意 :position 在 vertex **输入**侧是普通 attribute——不是
+   内置变量；gl_Position 是 vertex **输出**侧的映射，由
+   plan-vertex-return 处理。
 
    vertex-input 空间的 location 在所有 GLSL 版本都支持——不需要
    varying-location-enabled? 判断。"
   [params cfg]
-  (let [sems (mapv :semantic params)
-        locs (allocate-semantic-locations sems cfg
-                                          #(config/vertex-semantic-location cfg %))]
-    (mapv (fn [^SLParam p]
-            (layout/binding-io (:name p) (:type p) (:semantic p)
-                               :location (get locs (:semantic p))))
+  (let [builtin?    (fn [^SLParam p]
+                      (lang/builtin-semantic? :vertex :in (:semantic p)))
+        non-builtin (filterv (complement builtin?) params)
+        sems        (mapv :semantic non-builtin)
+        locs        (allocate-semantic-locations
+                      sems cfg
+                      #(config/vertex-semantic-location cfg %))]
+    (into []
+          (mapcat (fn [^SLParam p]
+                    (let [sem  (:semantic p)
+                          type (:type p)]
+                      (if (builtin? p)
+                        [(layout/builtin-io
+                           (lang/builtin-var-name :vertex :in sem)
+                           type sem)]
+                        [(layout/binding-io (:name p) type sem
+                                            :location (get locs sem))]))))
           params)))
 
 (defn- plan-struct-fields-split
   "每个字段一个 IODecl，location 从 loc-map 查。
    loc-map 为 nil 时不输出 location——varying-location-enabled? 为
    false 时的 varying 场景——链接按名称匹配。
-   var-name 从 name-map 查——nil 时用字段原名。"
-  [stage struct-decl loc-map name-map]
+   var-name 从 name-map 查——nil 时用字段原名。
+   direction 决定 builtin 判定与 gl_* 变量名。"
+  [stage direction struct-decl loc-map name-map]
   (mapv (fn [field]
           (let [sem  (semantic/shader-semantic field)
                 type (:type field)
                 name (:name field)]
-            (if (lang/builtin-semantic? stage sem)
+            (if (lang/builtin-semantic? stage direction sem)
               (layout/builtin-io
-                (lang/builtin-var-name stage sem)
+                (lang/builtin-var-name stage direction sem)
                 type sem)
               (let [loc      (when loc-map (get loc-map sem))
                     var-name (or (get name-map sem) name)]
@@ -383,16 +403,21 @@
 
 (defn- plan-struct-fields-block
   "内置字段 IODecl + 自定义字段打包成 InterfaceBlock。
-   block 按块名 + 成员名匹配，不用 location。"
+   block 按块名 + 成员名匹配，不用 location。
+
+   direction 参与 builtin 判定与 gl_* 变量名——同一 semantic 在
+   VS 输出（如 :position → gl_Position）与 FS 输入（如 :position
+   → gl_FragCoord）映射不同，判定必须带 direction。"
   [stage direction struct-decl cfg]
   (let [members     (:members struct-decl)
-        builtin?    #(lang/builtin-semantic? stage (semantic/shader-semantic %))
+        builtin?    #(lang/builtin-semantic? stage direction
+                                             (semantic/shader-semantic %))
         builtins    (filterv builtin? members)
         bindings    (filterv (complement builtin?) members)
         builtin-ios (mapv (fn [f]
                             (let [sem (semantic/shader-semantic f)]
                               (layout/builtin-io
-                                (lang/builtin-var-name stage sem)
+                                (lang/builtin-var-name stage direction sem)
                                 (:type f) sem)))
                           builtins)
         block       (when (seq bindings)
@@ -415,7 +440,8 @@
              "struct has no members"
              {:struct (:name struct-decl)})))
   (case (config/out-struct-strategy cfg)
-    :split           (plan-struct-fields-split stage struct-decl loc-map name-map)
+    :split           (plan-struct-fields-split stage direction struct-decl
+                                               loc-map name-map)
     :interface-block (plan-struct-fields-block stage direction struct-decl cfg)
     (throw (err/compile-error
              :gl-unknown-out-struct-strategy
@@ -438,7 +464,7 @@
         binding-members (filterv
                           (complement
                             #(lang/builtin-semantic?
-                               :fragment (semantic/shader-semantic %)))
+                               :fragment :in (semantic/shader-semantic %)))
                           (:members v-struct))
         block           (when (seq binding-members)
                           (layout/make-interface-block
@@ -452,14 +478,14 @@
         builtin-ios     (into []
                               (keep (fn [^SLParam p]
                                       (let [sem (:semantic p)]
-                                        (when (lang/builtin-semantic? :fragment sem)
+                                        (when (lang/builtin-semantic? :fragment :in sem)
                                           (layout/builtin-io
-                                            (lang/builtin-var-name :fragment sem)
+                                            (lang/builtin-var-name :fragment :in sem)
                                             (:type p) sem)))))
                               params)]
     (doseq [^SLParam p params
             :let [sem (:semantic p)]
-            :when (and (not (lang/builtin-semantic? :fragment sem))
+            :when (and (not (lang/builtin-semantic? :fragment :in sem))
                        (not (contains? block-sems sem)))]
       (throw (err/compile-error
                :gl-fragment-semantic-missing-in-block
@@ -476,10 +502,10 @@
                   (let [sem  (:semantic p)
                         type (:type p)]
                     (cond
-                      (lang/builtin-semantic? :fragment sem) []
+                      (lang/builtin-semantic? :fragment :in sem) []
                       (hlsl.lang/struct-type? type struct-names)
                       (binding-semantics-of-struct
-                        :fragment
+                        :fragment :in
                         (find-struct asts (ty/type-sym type)))
                       :else [sem]))))
         params))
@@ -497,8 +523,8 @@
                     (let [sem  (:semantic p)
                           type (:type p)]
                       (cond
-                        (lang/builtin-semantic? :fragment sem)
-                        [(layout/builtin-io (lang/builtin-var-name :fragment sem)
+                        (lang/builtin-semantic? :fragment :in sem)
+                        [(layout/builtin-io (lang/builtin-var-name :fragment :in sem)
                                             type sem)]
 
                         (hlsl.lang/struct-type? type struct-names)
@@ -519,21 +545,13 @@
     (plan-fragment-inputs-split params cfg struct-names asts analysis)))
 
 (defn- plan-vertex-return
-  "vertex 返回——:split 走 varying 空间 location 分配。
-
-   varying-location-enabled? 为 false 时（GLSL 330 的 varying），
-   locations 传 nil——plan-struct-fields 不输出 layout(location)。
-   链接依靠名称匹配（fragment 侧查同一 varying 名映射）。
-
-   varying 名和 params 名去冲突——加 _<inc> 后缀。struct 字段的
-   :position 映射 gl_Position（builtin），其余字段是 varying out。"
+  "vertex 返回——:split 走 varying 空间 location 分配。"
   [entry cfg struct-names asts]
   (let [ret  (:return entry)
         type (:type ret)]
     (if (hlsl.lang/struct-type? type struct-names)
       (let [struct-decl (find-struct asts (ty/type-sym type))
-            sems        (binding-semantics-of-struct :vertex struct-decl)
-            ;; varying 空间绑定特性开关
+            sems        (binding-semantics-of-struct :vertex :out struct-decl)
             loc-map     (when (config/varying-location-enabled? cfg)
                           (allocate-semantic-locations
                             sems cfg
@@ -543,36 +561,29 @@
                           (set (map :name (:params entry))))]
         (plan-struct-fields :vertex :out struct-decl cfg loc-map name-map))
       (do
-        ;; 非结构体类型一定为 position 语义
-        ;; 没标注不检查，标注就检查冲突
+        ;; 非结构体类型一定为 position 语义——VS 输出侧
         (when-let [sem (:semantic ret)]
           (when-not (= sem :position)
             (throw (err/compile-error
                      :gl-unexpected-semantic
                      "Unexpected vertex return semantic"
                      {:expected :position
-                      :actual sem
-                      :stage :vertex}))))
+                      :actual   sem
+                      :stage    :vertex}))))
         [(layout/builtin-io "gl_Position" type :position)]))))
 
 (defn- plan-fragment-return
-  "fragment 返回——struct 走 fragment-output 空间 location 分配。
-
-   fragment out 是 render target——所有 GLSL 版本都支持
-   layout(location)——不需要 varying-location-enabled? 判断。
-   不涉及 varying 名一致性——names 传 nil，用字段原名。
-   单值 fragColor 硬编码 location 0；:depth 映射 gl_FragDepth。"
+  "fragment 返回——struct 走 fragment-output 空间 location 分配。"
   [^SLReturn return cfg struct-names asts]
   (let [type (:type return)
         sem  (:semantic return)]
     (if (hlsl.lang/struct-type? type struct-names)
       (let [sd   (find-struct asts (ty/type-sym type))
-            sems (binding-semantics-of-struct :fragment sd)
+            sems (binding-semantics-of-struct :fragment :out sd)
             locs (allocate-semantic-locations sems cfg
                                               #(config/fragment-semantic-location cfg %))]
         (plan-struct-fields :fragment :out sd cfg locs nil))
       (if (= sem :depth)
-        ;; 单返回值时候，要么返回深度，要么返回 color-attachment
         [(layout/builtin-io "gl_FragDepth" type :depth)]
         [(layout/binding-io (config/fragment-out-name cfg)
                             type sem

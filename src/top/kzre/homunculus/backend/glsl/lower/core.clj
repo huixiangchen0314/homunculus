@@ -412,10 +412,11 @@
                                   value (glsl/->MemberAccess
                                           (glsl/->Variable tmp-name nil nil)
                                           (:name f) nil nil)]
-                              (if (lang/builtin-semantic? stage sem)
+                              ;; 输出为接口块，方向是out
+                              (if (lang/builtin-semantic? stage :out sem)
                                 (glsl/->Assign
                                   (glsl/->Variable
-                                    (lang/builtin-var-name stage sem) nil nil)
+                                    (lang/builtin-var-name stage :out sem) nil nil)
                                   value nil nil)
                                 (glsl/->Assign
                                   (glsl/->MemberAccess

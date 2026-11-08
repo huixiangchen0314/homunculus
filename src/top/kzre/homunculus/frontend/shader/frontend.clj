@@ -159,24 +159,89 @@
             [['a 'float4 'b 'float4] 'float4]
             [['a 'int   'b 'int]   'int]
             [['a 'uint  'b 'uint]  'uint]]
+
            [:func '* {:pure? true}
-            [['a 'float 'b 'float] 'float]
+            ;; ── float 标量 ─────────────────────────────────
+            [['a 'float  'b 'float ] 'float ]
             [['a 'float2 'b 'float2] 'float2]
             [['a 'float3 'b 'float3] 'float3]
             [['a 'float4 'b 'float4] 'float4]
-            [['a 'float4 'b 'float] 'float4]
-            [['a 'float 'b 'float4] 'float4]
-            [['a 'float3 'b 'float] 'float3]
-            [['a 'float2 'b 'float] 'float2]
-            [['a 'int   'b 'int]   'int]
-            [['a 'uint  'b 'uint]  'uint]]
+            ;; float 标量 × 向量（双向）
+            [['a 'float2 'b 'float ] 'float2]
+            [['a 'float3 'b 'float ] 'float3]
+            [['a 'float4 'b 'float ] 'float4]
+            [['a 'float  'b 'float2] 'float2]
+            [['a 'float  'b 'float3] 'float3]
+            [['a 'float  'b 'float4] 'float4]
+
+            ;; ── int 标量 ──────────────────────────────────
+            [['a 'int   'b 'int   ] 'int  ]
+            [['a 'int2  'b 'int2  ] 'int2 ]
+            [['a 'int3  'b 'int3  ] 'int3 ]
+            [['a 'int4  'b 'int4  ] 'int4 ]
+            ;; int 标量 × 向量（双向）
+            [['a 'int2  'b 'int   ] 'int2 ]
+            [['a 'int3  'b 'int   ] 'int3 ]
+            [['a 'int4  'b 'int   ] 'int4 ]
+            [['a 'int   'b 'int2  ] 'int2 ]
+            [['a 'int   'b 'int3  ] 'int3 ]
+            [['a 'int   'b 'int4  ] 'int4 ]
+
+            ;; ── uint 标量 ─────────────────────────────────
+            [['a 'uint  'b 'uint  ] 'uint ]
+            [['a 'uint2 'b 'uint2 ] 'uint2]
+            [['a 'uint3 'b 'uint3 ] 'uint3]
+            [['a 'uint4 'b 'uint4 ] 'uint4]
+            ;; uint 标量 × 向量（双向）
+            [['a 'uint2 'b 'uint  ] 'uint2]
+            [['a 'uint3 'b 'uint  ] 'uint3]
+            [['a 'uint4 'b 'uint  ] 'uint4]
+            [['a 'uint  'b 'uint2 ] 'uint2]
+            [['a 'uint  'b 'uint3 ] 'uint3]
+            [['a 'uint  'b 'uint4 ] 'uint4]]
+
            [:func '/ {:pure? true}
-            [['a 'float 'b 'float] 'float]
+            ;; ── float 标量 ─────────────────────────────────
+            [['a 'float  'b 'float ] 'float ]
             [['a 'float2 'b 'float2] 'float2]
             [['a 'float3 'b 'float3] 'float3]
             [['a 'float4 'b 'float4] 'float4]
-            [['a 'int   'b 'int]   'int]
-            [['a 'uint  'b 'uint]  'uint]]
+            ;; float 向量 / 标量
+            [['a 'float2 'b 'float ] 'float2]
+            [['a 'float3 'b 'float ] 'float3]
+            [['a 'float4 'b 'float ] 'float4]
+            ;; float 标量 / 向量（标量广播）
+            [['a 'float  'b 'float2] 'float2]
+            [['a 'float  'b 'float3] 'float3]
+            [['a 'float  'b 'float4] 'float4]
+
+            ;; ── int 标量 ──────────────────────────────────
+            [['a 'int   'b 'int   ] 'int  ]
+            [['a 'int2  'b 'int2  ] 'int2 ]
+            [['a 'int3  'b 'int3  ] 'int3 ]
+            [['a 'int4  'b 'int4  ] 'int4 ]
+            ;; int 向量 / 标量
+            [['a 'int2  'b 'int   ] 'int2 ]
+            [['a 'int3  'b 'int   ] 'int3 ]
+            [['a 'int4  'b 'int   ] 'int4 ]
+            ;; int 标量 / 向量
+            [['a 'int   'b 'int2  ] 'int2 ]
+            [['a 'int   'b 'int3  ] 'int3 ]
+            [['a 'int   'b 'int4  ] 'int4 ]
+
+            ;; ── uint 标量 ─────────────────────────────────
+            [['a 'uint  'b 'uint  ] 'uint ]
+            [['a 'uint2 'b 'uint2 ] 'uint2]
+            [['a 'uint3 'b 'uint3 ] 'uint3]
+            [['a 'uint4 'b 'uint4 ] 'uint4]
+            ;; uint 向量 / 标量
+            [['a 'uint2 'b 'uint  ] 'uint2]
+            [['a 'uint3 'b 'uint  ] 'uint3]
+            [['a 'uint4 'b 'uint  ] 'uint4]
+            ;; uint 标量 / 向量
+            [['a 'uint  'b 'uint2 ] 'uint2]
+            [['a 'uint  'b 'uint3 ] 'uint3]
+            [['a 'uint  'b 'uint4 ] 'uint4]]
 
            ;; ── 位运算（Clojure 风格） ──────────────────
            [:func 'bit-and {:pure? true}
@@ -315,63 +380,161 @@
             [['v 'bool3] 'bool]
             [['v 'bool4] 'bool]]
 
-           ;; 标量显示转型
+           ;; ═══════════════════════════════════════════
+           ;; 标量转型
+           ;; ═══════════════════════════════════════════
            [:func 'int
             [['v 'float] 'int]
-            [['v 'uint] 'int]]
+            [['v 'uint ] 'int]
+            [['v 'bool ] 'int]]
+
            [:func 'float
-            [['v  'int] 'float]
-            [['v 'uint] 'float]]
+            [['v 'int ] 'float]
+            [['v 'uint] 'float]
+            [['v 'bool] 'float]]
+
            [:func 'uint
-            [['v  'int] 'uint]
-            [['v 'float] 'uint]]
+            [['v 'int  ] 'uint]
+            [['v 'float] 'uint]
+            [['v 'bool ] 'uint]]
+
+           [:func 'bool
+            [['v 'int  ] 'bool]
+            [['v 'uint ] 'bool]
+            [['v 'float] 'bool]]
 
            ;; ═══════════════════════════════════════════
-           ;; 向量构造
+           ;; 向量：转型 + 单标量广播 + 分量构造
+           ;; 同一名字的全部重载合并在一个 :func 条目内
            ;; ═══════════════════════════════════════════
+
+           ;; ── float2 ──────────────────────────────
            [:func 'float2
+            [['v 'int2 ] 'float2]
+            [['v 'uint2] 'float2]
+            [['v 'bool2] 'float2]
+            [['v 'float] 'float2]
             [['a 'float 'b 'float] 'float2]]
+
+           ;; ── float3 ──────────────────────────────
            [:func 'float3
-            [['a 'float 'b 'float 'c 'float] 'float3]
-            [['a 'float2 'b 'float] 'float3]
-            [['a 'float 'b 'float2] 'float3]]
+            [['v 'int3 ] 'float3]
+            [['v 'uint3] 'float3]
+            [['v 'bool3] 'float3]
+            [['v 'float] 'float3]
+            [['a 'float  'b 'float  'c 'float] 'float3]
+            [['a 'float2 'b 'float ] 'float3]
+            [['a 'float  'b 'float2] 'float3]]
+
+           ;; ── float4 ──────────────────────────────
            [:func 'float4
-            [['a 'float 'b 'float 'c 'float 'd 'float] 'float4]
-            [['a 'float2 'b 'float 'c 'float] 'float4]
-            [['a 'float3 'b 'float] 'float4]
-            [['a 'float 'b 'float3] 'float4]]
+            [['v 'int4 ] 'float4]
+            [['v 'uint4] 'float4]
+            [['v 'bool4] 'float4]
+            [['v 'float] 'float4]
+            [['a 'float  'b 'float  'c 'float  'd 'float] 'float4]
+            [['a 'float2 'b 'float  'c 'float] 'float4]
+            [['a 'float  'b 'float2 'c 'float] 'float4]
+            [['a 'float  'b 'float  'c 'float2] 'float4]
+            [['a 'float2 'b 'float2] 'float4]
+            [['a 'float3 'b 'float ] 'float4]
+            [['a 'float  'b 'float3] 'float4]]
 
-
-
+           ;; ── int2 ────────────────────────────────
            [:func 'int2
+            [['v 'float2] 'int2]
+            [['v 'uint2 ] 'int2]
+            [['v 'bool2 ] 'int2]
+            [['v 'int]    'int2]
             [['a 'int 'b 'int] 'int2]]
+
+           ;; ── int3 ────────────────────────────────
            [:func 'int3
-            [['a 'int 'b 'int 'c 'int] 'int3]
-            [['a 'int2 'b 'int] 'int3]]
+            [['v 'float3] 'int3]
+            [['v 'uint3 ] 'int3]
+            [['v 'bool3 ] 'int3]
+            [['v 'int]    'int3]
+            [['a 'int  'b 'int  'c 'int] 'int3]
+            [['a 'int2 'b 'int ] 'int3]
+            [['a 'int  'b 'int2] 'int3]]
+
+           ;; ── int4 ────────────────────────────────
            [:func 'int4
-            [['a 'int 'b 'int 'c 'int 'd 'int] 'int4]
-            [['a 'int2 'b 'int 'c 'int] 'int4]
-            [['a 'int3 'b 'int] 'int4]]
+            [['v 'float4] 'int4]
+            [['v 'uint4 ] 'int4]
+            [['v 'bool4 ] 'int4]
+            [['v 'int]    'int4]
+            [['a 'int  'b 'int  'c 'int  'd 'int] 'int4]
+            [['a 'int2 'b 'int  'c 'int] 'int4]
+            [['a 'int  'b 'int2 'c 'int] 'int4]
+            [['a 'int  'b 'int  'c 'int2] 'int4]
+            [['a 'int2 'b 'int2] 'int4]
+            [['a 'int3 'b 'int ] 'int4]
+            [['a 'int  'b 'int3] 'int4]]
 
+           ;; ── uint2 ───────────────────────────────
            [:func 'uint2
+            [['v 'int2  ] 'uint2]
+            [['v 'float2] 'uint2]
+            [['v 'bool2 ] 'uint2]
+            [['v 'uint]   'uint2]
             [['a 'uint 'b 'uint] 'uint2]]
-           [:func 'uint3
-            [['a 'uint 'b 'uint 'c 'uint] 'uint3]
-            [['a 'uint2 'b 'uint] 'uint3]]
-           [:func 'uint4
-            [['a 'uint 'b 'uint 'c 'uint 'd 'uint] 'uint4]
-            [['a 'uint2 'b 'uint 'c 'uint] 'uint4]
-            [['a 'uint3 'b 'uint] 'uint4]]
 
+           ;; ── uint3 ───────────────────────────────
+           [:func 'uint3
+            [['v 'int3  ] 'uint3]
+            [['v 'float3] 'uint3]
+            [['v 'bool3 ] 'uint3]
+            [['v 'uint]   'uint3]
+            [['a 'uint  'b 'uint  'c 'uint] 'uint3]
+            [['a 'uint2 'b 'uint ] 'uint3]
+            [['a 'uint  'b 'uint2] 'uint3]]
+
+           ;; ── uint4 ───────────────────────────────
+           [:func 'uint4
+            [['v 'int4  ] 'uint4]
+            [['v 'float4] 'uint4]
+            [['v 'bool4 ] 'uint4]
+            [['v 'uint]   'uint4]
+            [['a 'uint  'b 'uint  'c 'uint  'd 'uint] 'uint4]
+            [['a 'uint2 'b 'uint  'c 'uint] 'uint4]
+            [['a 'uint  'b 'uint2 'c 'uint] 'uint4]
+            [['a 'uint  'b 'uint  'c 'uint2] 'uint4]
+            [['a 'uint2 'b 'uint2] 'uint4]
+            [['a 'uint3 'b 'uint ] 'uint4]
+            [['a 'uint  'b 'uint3] 'uint4]]
+
+           ;; ── bool2 ───────────────────────────────
            [:func 'bool2
+            [['v 'int2  ] 'bool2]
+            [['v 'uint2 ] 'bool2]
+            [['v 'float2] 'bool2]
+            [['v 'bool]   'bool2]
             [['a 'bool 'b 'bool] 'bool2]]
+
+           ;; ── bool3 ───────────────────────────────
            [:func 'bool3
-            [['a 'bool 'b 'bool 'c 'bool] 'bool3]
-            [['a 'bool2 'b 'bool] 'bool3]]
+            [['v 'int3  ] 'bool3]
+            [['v 'uint3 ] 'bool3]
+            [['v 'float3] 'bool3]
+            [['v 'bool]   'bool3]
+            [['a 'bool  'b 'bool  'c 'bool] 'bool3]
+            [['a 'bool2 'b 'bool ] 'bool3]
+            [['a 'bool  'b 'bool2] 'bool3]]
+
+           ;; ── bool4 ───────────────────────────────
            [:func 'bool4
-            [['a 'bool 'b 'bool 'c 'bool 'd 'bool] 'bool4]
-            [['a 'bool2 'b 'bool 'c 'bool] 'bool4]
-            [['a 'bool3 'b 'bool] 'bool4]]
+            [['v 'int4  ] 'bool4]
+            [['v 'uint4 ] 'bool4]
+            [['v 'float4] 'bool4]
+            [['v 'bool]   'bool4]
+            [['a 'bool  'b 'bool  'c 'bool  'd 'bool] 'bool4]
+            [['a 'bool2 'b 'bool  'c 'bool] 'bool4]
+            [['a 'bool  'b 'bool2 'c 'bool] 'bool4]
+            [['a 'bool  'b 'bool  'c 'bool2] 'bool4]
+            [['a 'bool2 'b 'bool2] 'bool4]
+            [['a 'bool3 'b 'bool ] 'bool4]
+            [['a 'bool  'b 'bool3] 'bool4]]
 
            ;; ═══════════════════════════════════════════
            ;; 数学函数
@@ -606,19 +769,48 @@
             [['n 'float4 'i 'float4 'ng 'float4] 'float4]]
 
            ;; ═══════════════════════════════════════════
-           ;; 矩阵乘法
+           ;; mul —— HLSL intrinsic
+           ;;
+           ;; 语义遵循 HLSL 规范，不是数学教科书约定：
+           ;;
+           ;;   mul(M, v)  —— v 解释为【列向量】，等价于标准数学 M · v
+           ;;   mul(v, M)  —— v 解释为【行向量】，等价于 vᵀ · M，即 Mᵀ · v
+           ;;
+           ;; 两个方向互为转置关系：mul(v, M) ≡ mul(Mᵀ, v)。
+           ;;
+           ;; 与 GLSL 的对应：
+           ;;   HLSL mul(M, v)  ⇔  GLSL  M * v
+           ;;   HLSL mul(v, M)  ⇔  GLSL  v * M
+           ;; emit 到 GLSL 时操作数顺序不变、不转置——两套 API 在这一点上
+           ;; 约定一致。"行向量左乘"在 GPU 着色语言里是合法且常见的写法，
+           ;; 不要"纠正"成 mul(M, v)，那会改变语义。
+           ;;
+           ;; 注意：mul 不是 mul(vec, vec) 的逐分量乘——向量-向量请用 `*`
+           ;; 或 dot。见下方"已删除项"。
            ;; ═══════════════════════════════════════════
            [:func 'mul {:pure? true}
+
+            ;; ── 标量 × 标量 ──────────────────────────────
             [['a 'float 'b 'float] 'float]
-            [['a 'float2 'b 'float2] 'float2]
-            [['a 'float3 'b 'float3] 'float3]
-            [['a 'float4 'b 'float4] 'float4]
-            [['a 'float4x4 'b 'float4] 'float4]
-            [['a 'float4 'b 'float4x4] 'float4]
-            [['a 'float4x4 'b 'float4x4] 'float4x4]
+
+            ;; ── 矩阵 × 向量（列向量，标准数学 M·v）──────────
+            ;;    result_i = Σ_j M[i][j] · v_j
+            [['a 'float2x2 'b 'float2] 'float2]
             [['a 'float3x3 'b 'float3] 'float3]
+            [['a 'float4x4 'b 'float4] 'float4]
+
+            ;; ── 向量 × 矩阵（行向量，vᵀ·M = Mᵀ·v）──────────
+            ;;    result_j = Σ_i v_i · M[i][j]
+            ;;    ⚠ 非标准数学形式；见文件头注释
+            [['a 'float2 'b 'float2x2] 'float2]
             [['a 'float3 'b 'float3x3] 'float3]
-            [['a 'float3x3 'b 'float3x3] 'float3x3]]
+            [['a 'float4 'b 'float4x4] 'float4]
+
+            ;; ── 矩阵 × 矩阵（标准数学 M·N）────────────────
+            [['a 'float2x2 'b 'float2x2] 'float2x2]
+            [['a 'float3x3 'b 'float3x3] 'float3x3]
+            [['a 'float4x4 'b 'float4x4] 'float4x4]
+            ]
 
            ;; ═══════════════════════════════════════════
            ;; 纹理采样
