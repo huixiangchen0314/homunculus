@@ -9,6 +9,7 @@
     [top.kzre.homunculus.backend.glsl.lang :as lang]
     [top.kzre.homunculus.backend.hlsl.format :as hlsl.format]
     [top.kzre.homunculus.backend.indent :as indent]
+    [top.kzre.homunculus.frontend.shader.pass.analyze.model]
     [top.kzre.homunculus.frontend.shader.semantic :as semantic])
   (:import
     (top.kzre.homunculus.frontend.shader.pass.analyze.model SLAnalysis)))

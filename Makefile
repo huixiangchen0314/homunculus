@@ -1,25 +1,21 @@
-.PHONY: clean compile test jar uberjar repl
+.PHONY: clean uber run
 
-VERSION := 0.1.0
-JAR_FILE := target/homunculus-$(VERSION).jar
-
-all: test
+all: clean compile-java compile-clj jar uber
 
 clean:
 	clj -T:build clean
 
-# test 自动发现 test 目录下所有 *_test.clj 文件
-test: jar
-	clj -M:test test/run_tests.clj
+compile-clj:
+	clj -T:build compile-clj
+
+compile-java:
+	clj -T:build compile-java
 
 jar:
 	clj -T:build jar
 
-install: jar
-	mvn install:install-file -Dfile=target/homunculus-0.1.0.jar -DpomFile=pom.xml
+uber:
+	clj -T:build uber
 
-uberjar:
-	clj -T:build uberjar
-
-repl:
-	clj -M:dev
+run:
+	java -jar target/*.jar
